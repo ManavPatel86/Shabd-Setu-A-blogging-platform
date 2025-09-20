@@ -77,21 +77,6 @@ function AppSidebar() {
                         Categories
                     </SidebarGroupLabel>
                     <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
-                                    <LuUsers />
-                                    Users
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SidebarMenu>
-                </SidebarGroup>
-                <SidebarGroup>
-                    <SidebarGroupLabel>
-                        Categories
-                    </SidebarGroupLabel>
-                    <SidebarMenu>
 
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
