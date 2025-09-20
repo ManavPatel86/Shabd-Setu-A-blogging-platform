@@ -16,6 +16,7 @@ import {
 } from "../components/ui/form";
 import { Link, Route } from "react-router-dom";
 import { RouteSignUp, RouteIndex } from "@/helpers/RouteName";
+import { CiMail } from "react-icons/ci";
 
 const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -43,9 +44,15 @@ const SignIn = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="fixed inset-0 w-screen h-screen flex items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Gradient Background - now integrated into main div */}
+      {/* Animated gradient orbs for subtle movement */}
+      <div className="absolute top-20 left-20 w-72 h-72 bg-gradient-to-r from-blue-200/30 to-indigo-200/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+      <div className="absolute top-40 right-20 w-72 h-72 bg-gradient-to-r from-purple-200/30 to-pink-200/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+      <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-gradient-to-r from-indigo-200/30 to-blue-200/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+
       {/* Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl border p-8">
+      <div className="relative z-10 w-full max-w-md bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-semibold text-gray-800 mb-2">Welcome Back</h1>
@@ -65,12 +72,15 @@ const SignIn = () => {
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-gray-700 text-left block mb-2">Email Address</FormLabel>
                   <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="Enter your email"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg"
-                      {...field}
-                    />
+                    <div className="relative">
+                      <Input
+                        type="email"
+                        placeholder="Enter your email"
+                        className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 bg-white/70 backdrop-blur-sm text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg focus:bg-white"
+                        {...field}
+                      />
+                      <CiMail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    </div>
                   </FormControl>
                   <FormMessage className="text-red-500 text-sm" />
                 </FormItem>
@@ -89,7 +99,7 @@ const SignIn = () => {
                       <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg pr-12"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/70 backdrop-blur-sm text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg pr-12 focus:bg-white"
                         {...field}
                       />
                       <button
@@ -110,7 +120,7 @@ const SignIn = () => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg"
+              className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
@@ -140,6 +150,32 @@ const SignIn = () => {
           </p>
         </div>
       </div>
+
+      <style>{`
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 };
