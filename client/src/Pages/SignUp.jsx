@@ -17,6 +17,7 @@ import { getEnv } from "@/helpers/getEnv";
 import { CiMail } from "react-icons/ci";
 
 const SignUp = () => {
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -29,10 +30,6 @@ const SignUp = () => {
         message: "Passwords do not match",
         path: ["confirmPassword"], // show error under confirmPassword field
     });
-
-
-
-
 
     const form = useForm({
         resolver: zodResolver(formSchema),
@@ -58,7 +55,7 @@ const SignUp = () => {
                 return showToast('error', data.message)
             }
 
-            navigate(RouteSignIn)
+            navigate(RouteIndex)
             showToast('success', data.message)
         } catch (error) {
             showToast('error', error.message)

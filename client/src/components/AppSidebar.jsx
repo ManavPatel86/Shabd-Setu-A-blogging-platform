@@ -17,6 +17,7 @@ import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
+import { RouteIndex } from "@/helpers/RouteName";
 
 function AppSidebar() {
     return (
@@ -29,33 +30,44 @@ function AppSidebar() {
                 <SidebarGroup>
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <IoHomeOutline />
-                                <Link to="">Home</Link>
+                            <SidebarMenuButton asChild>
+                                <Link to={RouteIndex} className="flex items-center gap-2">
+                                    <IoHomeOutline />
+                                    Home
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                                <Link to="" className="flex items-center gap-2">
+                                    <BiCategoryAlt />
+                                    Categories
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <BiCategoryAlt />
-                                <Link to="">Categories</Link>
+                            <SidebarMenuButton asChild>
+                                <Link to="" className="flex items-center gap-2">
+                                    <GrBlog />
+                                    Blogs
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <GrBlog />
-                                <Link to="">Blogs</Link>
+                            <SidebarMenuButton asChild>
+                                <Link to="" className="flex items-center gap-2">
+                                    <FaRegComments />
+                                    Comments
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <FaRegComments />
-                                <Link to="">Comments</Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <LuUsers />
-                                <Link to="">Users</Link>
+                            <SidebarMenuButton asChild>
+                                <Link to="" className="flex items-center gap-2">
+                                    <LuUsers />
+                                    Users
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>
@@ -65,10 +77,13 @@ function AppSidebar() {
                         Categories
                     </SidebarGroupLabel>
                     <SidebarMenu>
+
                         <SidebarMenuItem>
-                            <SidebarMenuButton>
-                                <GoDot />
-                                <Link to="">Category Item</Link>
+                            <SidebarMenuButton asChild>
+                                <Link to="" className="flex items-center gap-2">
+                                    <GoDot />
+                                    Category Item
+                                </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>
