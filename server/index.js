@@ -16,6 +16,13 @@ app.use(cors({
     credentials : true  
 }))
 
+
+// route setup
+app.use('/api/auth', AuthRoute)
+
+
+
+
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
     .then(()=>console.log('Database connected.'))
     .catch(err=>console.log('Database connection failed.',err))

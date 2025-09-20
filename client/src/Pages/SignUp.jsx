@@ -7,8 +7,12 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
-import { data, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
 import { RouteSingIn } from "@/helpers/RouteName";
+import { showToast } from "@/helpers/showToast";   
+import { getEnv } from "@/helpers/getEnv";
+
 
 const SignUp = () => {
     const [showPassword, setShowPassword] = useState(false);
@@ -38,13 +42,23 @@ const SignUp = () => {
         },
     });
 
-    function onSubmit(values) {
-        setIsLoading(true);
-        {/*set 2 second delays befor it execution */ }
-        setTimeout(() => {
-            console.log(values);
-            setIsLoading(false);
-        }, 2000);
+    async function onSubmit(values) {
+        try {
+            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/register`, {
+                method: 'post',
+                headers: { 'Content-type': 'application/json' },
+                body: JSON.stringify(values)
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                return showToast('error', data.message)
+            }
+
+            navigate(RouteSignIn)
+            showToast('success', data.message)
+        } catch (error) {
+            showToast('error', error.message)
+        }
     }
 
     return (
