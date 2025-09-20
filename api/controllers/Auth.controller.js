@@ -31,18 +31,16 @@ export const Register = async (req, res, next) => {
         next(handleError(500, error.message))
     }
 }
-export const Login = async (req,res) => {
-      try {
+export const Login = async (req, res) => {
+    try {
         const { email, password } = req.body
         const user = await User.findOne({ email })
         if (!user) {
-            next(handleError(404, 'Invalid login credentials.'))
+            return res.status(404).json({ message: 'Invalid login credentials.' });
         }
-        const hashedPassword = user.password
-
-        const comparePassword = bcryptjs.compare(password, hashedPassword)
+        const comparePassword = await bcryptjs.compare(password, user.password)
         if (!comparePassword) {
-            next(handleError(404, 'Invalid login credentials.'))
+            return res.status(404).json({ message: 'Invalid login credentials.' });
         }
 
         const token = jwt.sign({
@@ -51,7 +49,6 @@ export const Login = async (req,res) => {
             email: user.email,
             avatar: user.avatar
         }, process.env.JWT_SECRET)
-
 
         res.cookie('access_token', token, {
             httpOnly: true,
@@ -69,7 +66,7 @@ export const Login = async (req,res) => {
         })
 
     } catch (error) {
-        next(handleError(500, error.message))
+        res.status(500).json({ message: error.message });
     }
-    
 }
+
