@@ -44,8 +44,10 @@ const SignUp = () => {
 
     async function onSubmit(values) {
         try {
+            console.log("ENV VALUE = ", import.meta.env.VITE_API_BASE_URL);
+            console.log("HELPER VALUE = ", getEnv("VITE_API_BASE_URL"));
             const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/register`, {
-                method: 'post',
+                method: 'POST',
                 headers: { 'Content-type': 'application/json' },
                 body: JSON.stringify(values)
             })

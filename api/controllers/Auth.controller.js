@@ -1,7 +1,9 @@
 import User from "../models/user.model.js"
 import bcryptjs from 'bcryptjs'
+import { handleError } from "../helpers/handleError.js";
 export const Register = async (req, res, next) => {
     try {
+        console.log(req.body);
         const { name, email, password } = req.body
         const checkuser = await User.findOne({ email })
         if (checkuser) {
