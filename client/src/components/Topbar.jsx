@@ -4,19 +4,17 @@ import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
 import { MdLogin } from "react-icons/md";
 import SearchBox from "./SearchBox";
-import { RouteSignIn } from "@/helpers/RouteName";
+import { RouteIndex, RouteSignIn } from "@/helpers/RouteName";
 
 const Topbar = () => {
     return (
-        <div className="fixed top-0 left-0 w-full z-20 flex justify-between items-center bg-white px-12 h-16 border-b">
+        <div className="fixed top-0 left-0 w-full z-20 flex justify-between items-center bg-white px-4 h-16 border-b">
             {/* Logo and Branding */}
-            <div className="flex items-center">
-                <Link to="/">
-                    <img src={logo} className="w-48" alt="Logo" />
+            <div className="flex items-center ml-0">
+                <Link to={RouteIndex} className="flex items-center">
+                    <img src={logo} className="w-42" alt="Logo" />
                 </Link>
             </div>
-
-            {/* Search Box */}
             <div className="w-[500px]">
                 <SearchBox />
             </div>
