@@ -19,8 +19,14 @@ import { RouteSignUp, RouteIndex } from "@/helpers/RouteName";
 import { CiMail } from "react-icons/ci";
 import { showToast } from '@/helpers/showToast'
 import { getEnv } from "@/helpers/getEnv";
+import { useDispatch } from 'react-redux'
+import { setUser } from '@/redux/user/user.slice'
+
 
 const SignIn = () => {
+
+  const dispath = useDispatch();
+
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +58,7 @@ const SignIn = () => {
         if (!response.ok) {
             return showToast('error', data.message)
         }
-
+        dispath(setUser(data.user))
         navigate(RouteIndex)
         showToast('success', data.message)
     } catch (error) {
