@@ -87,3 +87,65 @@
 - XSS/CSRF/SQLi prevention  
 - Uptime monitoring  
 - Scalability improvements
+
+
+
+
+
+# Conflicts Between EPICs
+
+---
+
+## ⚔️ Conflict: Rich Features vs Performance
+
+**Issue:**  
+Adding a rich editor, image uploads, and synchronous AI calls can bloat the frontend and overload the server, causing slow page loads and timeouts.
+
+**Resolution:**
+
+- Load the editor **only when the user opens it**
+- Store and serve images from a **cloud service** like S3 or Cloudinary instead of your app server
+- Run **AI tasks in the background** so users don’t wait
+- **Paginate** list views and add simple **DB indexes** to speed up searches
+- **Cache** frequently used data
+- Monitor **page load times** and **API response times** to detect and fix slow areas
+
+---
+
+## ⚔️ Conflict: Teamwide Live AI Calls
+
+**Issue:**  
+Live AI API calls during development can quickly hit usage quotas or generate high costs, causing:
+
+- Flaky tests
+- Blocked developers
+- Slowed team velocity
+
+**Resolution:**
+
+- Use **mocked AI response examples** during development and testing
+- Allow only **1–2 environments** (e.g., staging/production) to make real API calls
+- Use **monitored API keys** with strict quotas
+- **Cache** common AI responses
+- Set up **cost/usage alerts** to prevent surprise overages
+
+---
+
+## ⚔️ Conflict: Security vs Fast Prototyping
+
+**Issue:**  
+Rapid prototyping can introduce serious security risks like:
+
+- Exposing secrets in code
+- Unrestricted database access
+- Direct third-party API calls from the client
+
+**Resolution:**
+
+- Keep secrets in **`.env` files or GitHub Secrets** — never commit them
+- Call external APIs **only from the server**, never the frontend
+- Restrict **direct DB access**
+- Set up **automated linting or scanning** for secrets in codebase
+
+---
+
