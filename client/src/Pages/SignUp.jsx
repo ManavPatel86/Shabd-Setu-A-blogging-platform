@@ -55,7 +55,7 @@ const SignUp = () => {
                 return showToast('error', data.message)
             }
 
-            navigate(RouteIndex)
+            navigate(RouteSignIn)
             showToast('success', data.message)
         } catch (error) {
             showToast('error', error.message)
