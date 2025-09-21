@@ -18,14 +18,26 @@ import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
 import { RouteIndex } from "@/helpers/RouteName";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-function AppSidebar() {
+function AppSidebar({ className }) {
+    const isMobile = useIsMobile();
+
     return (
-        <Sidebar className="w-64 bg-white h-full">
+        <Sidebar 
+            className={`bg-white h-full border-r border-gray-200 ${className || ''}`}
+            collapsible={isMobile ? "offcanvas" : "none"}
+        >
             <SidebarHeader className="bg-white">
-                {/* <img src={logo} width={120} /> */}
-                <div className="h-16"></div>
+                {/* Show logo only on desktop, mobile has it in topbar */}
+                {!isMobile && (
+                    <div className="p-4">
+                        <img src={logo} width={120} alt="ShabdSetu" />
+                    </div>
+                )}
+                {isMobile && <div className="h-4"></div>}
             </SidebarHeader>
+            
             <SidebarContent className="bg-white">
                 <SidebarGroup>
                     <SidebarMenu>
@@ -46,6 +58,7 @@ function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
@@ -54,6 +67,7 @@ function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
@@ -62,6 +76,7 @@ function AppSidebar() {
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
@@ -72,12 +87,10 @@ function AppSidebar() {
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
+                
                 <SidebarGroup>
-                    <SidebarGroupLabel>
-                        Categories
-                    </SidebarGroupLabel>
+                    <SidebarGroupLabel>Categories</SidebarGroupLabel>
                     <SidebarMenu>
-
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
