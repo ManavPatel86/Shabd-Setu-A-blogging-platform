@@ -14,11 +14,14 @@ import {
   FormLabel,
   FormMessage,
 } from "../components/ui/form";
-import { Link, Route } from "react-router-dom";
+import { Link, Route, useNavigate } from "react-router-dom";
 import { RouteSignUp, RouteIndex } from "@/helpers/RouteName";
 import { CiMail } from "react-icons/ci";
+import { showToast } from '@/helpers/showToast'
+import { getEnv } from "@/helpers/getEnv";
 
 const SignIn = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -35,12 +38,26 @@ const SignIn = () => {
     },
   });
 
-  function onSubmit(values) {
-    setIsLoading(true);
-    setTimeout(() => {
-      console.log(values);
-      setIsLoading(false);
-    }, 2000);
+  async function onSubmit(values) {
+    try {
+        console.log("ENV VALUE = ", import.meta.env.VITE_API_BASE_URL);
+        console.log("HELPER VALUE = ", getEnv("VITE_API_BASE_URL"));
+        const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-type': 'application/json' },
+            credentials: 'include', // include cookies in the request
+            body: JSON.stringify(values)
+        })
+        const data = await response.json()
+        if (!response.ok) {
+            return showToast('error', data.message)
+        }
+
+        navigate(RouteIndex)
+        showToast('success', data.message)
+    } catch (error) {
+        showToast('error', error.message)
+    }
   }
 
   return (
