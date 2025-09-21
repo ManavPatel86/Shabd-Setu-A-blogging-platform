@@ -1,7 +1,6 @@
 import React from "react";
 
 
-// ✅ Fixed import path
 import filters from "@/Layout/Data/filters";
 import ArticleCard from "@/components/ArticleCard";
 
@@ -13,10 +12,10 @@ const Latest_Blogs = ({ blogs = [] }) => {
   );
 
   return (
-    <div className="lg:col-span-2 space-y-4 mt-7">
+    <div className="lg:col-span-2 space-y-4 mt-8 sm:mt-14">
       {/* Compact Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-        <h2 className="text-3xl font-bold">Latest Blogs</h2>
+      <div className="flex items-center justify-between border-b border-gray-200 pb-2 lg:pb-4">
+        <h2 className="text-2xl lg:text-4xl font-bold">Latest Blogs</h2>
         <span className="text-sm text-gray-500">
           {filteredBlogs.length} articles
         </span>

@@ -7,7 +7,7 @@ import Topbar from "@/components/Topbar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// ✅ Import your data and components
+
 import blogs from "@/Layout/Data/blog";
 import Latest_Blogs from "@/components/Latest_Blogs";
 
@@ -30,7 +30,7 @@ const Layout = () => {
             <Outlet />
 
             {/* ✅ Latest Blogs Section */}
-            <Latest_Blogs blogs={blogs} className="mt-5" />
+            <Latest_Blogs blogs={blogs}  />
           </div>
         </main>
       </div>
