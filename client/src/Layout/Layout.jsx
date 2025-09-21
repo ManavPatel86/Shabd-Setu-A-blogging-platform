@@ -7,67 +7,68 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import { BlogCard } from "@/components/BlogCard";
 import { formatDate } from "../utils/functions";
+import { RouteIndex } from "@/helpers/RouteName";
 
 const dummyBlogPosts = [
   {
     title: 'React Tailwind Newsletter Component',
-    slug: '#',
+    slug: RouteIndex, // Replace with a real slug
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-07-14',
     category: 'React',
   },
   {
     title: 'Mastering Layouts in React',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-08-01',
     category: 'Layout',
   },
   {
     title: 'Building a Flexible Sidebar',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-06-25',
     category: 'UI/UX',
   },
   {
     title: 'React Tailwind Newsletter Component',
-    slug: '#',
+   slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-07-14',
     category: 'React',
   },
   {
     title: 'Mastering Layouts in React',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-08-01',
     category: 'Layout',
   },
   {
     title: 'Building a Flexible Sidebar',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-06-25',
     category: 'UI/UX',
   },
   {
     title: 'React Tailwind Newsletter Component',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-07-14',
     category: 'React',
   },
   {
     title: 'Mastering Layouts in React',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-08-01',
     category: 'Layout',
   },
   {
     title: 'Building a Flexible Sidebar',
-    slug: '#',
+    slug: RouteIndex,
     cover: 'https://plus.unsplash.com/premium_photo-1673984261110-d1d931e062c0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     publishDate: '2024-06-25',
     category: 'UI/UX',
