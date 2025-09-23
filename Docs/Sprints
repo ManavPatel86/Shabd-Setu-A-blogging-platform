@@ -1,0 +1,43 @@
+Sprint 1
+Foundations of Shabd-Setu
+
+Goal:
+Our main objective in Sprint 1 was to set up the foundation of our blogging platform ,establish the basic project structure, implement sign in/sign up,home page.
+
+Key Activities
+
+1. Deciding on core features:
+
+Finalized the "must-have" features for the first version: signup/login, blog creation, and displaying blogs.
+
+Created a functional and non-functional requirements.
+
+Conducted stakeholder analysis (bloggers, readers, admins).
+
+2. Frontend team tasks:
+
+Set up the React frontend with Vite, TailwindCSS, and component structure.
+
+Designed and implemented the signup/login UI with form validation.
+
+Built the blog listing page with category options for blogs.
+
+Connected frontend to backend via API calls.
+
+3. Backend team tasks:
+
+Created Express server with MongoDB connection.
+
+Implemented user authentication with JWT and password hashing.
+
+Developed basic blog model (title, content, author) and CRUD APIs.
+
+Deployed and tested APIs locally with frontend.
+
+4. Team collaboration setup:
+
+Set up GitHub repository, branch protection, and collaborative workflow.
+
+Practiced branching, merging, and resolving conflicts.
+
+Documented environment variable setup for both client and server.
