@@ -13,7 +13,7 @@ import { RouteSignIn, RouteIndex } from "@/helpers/RouteName";
 import { showToast } from "@/helpers/showToast";   
 import { getEnv } from "@/helpers/getEnv";
 
-
+import GoogleLogin from '@/components/ui/GoogleLogin';
 import { CiMail } from "react-icons/ci";
 
 const SignUp = () => {
@@ -78,6 +78,14 @@ const SignUp = () => {
                     <p className="text-sm text-gray-600">
                         Join <Link to={RouteIndex} className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors cursor-pointer">ShabdSetu</Link> today
                     </p>
+                </div>
+                
+                <div className=''>
+                    <GoogleLogin />
+                    <div className='border my-5 flex justify-center items-center'>
+                        <span className='absolute bg-white text-sm'>Or</span>
+                    </div>
+
                 </div>
 
                 {/* Form */}
