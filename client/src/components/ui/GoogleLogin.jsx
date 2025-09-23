@@ -40,7 +40,7 @@ const GoogleLogin = () => {
         }
     }
   return (
-      <Button variant="outline" className="w-full" onClick={handleLogin} >
+      <Button variant="outline" className="w-full cursor-pointer" onClick={handleLogin} >
           <FcGoogle />
           Continue With Google
       </Button>
