@@ -15,10 +15,12 @@ import { getEnv } from "@/helpers/getEnv";
 
 import GoogleLogin from '@/components/ui/GoogleLogin';
 import { CiMail } from "react-icons/ci";
+import { CiUser } from "react-icons/ci";
 
 const SignUp = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const formSchema = z.object({
@@ -99,12 +101,15 @@ const SignUp = () => {
                                 <FormItem>
                                     <FormLabel className="text-sm font-medium text-gray-700 text-left block mb-2">Full Name</FormLabel>
                                     <FormControl>
+                                        <div className="relative">
                                         <Input
                                             type="text"
                                             placeholder="Enter your name"
                                             className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg"
                                             {...field}
                                         />
+                                        <CiUser className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        </div>
                                     </FormControl>
                                     <FormMessage className="text-red-500 text-sm" />
                                 </FormItem>
@@ -134,7 +139,6 @@ const SignUp = () => {
                             )}
                         />
 
-                        {/* Password Field */}
                         <FormField
                             control={form.control}
                             name="password"
@@ -172,17 +176,17 @@ const SignUp = () => {
                                     <FormControl>
                                         <div className="relative">
                                             <Input
-                                                type={showPassword ? "text" : "password"}
+                                                type={showConfirmPassword ? "text" : "password"}
                                                 placeholder="Enter a password again"
                                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg pr-12"
                                                 {...field}
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                                 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                             >
-                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                             </button>
                                         </div>
                                     </FormControl>

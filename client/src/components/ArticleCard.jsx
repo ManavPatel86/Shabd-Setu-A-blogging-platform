@@ -103,7 +103,7 @@ const ArticleCard = ({ blog }) => {
         <div className="flex items-center justify-between">
           <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors">
             <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="font-medium text-sm">Summary</span>
+            <span className="font-medium text-sm cursor-pointer">Summary</span>
           </button>
 
           <div className="flex items-center space-x-2 sm:space-x-3">

@@ -23,7 +23,21 @@ const Latest_Blogs = ({ blogs = [] }) => {
 
       {/* Filter Buttons */}
       <div className="bg-white p-2">
-        <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar">
+        <div
+          className="flex items-center space-x-2 overflow-x-auto scrollbar-none touch-pan-x"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+          onWheel={e => {
+            // Horizontal scroll on wheel
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+              e.preventDefault();
+            }
+          }}
+        >
           {filters.map((item) => (
             <button
               key={item}
@@ -38,6 +52,13 @@ const Latest_Blogs = ({ blogs = [] }) => {
             </button>
           ))}
         </div>
+        <style>
+          {`
+            .scrollbar-none::-webkit-scrollbar {
+              display: none;
+            }
+          `}
+        </style>
       </div>
 
       {/* Blog Cards */}

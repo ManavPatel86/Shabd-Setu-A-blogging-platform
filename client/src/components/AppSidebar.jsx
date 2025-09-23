@@ -23,6 +23,15 @@ import { useIsMobile } from "@/hooks/use-mobile";
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
 
+    // Example categories array, replace with your actual categories data
+    const categories = [
+        { id: 1, name: "Technology" },
+        { id: 2, name: "Health" },
+        { id: 3, name: "Travel" },
+        { id: 4, name: "Education" },
+        { id: 5, name: "Sports" },
+    ];
+
     return (
         <Sidebar 
             className={`bg-white h-full border-r border-gray-200 ${className || ''}`}
@@ -53,17 +62,8 @@ function AppSidebar({ className }) {
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
-                                    <BiCategoryAlt />
-                                    Categories
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
                                     <GrBlog />
-                                    Blogs
+                                    My Blogs
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -81,7 +81,7 @@ function AppSidebar({ className }) {
                             <SidebarMenuButton asChild>
                                 <Link to="" className="flex items-center gap-2">
                                     <LuUsers />
-                                    Users
+                                    Following
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -89,16 +89,20 @@ function AppSidebar({ className }) {
                 </SidebarGroup>
                 
                 <SidebarGroup>
-                    <SidebarGroupLabel>Categories</SidebarGroupLabel>
+                    <SidebarGroupLabel className="flex items-center gap-2 font-semibold text-black-600 text-md">
+                        Popular Categories
+                    </SidebarGroupLabel>
                     <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
-                                    <GoDot />
-                                    Category Item
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                        {categories.map(category => (
+                            <SidebarMenuItem key={category.id}>
+                                <SidebarMenuButton asChild>
+                                    <Link to="" className="flex items-center gap-2">
+                                        <GoDot />
+                                        {category.name}
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>
