@@ -46,17 +46,47 @@ We also integrate **AI features (LangChain)** for smarter categorization, summar
 
 ## 📂 Project Structure
 
+```
 project-root/
-│── client/ # React frontend
-│ ├── src/
-│ ├── components/
-│ ├── pages/
-│ └── .env
 │
-│── api/ # backend
-│ ├── routes/
-│ ├── controllers/
-│ ├── models/
-│ └── .env
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Page components
+│   │   ├── redux/          # Redux store and slices
+│   │   ├── helpers/        # Utility functions and route names
+│   │   ├── assets/         # Images, logos, and static files
+│   │   └── main.jsx        # React entry point
+│   ├── public/             # Public assets
+│   ├── index.html          # HTML template
+│   ├── package.json        # Frontend dependencies
+│   ├── vite.config.js      # Vite configuration
+│   └── .env                # Frontend environment variables
 │
-│── README.md
+├── api/                    # Backend server
+│   ├── routes/             # API route definitions
+│   ├── controllers/        # Request handlers
+│   ├── models/             # Database models
+│   ├── middleware/         # Custom middleware
+│   ├── config/             # Database and server configuration
+│   ├── package.json        # Backend dependencies
+│   └── .env                # Backend environment variables
+│
+└── README.md               # Project documentation
+```
+
+## 🚀 Getting Started
+
+### Frontend (Client)
+```bash
+cd client
+npm install
+npm run dev
+```
+
+### Backend (API)
+```bash
+cd api
+npm install
+npm start
+```
