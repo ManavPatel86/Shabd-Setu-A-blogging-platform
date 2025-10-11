@@ -1,5 +1,5 @@
 import React from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 
 import AppSidebar from "@/components/AppSidebar";
 import Footer from "@/components/Footer";
@@ -14,6 +14,10 @@ import Latest_Blogs from "@/components/Latest_Blogs";
 
 const Layout = () => {
   const isMobile = useIsMobile();
+  const location = useLocation();
+  
+  // Only show latest blogs on the home page
+  const showLatestBlogs = location.pathname === '/';
 
   return (
     <SidebarProvider>
@@ -29,8 +33,8 @@ const Layout = () => {
             {/* Render matched route */}
             <Outlet />
 
-            {/* ✅ Latest Blogs Section */}
-            <Latest_Blogs blogs={blogs}  />
+            {/* ✅ Latest Blogs Section - Only on home page */}
+            {showLatestBlogs && <Latest_Blogs blogs={blogs} />}
           </div>
         </main>
       </div>

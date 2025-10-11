@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Link, useNavigate } from 'react-router-dom'
 import { MdLogin } from "react-icons/md";
 import SearchBox from "./SearchBox";
-import { RouteIndex, RouteSignIn } from "@/helpers/RouteName";
+import { RouteIndex, RouteProfile, RouteSignIn } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import usericon from '@/assets/images/user.png'
@@ -101,7 +101,7 @@ const Topbar = () => {
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild className="cursor-pointer">
-                                <Link to={RouteIndex}>
+                                <Link to={RouteProfile}>
                                     <FaRegUser />
                                     Profile
                                 </Link>
