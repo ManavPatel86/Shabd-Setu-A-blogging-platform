@@ -19,6 +19,8 @@ import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
 import { RouteIndex } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { RouteBlog } from "@/helpers/RouteName";
+
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
@@ -61,7 +63,7 @@ function AppSidebar({ className }) {
 
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
+                                <Link to={RouteBlog} className="flex items-center gap-2">
                                     <GrBlog />
                                     My Blogs
                                 </Link>

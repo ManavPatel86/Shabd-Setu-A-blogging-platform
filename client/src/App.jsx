@@ -1,11 +1,22 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 import Layout from "./Layout/Layout";
-import { RouteIndex, RouteProfile, RouteSignIn, RouteSignUp } from "./helpers/RouteName";
+import {
+  RouteBlogAdd,
+  RouteBlog,
+  RouteBlogEdit,
+  RouteIndex,
+  RouteProfile,
+  RouteSignIn,
+  RouteSignUp,
+} from "./helpers/RouteName";
+import AddBlog from "./pages/Blog/AddBlog";
+import EditBlog from "./pages/Blog/EditBlog";
 import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
+import BlogDetails from "./pages/Blog/BlogDetails";
 
 function App() {
     return (
@@ -14,8 +25,13 @@ function App() {
                 <Route path={RouteIndex} element={<Layout />}>
                     <Route index element={<Index />} />
                     <Route path={RouteProfile} element={<Profile />} />
+
+                    {/* Blog */}
+                    <Route path={RouteBlogAdd} element={<AddBlog />} />
+                    <Route path={RouteBlog} element={<BlogDetails />} />
+                    <Route path={RouteBlogEdit()} element={<EditBlog />} />
                 </Route>
-                
+
                 <Route path={RouteSignIn} element={<SignIn />} />
                 <Route path={RouteSignUp} element={<SignUp />} />
             </Routes>
