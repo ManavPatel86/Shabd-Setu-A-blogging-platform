@@ -22,6 +22,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
 import { RouteCategoryDetails } from "@/helpers/RouteName";
 import { RouteEditCategory } from "@/helpers/RouteName";
+import { RouteBlog } from "@/helpers/RouteName";
+
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
@@ -66,7 +68,7 @@ function AppSidebar({ className }) {
                             ? <>
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link to="" className="flex items-center gap-2">
+                                        <Link to={RouteBlog} className="flex items-center gap-2">
                                             <GrBlog />
                                             My Blogs
                                         </Link>
