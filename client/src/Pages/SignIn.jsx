@@ -21,7 +21,7 @@ import { showToast } from '@/helpers/showToast'
 import { getEnv } from "@/helpers/getEnv";
 import { useDispatch } from 'react-redux'
 import { setUser } from '@/redux/user/user.slice'
-
+import GoogleLogin from "@/components/ui/GoogleLogin";
 
 const SignIn = () => {
 
@@ -83,6 +83,15 @@ const SignIn = () => {
             Sign in to your <Link to={RouteIndex} className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors cursor-pointer">ShabdSetu</Link> account
           </p>
         </div>
+        
+        {/* Google Sign-In */}
+        <div className=''>
+            <GoogleLogin />
+            <div className='border my-5 flex justify-center items-center'>
+                <span className='absolute bg-white text-sm'>Or</span>
+            </div>
+        </div>
+        
 
         {/* Form */}
         <Form {...form}>

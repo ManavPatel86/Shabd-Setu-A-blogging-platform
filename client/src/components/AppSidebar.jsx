@@ -19,10 +19,13 @@ import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
 import { RouteIndex } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSelector } from "react-redux";
+import { RouteCategoryDetails } from "@/helpers/RouteName";
+import { RouteEditCategory } from "@/helpers/RouteName";
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
-
+    const user = useSelector((state) => state.user); // <-- Add this line
     // Example categories array, replace with your actual categories data
     const categories = [
         { id: 1, name: "Technology" },
@@ -59,32 +62,65 @@ function AppSidebar({ className }) {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
 
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
-                                    <GrBlog />
-                                    My Blogs
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+                        {user && user.isLoggedIn
+                            ? <>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to="" className="flex items-center gap-2">
+                                            <GrBlog />
+                                            My Blogs
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to="" className="flex items-center gap-2">
+                                            <FaRegComments />
+                                            Comments
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to="" className="flex items-center gap-2">
+                                            <LuUsers />
+                                            Following
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                
+                                
+                            </>
+                            :
+                            <></>
+                        }
+
+                        {user && user.isLoggedIn && user.user.role === 'admin'
+                            ? <>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to={RouteCategoryDetails} className="flex items-center gap-2">
+                                            <BiCategoryAlt />
+                                                Manage Categories
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to="" className="flex items-center gap-2">
+                                            <LuUsers />
+                                                Manage Users
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </>
+                            :
+                            <></>
+                        }
                         
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
-                                    <FaRegComments />
-                                    Comments
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to="" className="flex items-center gap-2">
-                                    <LuUsers />
-                                    Following
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
                 
