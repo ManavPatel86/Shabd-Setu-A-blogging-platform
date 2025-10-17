@@ -16,6 +16,7 @@ export const addCategory = async (req, res, next) => {
         })
 
     } catch (error) {
+        console.error('Category.addCategory error:', error)
         next(handleError(500, error.message))
     }
 }
@@ -30,6 +31,7 @@ export const showCategory = async (req, res, next) => {
             category
         })
     } catch (error) {
+        console.error('Category.showCategory error:', error)
         next(handleError(500, error.message))
     }
 }
@@ -47,6 +49,7 @@ export const updateCategory = async (req, res, next) => {
             category
         })
     } catch (error) {
+        console.error('Category.updateCategory error:', error)
         next(handleError(500, error.message))
     }
 }
@@ -59,6 +62,7 @@ export const deleteCategory = async (req, res, next) => {
             message: 'Category Deleted successfully.',
         })
     } catch (error) {
+        console.error('Category.deleteCategory error:', error)
         next(handleError(500, error.message))
     }
 }
@@ -69,6 +73,7 @@ export const getAllCategory = async (req, res, next) => {
             category
         })
     } catch (error) {
+        console.error('Category.getAllCategory error:', error)
         next(handleError(500, error.message))
     }
 }

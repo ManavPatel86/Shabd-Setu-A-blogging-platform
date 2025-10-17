@@ -60,23 +60,54 @@ const AddBlog = () => {
           }
       }, [blogTitle])
 
-      async function onSubmit(values) {
-          // try {
-          //     const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/category/add`, {
-          //         method: 'POST',
-          //         headers: { 'Content-type': 'application/json' },
-          //         body: JSON.stringify(values)
-          //     })
-          //     const data = await response.json()
-          //     if (!response.ok) {
-          //         return showToast('error', data.message)
-          //     }
-          //     form.reset()
-          //     showToast('success', data.message)
-          // } catch (error) {
-          //     showToast('error', error.message)
-          // }
+      /*async function onSubmit(values) {
+           try {
+               const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/category/add`, {
+                   method: 'POST',
+                   headers: { 'Content-type': 'application/json' },
+                   body: JSON.stringify(values)
+               })
+               const data = await response.json()
+               if (!response.ok) {
+                   return showToast('error', data.message)
+               }
+               form.reset()
+               showToast('success', data.message)
+           } catch (error) {
+               showToast('error', error.message)
+           }
       }
+      */
+     async function onSubmit(values) {
+
+        try {
+            const newValues = { ...values, author: user.user._id }
+            if (!file) {
+                showToast('error', 'Feature image required.')
+            }
+
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('data', JSON.stringify(newValues))
+
+            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/blog/add`, {
+                method: 'post',
+                credentials: 'include',
+                body: formData
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                return showToast('error', data.message)
+            }
+            form.reset()
+            setFile()
+            setPreview()
+            navigate(RouteBlog)
+            showToast('success', data.message)
+        } catch (error) {
+            showToast('error', error.message)
+        }
+    }
 
       const handleFileSelection = (files) => {
         const file = files[0]

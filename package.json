@@ -6,6 +6,7 @@
     "tailwindcss": "^3.4.17"
   },
   "dependencies": {
+    "entities": "^7.0.0",
     "firebase": "^12.3.0"
   }
 }
