@@ -11,6 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { RouteBlogAdd} from '@/helpers/RouteName'
+import Comments from '@/components/Comments'
 
 const BlogDetails = () => {
   return (
@@ -72,8 +73,16 @@ const BlogDetails = () => {
               </Table>
             </CardContent>
           </Card>
+          {/* // Comment section */}
+          <div className='border-t mt-5 pt-5' >
+    
+            <Comments />
+          </div>
         </div>  
+
+
   )
 }
+
 
 export default BlogDetails
