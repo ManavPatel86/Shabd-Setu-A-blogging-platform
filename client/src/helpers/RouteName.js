@@ -22,3 +22,10 @@ export const RouteBlogEdit = (blogid) => {
         return `/blog/edit/:blogid`
     }
 }
+
+export const RouteSearch = (q) => {
+    if(q)
+        return `/search?q=${q}`
+    else
+        return `/search`
+}

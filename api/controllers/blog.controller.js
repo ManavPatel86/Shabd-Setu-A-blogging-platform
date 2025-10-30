@@ -177,7 +177,7 @@ export const getBlogByCategory = async (req, res, next) => {
 export const search = async (req, res, next) => {
     try {
         const { q } = req.query
-
+        
         const blog = await Blog.find({ title: { $regex: q, $options: 'i' } }).populate('author', 'name avatar role').populate('category', 'name slug').lean().exec()
         res.status(200).json({
             blog,
