@@ -12,7 +12,8 @@ import { Textarea } from './ui/textarea';
 
 
 
-const Comments = () => {
+const Comments = ({ props }) => {
+    const user = useSelector((state)=> state.user)
 
     const formSchema = z.object({
         comment: z.string().min(3, 'Comment must be at least 3 character long.'),
@@ -29,10 +30,11 @@ const Comments = () => {
 
       async function onSubmit(values) {
                 try {
-                    const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/category/add`, {
+                    const newValues = {...values, blogid: props.blogid, author: user.user._id}
+                    const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/comment/add`, {
                         method: 'POST',
                         headers: { 'Content-type': 'application/json' },
-                        body: JSON.stringify(values)
+                        body: JSON.stringify(newValues)
                     })
                     const data = await response.json()
                     if (!response.ok) {
@@ -46,7 +48,10 @@ const Comments = () => {
             }
   return (
     <div>
-        <h4 className='flex items-center gap-2 text-2xl font-bold'><FaRegComments /> Comments </h4>
+        <h4 className='flex items-center gap-2 text-2xl font-bold'>
+        <FaRegComments /> Comments </h4>
+        {user && user.isLoggedIn 
+        ?
         <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)}  >
                             <div className='mb-3'>
@@ -68,6 +73,11 @@ const Comments = () => {
                             <Button type="submit">Submit</Button>
                         </form>
                     </Form>
+                    : 
+                    <Button asChild> 
+                        <Link to={RouteSignIn}>Sign In</Link>
+                    </Button>
+}   
     </div>
   )
 }

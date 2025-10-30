@@ -27,6 +27,7 @@ app.use('/api/auth', AuthRoute)
 app.use('/api/category', CategoryRoute)
 app.use('api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
+app.use('/api/comment',CommentRouote)
 
 
 
