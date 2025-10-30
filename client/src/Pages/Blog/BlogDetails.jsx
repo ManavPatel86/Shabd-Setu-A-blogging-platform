@@ -73,11 +73,6 @@ const BlogDetails = () => {
               </Table>
             </CardContent>
           </Card>
-          {/* // Comment section */}
-          <div className='border-t mt-5 pt-5' >
-    
-            <Comments />
-          </div>
         </div>  
 
 
