@@ -2,7 +2,7 @@ import { handleError } from "../helpers/handleError.js"
 import Comment from "../models/comment.model.js"
 export const addcomment = async (req, res, next) => {
     try {
-        const { user, blogid, comment } = req.body
+       const { user, blogid, comment } = req.body
         const newComment = new Comment({
             user: user,
             blogid: blogid,
