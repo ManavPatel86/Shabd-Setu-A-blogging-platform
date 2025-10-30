@@ -15,6 +15,8 @@ import { useState } from 'react'
 import Dropzone from 'react-dropzone'
 import Editor from '@/components/Editor'
 import { useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
+import { RouteBlog } from '@/helpers/RouteName'
 
 
 const AddBlog = () => {
@@ -78,10 +80,12 @@ const AddBlog = () => {
            }
       }
       */
-     async function onSubmit(values) {
+    const navigate = useNavigate()
+
+    async function onSubmit(values) {
 
         try {
-            const newValues = { ...values, author: user.user._id }
+            const newValues = { ...values, author: user?.user?._id }
             if (!file) {
                 showToast('error', 'Feature image required.')
             }
@@ -100,8 +104,8 @@ const AddBlog = () => {
                 return showToast('error', data.message)
             }
             form.reset()
-            setFile()
-            setPreview()
+            setFile(null)
+            setFilePreview(null)
             navigate(RouteBlog)
             showToast('success', data.message)
         } catch (error) {
@@ -200,7 +204,7 @@ const AddBlog = () => {
                             <div className='mb-3'>
                                 <FormField
                                     control={form.control}
-                                    name="Blog Content"
+                                    name="blogContent"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Blog Content</FormLabel>
