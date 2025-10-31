@@ -23,7 +23,7 @@ import EditCategory from './pages/Category/EditCategory'
 import { RouteCategoryDetails, RouteEditCategory } from "./helpers/RouteName";
 
 import BlogDetails from "./pages/Blog/BlogDetails";
-import { SearchResult } from "./Pages/SearchResult";
+import SearchResult from "./Pages/SearchResult";
 
 function App() {
     return (
@@ -40,7 +40,7 @@ function App() {
                     <Route path={RouteBlogAdd} element={<AddBlog />} />
                     <Route path={RouteBlog} element={<BlogDetails />} />
                     <Route path={RouteBlogEdit()} element={<EditBlog />} />
-                    <Route path={RouteSearch()} element={<SearchResults />} />
+                    <Route path={RouteSearch()} element={<SearchResult />} />
                 </Route>
 
                 <Route path={RouteSignIn} element={<SignIn />} />
