@@ -9,7 +9,7 @@ import moment from 'moment'
 import { useSelector } from 'react-redux'
 const CommentList = ({ props }) => {
     const user = useSelector(state => state.user)
-    const { data, loading, error } = useFetch(`${getEvn('VITE_API_BASE_URL')}/comment/get/${props.blogid}`, {
+    const { data, loading } = useFetch(`${getEvn('VITE_API_BASE_URL')}/comment/get/${props.blogid}`, {
         method: 'get',
         credentials: 'include',
     })
