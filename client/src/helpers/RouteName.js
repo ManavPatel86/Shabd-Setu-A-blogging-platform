@@ -2,6 +2,8 @@ export const RouteIndex = '/'
 export const RouteSignIn = "/signin";
 export const RouteSignUp = "/signup";
 export const RouteProfile = "/profile";
+
+// Admin Category Routes
 export const RouteCategoryDetails = "/categories";
 export const RouteAddCategory = "/category/add";
 export const RouteEditCategory = (category_id)=>{
@@ -13,6 +15,7 @@ export const RouteEditCategory = (category_id)=>{
     }
 }
 
+// Admin Blog Routes
 export const RouteBlog = '/blog'
 export const RouteBlogAdd = '/blog/add'
 export const RouteBlogEdit = (blogid) => {
@@ -23,9 +26,22 @@ export const RouteBlogEdit = (blogid) => {
     }
 }
 
-export const RouteSearch = (q) => {
-    if(q)
-        return `/search?q=${q}`
-    else
-        return `/search`
+// Public-facing Blog Detail Route
+export const RouteBlogDetails = (category, blog) => {
+    if (!category || !blog) {
+        // This version is for the <Route> 'path' prop in App.jsx
+        return '/blog/:category/:blog'
+    } else {
+        // This version is for the <Link> 'to' prop in BlogCard.jsx
+        return `/blog/${category}/${blog}`
+    }
 }
+
+export const RouteSearch = (q) => {
+    if (q) {
+        return `/search?q=${q}`
+    } else {
+        return `/search`
+    }
+}
+

@@ -1,15 +1,17 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 import Layout from "./Layout/Layout";
-import { RouteAddCategory,
-  RouteBlogAdd,
-  RouteBlog,
-  RouteBlogEdit,
-  RouteIndex,
-  RouteProfile,
-  RouteSignIn,
-  RouteSignUp,
-  RouteSearch,
+import {
+    RouteAddCategory,
+    RouteBlogAdd,
+    RouteBlog,
+    RouteBlogEdit,
+    RouteIndex,
+    RouteProfile,
+    RouteSignIn,
+    RouteSignUp,
+    RouteBlogDetails,
+    RouteSearch, // Added this import
 } from "./helpers/RouteName";
 import AddBlog from "./pages/Blog/AddBlog";
 import EditBlog from "./pages/Blog/EditBlog";
@@ -23,6 +25,7 @@ import EditCategory from './pages/Category/EditCategory'
 import { RouteCategoryDetails, RouteEditCategory } from "./helpers/RouteName";
 
 import BlogDetails from "./pages/Blog/BlogDetails";
+import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 
 function App() {
@@ -41,6 +44,9 @@ function App() {
                     <Route path={RouteBlog} element={<BlogDetails />} />
                     <Route path={RouteBlogEdit()} element={<EditBlog />} />
                     <Route path={RouteSearch()} element={<SearchResult />} />
+
+                    {/* This is the new public blog detail route */}
+                    <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
                 </Route>
 
                 <Route path={RouteSignIn} element={<SignIn />} />
