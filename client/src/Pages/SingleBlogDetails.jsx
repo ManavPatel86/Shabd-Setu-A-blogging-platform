@@ -9,9 +9,12 @@ import moment from "moment";
 import { useParams } from "react-router-dom";
 import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
+import Comments from "@/components/Comments";
+import { useState } from "react";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
+  const [showComments, setShowComments] = useState(false);
 
   const { data, loading } = useFetch(
     `${getEnv("VITE_API_BASE_URL")}/blog/get-blog/${blog}`,
@@ -83,7 +86,9 @@ const SingleBlogDetails = () => {
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
         <LikeCount props={{ blogid: b._id }} />
-        <button className="flex items-center gap-1 text-sm hover:text-black transition">
+        <button 
+          onClick={() => setShowComments(!showComments)} 
+          className="flex items-center gap-1 text-sm hover:text-black transition">
           <MessageCircle className="h-5 w-5" /> Comment
         </button>
         <button className="flex items-center gap-1 text-sm hover:text-black transition">
@@ -94,10 +99,12 @@ const SingleBlogDetails = () => {
         </button>
       </div>
 
-      {/* Comments Disabled */}
-      <div className="text-center text-gray-500 text-sm mt-10 border-t pt-6">
-        Comments will be available soon.
-      </div>
+      {/* Comments Section */}
+      {showComments && (
+        <div className="mt-10 border-t pt-6">
+          <Comments props={{ blogid: b._id }} />
+        </div>
+      )}
     </div>
   );
 };

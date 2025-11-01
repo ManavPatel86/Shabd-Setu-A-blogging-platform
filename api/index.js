@@ -9,7 +9,7 @@ import CategoryRoute from './routes/Category.route.js'
 import BlogRoute from './routes/Blog.route.js'
 
 
-//import CommentRouote from './routes/Comment.route.js'
+import CommentRouote from './routes/Comment.route.js'
 import BlogLikeRoute from './routes/Bloglike.route.js'
 
 import { log } from 'console';
@@ -34,7 +34,7 @@ app.use('/api/user', UserRoute )
 app.use('/api/category', CategoryRoute)
 app.use('api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
-//app.use('/api/comment',CommentRouote)
+app.use('/api/comment',CommentRouote)
 app.use('/api/bloglike',BlogLikeRoute)
 
 

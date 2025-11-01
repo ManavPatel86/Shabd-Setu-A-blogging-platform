@@ -4,12 +4,12 @@ import { Link } from 'react-router-dom'
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+
 import { RouteBlogAdd, RouteBlogEdit } from '@/helpers/RouteName'
 import { useFetch } from '@/hooks/useFetch'
 import { getEnv } from '@/helpers/getEnv'
@@ -20,6 +20,7 @@ import { useState } from 'react'
 import { FiEdit } from "react-icons/fi";
 import { FaRegTrashAlt } from "react-icons/fa";
 import moment from 'moment'
+
 const BlogDetails = () => {
     const [refreshData, setRefreshData] = useState(false)
     const { data: blogData, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/blog/get-all`, {
@@ -27,18 +28,17 @@ const BlogDetails = () => {
         credentials: 'include'
     }, [refreshData])
 
-    const handleDelete = (id) => {
-        const response = deleteData(`${getEvn('VITE_API_BASE_URL')}/blog/delete/${id}`)
-        if (response) {
+    const handleDelete = async (id) => {
+        const deleted = await deleteData(`${getEnv('VITE_API_BASE_URL')}/blog/delete/${id}`)
+        if (deleted) {
             setRefreshData(!refreshData)
-            showToast('success', 'Data deleted.')
-        } else {
-            showToast('error', 'Data not deleted.')
+            showToast('success', 'Blog deleted successfully')
         }
     }
  
 
     if (loading) return <Loading />
+    if (error) return <div className="text-red-500">Error loading blogs: {error.message}</div>
     return (
         <div>
             <Card>
@@ -63,6 +63,7 @@ const BlogDetails = () => {
                                 <TableHead>Dated</TableHead>
                                 <TableHead>Action</TableHead>
                             </TableRow>
+
                         </TableHeader>
                         <TableBody>
                             {blogData && blogData.blog.length > 0 ?
@@ -92,7 +93,7 @@ const BlogDetails = () => {
                                 :
 
                                 <TableRow>
-                                    <TableCell colSpan="3">
+                                    <TableCell colSpan={6} className="text-center">
                                         Data not found.
                                     </TableCell>
                                 </TableRow>
@@ -104,6 +105,8 @@ const BlogDetails = () => {
             </Card>
         </div>
     )
+
 }
+
 
 export default BlogDetails
