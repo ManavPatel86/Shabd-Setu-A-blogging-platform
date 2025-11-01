@@ -10,9 +10,8 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { useSelector } from 'react-redux';
 import { RouteSignIn } from '@/helpers/RouteName';
-
-
-
+import { Link } from 'react-router-dom';
+import CommentList from './CommentList';
 
 const Comments = ({ props }) => {
     const user = useSelector((state)=> state.user)
@@ -32,10 +31,15 @@ const Comments = ({ props }) => {
 
       async function onSubmit(values) {
                 try {
-                    const newValues = {...values, blogid: props.blogid, author: user.user._id}
+                    const newValues = {
+                        blogid: props.blogid,
+                        user: user.user._id,
+                        comment: values.comment
+                    }
                     const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/comment/add`, {
                         method: 'POST',
                         headers: { 'Content-type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify(newValues)
                     })
                     const data = await response.json()
@@ -43,6 +47,8 @@ const Comments = ({ props }) => {
                         return showToast('error', data.message)
                     }
                     form.reset()
+                    // Force CommentList to refresh
+                    window.dispatchEvent(new Event('refreshComments'))
                     showToast('success', data.message)
                 } catch (error) {
                     showToast('error', error.message)
@@ -50,8 +56,9 @@ const Comments = ({ props }) => {
             }
   return (
     <div>
-        <h4 className='flex items-center gap-2 text-2xl font-bold'>
+        <h4 className='flex items-center gap-2 text-2xl font-bold mb-4'>
         <FaRegComments /> Comments </h4>
+        <CommentList blogId={props.blogid} />
         {user && user.isLoggedIn 
         ?
         <Form {...form}>
@@ -59,7 +66,7 @@ const Comments = ({ props }) => {
                             <div className='mb-3'>
                                 <FormField
                                     control={form.control}
-                                    name="Comments"
+                                    name="comment"
                                     render={({field}) => (
                                         <FormItem>
                                             <FormLabel>Comment</FormLabel>

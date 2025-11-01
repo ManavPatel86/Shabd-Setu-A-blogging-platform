@@ -4,14 +4,12 @@ import { Link } from 'react-router-dom'
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
 
-import Comments from '@/components/Comments'
 import { RouteBlogAdd, RouteBlogEdit } from '@/helpers/RouteName'
 import { useFetch } from '@/hooks/useFetch'
 import { getEnv } from '@/helpers/getEnv'
@@ -40,6 +38,7 @@ const BlogDetails = () => {
  
 
     if (loading) return <Loading />
+    if (error) return <div className="text-red-500">Error loading blogs: {error.message}</div>
     return (
         <div>
             <Card>
@@ -94,7 +93,7 @@ const BlogDetails = () => {
                                 :
 
                                 <TableRow>
-                                    <TableCell colSpan="3">
+                                    <TableCell colSpan={6} className="text-center">
                                         Data not found.
                                     </TableCell>
                                 </TableRow>
