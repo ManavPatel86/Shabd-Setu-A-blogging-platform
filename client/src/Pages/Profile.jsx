@@ -1,48 +1,46 @@
-import { Avatar, AvatarImage } from '../components/ui/avatar'
-import { Card, CardContent } from '../components/ui/card'
+import { Avatar, AvatarImage } from '@/components/ui/avatar'
+import { Card, CardContent } from '@/components/ui/card'
 import React, { useEffect, useState } from 'react'
-import { Button } from '../components/ui/button'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../components/ui/form'
-import { Input } from '../components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { getEnv } from '@/helpers/getEnv'
 import { showToast } from '@/helpers/showToast'
 import { useDispatch, useSelector } from 'react-redux'
 import { useForm } from 'react-hook-form'
-import { Textarea } from "../components/ui/textarea"
-import { useDropzone } from 'react-dropzone'
+import { Textarea } from "@/components/ui/textarea"
+import { useFetch } from '@/hooks/useFetch'
+import Loading from '@/components/Loading'
+import { IoCameraOutline } from "react-icons/io5";
 import Dropzone from 'react-dropzone'
-import { IoCameraOutline } from 'react-icons/io5'
-import { useNavigate } from 'react-router-dom'
-import usericon from '@/assets/images/user.png'
+import { setUser } from '@/redux/user/user.slice'
+
 
 const Profile = () => {
 
-    const dispath = useDispatch()
+    const [filePreview, setPreview] = useState()
+    const [file, setFile] = useState()
     const user = useSelector((state) => state.user)
-    const navigate = useNavigate()
-    
-    // Temporary user data for development
-    const userData = {
-        success: true,
-        user: {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            bio: "I'm a passionate blogger who loves to write about technology, life, and everything in between.",
-            avatar: usericon
-        }
-    }
-    
-    const [filePreview, setFilePreview] = useState(null)
-    const [file, setFile] = useState(null)
+
+    const { data: userData, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/user/get-user/${user?.user?._id}`,
+        { method: 'get', credentials: 'include' },
+
+    )
+
+
+
+    const dispath = useDispatch()
 
     const formSchema = z.object({
         name: z.string().min(3, 'Name must be at least 3 character long.'),
         email: z.string().email(),
         bio: z.string().min(3, 'Bio must be at least 3 character long.'),
-        password: z.string().refine((val) => val === '' || val.length >= 6, {
+        password: z.string().refine((val) => val === '' || val.length >= 8, {
             message: 'Password must be at least 6 characters long or leave empty'
         })
+
     })
 
     const form = useForm({
@@ -62,18 +60,32 @@ const Profile = () => {
                 email: userData.user.email,
                 bio: userData.user.bio,
                 password: '',
+
             })
         }
-    }, [])
+    }, [userData])
+
+
 
     async function onSubmit(values) {
         try {
-            console.log('Profile data to save:', values);
-            showToast('Profile updated successfully!', 'success');
-            navigate('/');
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('data', JSON.stringify(values))
+
+            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/user/update-user/${userData.user._id}`, {
+                method: 'put',
+                credentials: 'include',
+                body: formData
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                return showToast('error', data.message)
+            }
+            dispath(setUser(data.user))
+            showToast('success', data.message)
         } catch (error) {
-            showToast('Failed to update profile. Please try again.', 'error');
-            console.error('Error updating profile:', error);
+            showToast('error', error.message)
         }
     }
 
@@ -81,14 +93,16 @@ const Profile = () => {
         const file = files[0]
         const preview = URL.createObjectURL(file)
         setFile(file)
-        setFilePreview(preview)
+        setPreview(preview)
     }
 
+    if (loading) return <Loading />
     return (
-        <Card className="max-w-screen-md mx-auto mt-8">
+        <Card className="max-w-screen-md mx-auto ">
 
             <CardContent>
                 <div className='flex justify-center items-center mt-10' >
+
                     <Dropzone onDrop={acceptedFiles => handleFileSelection(acceptedFiles)}>
                         {({ getRootProps, getInputProps }) => (
                             <div {...getRootProps()}>
@@ -102,6 +116,7 @@ const Profile = () => {
                             </div>
                         )}
                     </Dropzone>
+
 
                 </div>
                 <div>
@@ -159,9 +174,9 @@ const Profile = () => {
                                     name="password"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Password (Optional)</FormLabel>
+                                            <FormLabel>Password</FormLabel>
                                             <FormControl>
-                                                <Input type="password" placeholder="Leave empty to keep current password" {...field} />
+                                                <Input type="password" placeholder="Enter your password" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

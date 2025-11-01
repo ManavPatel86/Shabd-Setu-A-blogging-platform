@@ -7,17 +7,17 @@ import Topbar from "@/components/Topbar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-
-import blogs from "@/Layout/Data/blog";
-import Latest_Blogs from "@/components/Latest_Blogs";
+// Removed:
+// import blogs from "@/Layout/Data/blog";
+// import Latest_Blogs from "@/components/Latest_Blogs";
 
 
 const Layout = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   
-  // Only show latest blogs on the home page
-  const showLatestBlogs = location.pathname === '/';
+  // Removed:
+  // const showLatestBlogs = location.pathname === '/';
 
   return (
     <SidebarProvider>
@@ -25,30 +25,23 @@ const Layout = () => {
       <Topbar />
 
       {/* Main Layout with Sidebar */}
-      <div className="flex w-full min-h-[calc(100vh-64px)] overflow-x-hidden">
+      {/* This layout creates the sticky sidebar and scrolling content area */}
+      <div className="flex w-full h-[calc(100vh-64px)] overflow-hidden">
         <AppSidebar className={`h-full ${isMobile ? "md:flex" : "flex"}`} />
 
-        <main className="flex-1 flex flex-col overflow-x-hidden">
+        {/* This main content area is now scrollable on its own */}
+        <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto">
           <div className="flex-1 py-6 px-4 pb-24 sm:py-8 sm:px-6 md:py-12 md:px-8 lg:py-16 lg:px-10">
             {/* Render matched route */}
             <Outlet />
 
-            {/* ✅ Latest Blogs Section - Only on home page */}
-            {showLatestBlogs && <Latest_Blogs blogs={blogs} />}
+            {/* Removed: The duplicate <Latest_Blogs /> component was here */}
           </div>
         </main>
-      </div>
-
-      {/* Footer */}
-      <div
-        className={`fixed bottom-0 right-0 border-t border-gray-200 bg-gray-50 ${
-          isMobile ? "left-0" : "left-[var(--sidebar-width,0px)]"
-        }`}
-      >
-        <Footer />
       </div>
     </SidebarProvider>
   );
 };
 
 export default Layout;
+

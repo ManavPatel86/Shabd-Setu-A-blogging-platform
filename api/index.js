@@ -1,16 +1,20 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import cookieParser from 'cookie-parser';
-import cors from 'cors';
-import mongoose from 'mongoose';
+import express from 'express'
+import dotenv from 'dotenv'
+import cookieParser from 'cookie-parser'
+import cors from 'cors'
+import mongoose from 'mongoose'
 import AuthRoute from './routes/Auth.route.js'
+import UserRoute from './routes/User.route.js'
 import CategoryRoute from './routes/Category.route.js'
+import BlogRoute from './routes/Blog.route.js'
+
+
+//import CommentRouote from './routes/Comment.route.js'
+import BlogLikeRoute from './routes/Bloglike.route.js'
 
 import { log } from 'console';
 import Blog from './models/blog.model.js';
 import BlogRoute from './routes/Blog.route.js';
-import CommentRouote from './routes/Comment.route.js'
-
 dotenv.config()
 
 const PORT = process.env.PORT
@@ -26,10 +30,10 @@ app.use(cors({
 
 // route setup
 app.use('/api/auth', AuthRoute)
+app.use('/api/user', UserRoute )
 app.use('/api/category', CategoryRoute)
 app.use('api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
-app.use('/api/comment',CommentRouote)
 
 
 
