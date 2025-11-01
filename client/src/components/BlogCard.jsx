@@ -1,8 +1,9 @@
 import React from "react";
-import { Heart, MessageCircle, Share2, Bot, Bookmark } from "lucide-react";
+import { MessageCircle, Share2, Bot, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { RouteBlogDetails } from "@/helpers/RouteName";
+import LikeCount from "./LikeCount";
 
 const BlogCard = ({ blog }) => {
   // ✅ Defensive check to prevent crash if blog is undefined
@@ -86,8 +87,8 @@ const BlogCard = ({ blog }) => {
         <button className="flex items-center gap-1 text-gray-600 hover:text-black text-sm">
           <Bot className="h-4 w-4" /> Summary
         </button>
-        <div className="flex items-center gap-4 text-gray-500">
-          <Heart className="h-4 w-4 hover:text-black" />
+        <div className="flex items-center gap-4 text-gray-500" onClick={(e) => e.stopPropagation()}>
+          <LikeCount props={{ blogid: _id }} />
           <MessageCircle className="h-4 w-4 hover:text-black" />
           <Share2 className="h-4 w-4 hover:text-black" />
           <Bookmark className="h-4 w-4 hover:text-black" />
