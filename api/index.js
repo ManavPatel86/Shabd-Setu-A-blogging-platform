@@ -9,6 +9,8 @@ import CategoryRoute from './routes/Category.route.js'
 import { log } from 'console';
 import Blog from './models/blog.model.js';
 import BlogRoute from './routes/Blog.route.js';
+import CommentRouote from './routes/Comment.route.js'
+
 dotenv.config()
 
 const PORT = process.env.PORT
