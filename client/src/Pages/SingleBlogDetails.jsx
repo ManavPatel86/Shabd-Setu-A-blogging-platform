@@ -10,6 +10,7 @@ import { useParams } from "react-router-dom";
 import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
+import ViewCount from "@/components/ViewCount";
 import { useState } from "react";
 
 const SingleBlogDetails = () => {
@@ -86,6 +87,7 @@ const SingleBlogDetails = () => {
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
         <LikeCount props={{ blogid: b._id }} />
+        <ViewCount blogId={b._id} addView={true} />
         <button 
           onClick={() => setShowComments(!showComments)} 
           className="flex items-center gap-1 text-sm hover:text-black transition">
