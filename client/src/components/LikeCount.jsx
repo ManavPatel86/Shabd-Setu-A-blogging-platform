@@ -11,7 +11,7 @@ const LikeCount = ({ props }) => {
     const [hasLiked, setHasLiked] = useState(false)
     const user = useSelector(state => state.user)
 
-    const { data: blogLikeCount, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/blog-like/get-like/${props.blogid}/${user && user.isLoggedIn ? user.user._id : ''}`, {
+    const { data: blogLikeCount, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/bloglike/get-like/${props.blogid}/${user && user.isLoggedIn ? user.user._id : ''}`, {
         method: 'get',
         credentials: 'include',
     })
@@ -29,7 +29,7 @@ const LikeCount = ({ props }) => {
                 return showToast('error', 'Please login into your account.')
             }
 
-            const response = await fetch(`${getEvn('VITE_API_BASE_URL')}/blog-like/do-like`, {
+            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/bloglike/do-like`, {
                 method: 'post',
                 credentials: 'include',
                 headers: { 'Content-type': "application/json" },
@@ -48,13 +48,9 @@ const LikeCount = ({ props }) => {
     }
 
     return (
-        <button onClick={handleLike} type='button' className='flex justify-between items-center gap-1'>
-            {!hasLiked ?
-                <FaRegHeart />
-                :
-                <FaHeart fill='red' />
-            }
-            {likeCount}
+        <button onClick={handleLike} className="flex items-center gap-1 text-sm hover:text-red-500 transition">
+            {hasLiked ? <FaHeart className="h-4 w-4 text-red-500" /> : <FaRegHeart className="h-4 w-4" />} 
+            <span>{likeCount}</span>
         </button>
     )
 }

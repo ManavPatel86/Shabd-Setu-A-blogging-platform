@@ -34,8 +34,8 @@ app.use('/api/user', UserRoute )
 app.use('/api/category', CategoryRoute)
 app.use('api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
-app.use('/api/comment',CommentRouote)
-app.use('/api/blog-like',BlogLikeRoute)
+//app.use('/api/comment',CommentRouote)
+app.use('/api/bloglike',BlogLikeRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})

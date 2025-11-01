@@ -7,7 +7,8 @@ import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
 import { useParams } from "react-router-dom";
-import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
+import { MessageCircle, Share2, Bookmark } from "lucide-react";
+import LikeCount from "@/components/LikeCount";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
@@ -81,9 +82,7 @@ const SingleBlogDetails = () => {
 
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
-        <button className="flex items-center gap-1 text-sm hover:text-black transition">
-          <Heart className="h-5 w-5" /> Like
-        </button>
+        <LikeCount props={{ blogid: b._id }} />
         <button className="flex items-center gap-1 text-sm hover:text-black transition">
           <MessageCircle className="h-5 w-5" /> Comment
         </button>
