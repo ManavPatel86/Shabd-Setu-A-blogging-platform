@@ -12,7 +12,7 @@ import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
 import { useSelector } from "react-redux";
-import { RouteSignIn } from "@/helpers/RouteName";
+import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
@@ -35,6 +35,11 @@ const SingleBlogDetails = () => {
   if (loading) return <Loading />;
 
   const b = data?.blog;
+  const handleAuthorProfile = () => {
+    if (b?.author?._id) {
+      navigate(RouteProfileView(b.author._id));
+    }
+  };
   if (!b) return <div className="text-center py-10 text-gray-500">Blog not found</div>;
 
   return (
@@ -56,7 +61,11 @@ const SingleBlogDetails = () => {
       </p>
 
       {/* Author */}
-      <div className="flex items-center gap-3 mt-6">
+      <button
+        type="button"
+        onClick={handleAuthorProfile}
+        className="flex items-center gap-3 mt-6 text-left focus:outline-none"
+      >
         <Avatar className="h-12 w-12 border shadow-sm">
           <AvatarImage src={b?.author?.avatar} />
         </Avatar>
@@ -66,7 +75,7 @@ const SingleBlogDetails = () => {
             {moment(b.createdAt).format("MMM D, YYYY")} • 5 min read
           </p>
         </div>
-      </div>
+      </button>
 
       {/* Image */}
       <div className="mt-10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)]">

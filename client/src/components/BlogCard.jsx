@@ -2,7 +2,7 @@ import React from "react";
 import { MessageCircle, Share2, Bot, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
-import { RouteBlogDetails } from "@/helpers/RouteName";
+import { RouteBlogDetails, RouteProfileView } from "@/helpers/RouteName";
 import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
 
@@ -25,6 +25,13 @@ const BlogCard = ({ blog }) => {
 
   const handleOpen = () => {
     navigate(RouteBlogDetails(category?.slug, slug || _id));
+  };
+
+  const handleAuthorClick = (event) => {
+    event.stopPropagation();
+    if (author?._id) {
+      navigate(RouteProfileView(author._id));
+    }
   };
 
   return (
@@ -55,14 +62,20 @@ const BlogCard = ({ blog }) => {
           ></p>
 
           {/* Author */}
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleAuthorClick}
+            className="flex items-center gap-3 text-left focus:outline-none"
+          >
             <img
               src={author?.avatar || "/default-avatar.png"}
               alt={author?.name || "Author"}
               className="w-9 h-9 rounded-full border"
             />
             <div>
-              <p className="font-medium text-sm">{author?.name || "Anonymous"}</p>
+              <p className="font-medium text-sm text-gray-900">
+                {author?.name || "Anonymous"}
+              </p>
               <p className="text-xs text-gray-500">
                 {createdAt
                   ? moment(createdAt).format("MMM D, YYYY")
@@ -70,7 +83,7 @@ const BlogCard = ({ blog }) => {
                 · <span className="text-green-500 font-semibold"><ViewCount blogId={_id} /></span>
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Image */}

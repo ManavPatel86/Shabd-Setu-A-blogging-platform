@@ -2,6 +2,12 @@ export const RouteIndex = '/'
 export const RouteSignIn = "/signin";
 export const RouteSignUp = "/signup";
 export const RouteProfile = "/profile";
+export const RouteProfileView = (userId) => {
+    if (userId) {
+        return `/profile/view/${userId}`;
+    }
+    return "/profile/view/:userId";
+};
 
 // Admin Category Routes
 export const RouteCategoryDetails = "/categories";

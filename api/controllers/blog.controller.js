@@ -156,6 +156,25 @@ export const getRelatedBlog = async (req, res, next) => {
     }
 }
 
+export const getBlogsByAuthor = async (req, res, next) => {
+    try {
+        const { authorId } = req.params
+
+        const blogs = await Blog.find({ author: authorId })
+            .populate('author', 'name avatar role')
+            .populate('category', 'name slug')
+            .sort({ createdAt: -1 })
+            .lean()
+            .exec()
+
+        res.status(200).json({
+            blog: blogs
+        })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
 export const getBlogByCategory = async (req, res, next) => {
     try {
         const { category } = req.params
