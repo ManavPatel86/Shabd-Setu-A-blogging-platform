@@ -8,6 +8,7 @@ import {
     RouteBlogEdit,
     RouteIndex,
     RouteProfile,
+    RouteProfileView,
     RouteSignIn,
     RouteSignUp,
     RouteBlogDetails,
@@ -19,6 +20,7 @@ import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
+import ProfileView from "./Pages/ProfileView";
 import AddCategory from './pages/Category/AddCategory'
 import CategoryDetails from './pages/Category/CategoryDetails'
 import EditCategory from './pages/Category/EditCategory'
@@ -35,6 +37,7 @@ function App() {
                 <Route path={RouteIndex} element={<Layout />}>
                     <Route index element={<Index />} />
                     <Route path={RouteProfile} element={<Profile />} />
+                    <Route path={RouteProfileView()} element={<ProfileView />} />
                     <Route path={RouteAddCategory} element={<AddCategory />} />
                     <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
                     <Route path={RouteEditCategory()} element={<EditCategory />} />
