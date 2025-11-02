@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { RouteBlogDetails } from "@/helpers/RouteName";
 import LikeCount from "./LikeCount";
+import ViewCount from "./ViewCount";
 
 const BlogCard = ({ blog }) => {
   // ✅ Defensive check to prevent crash if blog is undefined
@@ -66,7 +67,7 @@ const BlogCard = ({ blog }) => {
                 {createdAt
                   ? moment(createdAt).format("MMM D, YYYY")
                   : "Unknown date"}{" "}
-                · <span className="text-green-500 font-semibold">2.6K</span>
+                · <span className="text-green-500 font-semibold"><ViewCount blogId={_id} /></span>
               </p>
             </div>
           </div>
