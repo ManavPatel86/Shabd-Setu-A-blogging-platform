@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
@@ -6,16 +6,25 @@ import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
-import { useState } from "react";
+import { useSelector } from "react-redux";
+import { RouteSignIn } from "@/helpers/RouteName";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
   const [showComments, setShowComments] = useState(false);
+  const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate(RouteSignIn, { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
 
   const { data, loading } = useFetch(
     `${getEnv("VITE_API_BASE_URL")}/blog/get-blog/${blog}`,
