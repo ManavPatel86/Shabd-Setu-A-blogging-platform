@@ -17,7 +17,7 @@ import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
-import { RouteIndex } from "@/helpers/RouteName";
+import { RouteIndex, RouteFollowing } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
 import { RouteCategoryDetails } from "@/helpers/RouteName";
@@ -86,7 +86,7 @@ function AppSidebar({ className }) {
                                 
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link to="" className="flex items-center gap-2">
+                                        <Link to={RouteFollowing} className="flex items-center gap-2">
                                             <LuUsers />
                                             Following
                                         </Link>
