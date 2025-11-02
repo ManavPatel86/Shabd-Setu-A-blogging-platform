@@ -6,6 +6,7 @@ import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
 import BlogCard from "@/components/BlogCard";
+import FollowButton from "@/components/FollowButton";
 
 const ProfileView = () => {
   const { userId } = useParams();
@@ -34,8 +35,19 @@ const ProfileView = () => {
     [userId]
   );
 
+  const {
+    data: followStats,
+    loading: statsLoading,
+  } = useFetch(
+    `${getEnv("VITE_API_BASE_URL")}/follow/stats/${userId}`,
+    { method: "get", credentials: "include" },
+    [userId]
+  );
+
   const profile = userData?.user;
   const blogs = blogData?.blog || [];
+  const followersCount = followStats?.followersCount || 0;
+  const followingCount = followStats?.followingCount || 0;
 
   const { totalViews, categoryLabels } = useMemo(() => {
     const views = blogs.reduce((acc, item) => acc + (item.views || 0), 0);
@@ -102,10 +114,14 @@ const ProfileView = () => {
                   </p>
                 )}
               </div>
+              
+              <div className="flex items-end pb-2">
+                <FollowButton userId={userId} className="px-6 py-2" />
+              </div>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8 pt-8 border-t border-gray-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-200">
               <div className="text-center p-4 bg-blue-50 rounded-xl">
                 <p className="text-3xl font-bold text-blue-600">{blogs.length}</p>
                 <p className="text-sm text-gray-600 mt-1">
@@ -116,11 +132,15 @@ const ProfileView = () => {
                 <p className="text-3xl font-bold text-purple-600">{totalViews}</p>
                 <p className="text-sm text-gray-600 mt-1">Total Views</p>
               </div>
-              <div className="text-center p-4 bg-green-50 rounded-xl col-span-2 sm:col-span-1">
-                <p className="text-3xl font-bold text-green-600">{categoryLabels.length}</p>
+              <div className="text-center p-4 bg-green-50 rounded-xl">
+                <p className="text-3xl font-bold text-green-600">{followersCount}</p>
                 <p className="text-sm text-gray-600 mt-1">
-                  {categoryLabels.length === 1 ? "Category" : "Categories"}
+                  {followersCount === 1 ? "Follower" : "Followers"}
                 </p>
+              </div>
+              <div className="text-center p-4 bg-orange-50 rounded-xl">
+                <p className="text-3xl font-bold text-orange-600">{followingCount}</p>
+                <p className="text-sm text-gray-600 mt-1">Following</p>
               </div>
             </div>
           </div>

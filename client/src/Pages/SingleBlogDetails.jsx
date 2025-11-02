@@ -7,10 +7,11 @@ import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
 import { useNavigate, useParams } from "react-router-dom";
-import { MessageCircle, Share2, Bookmark } from "lucide-react";
+import { MessageCircle, Share2, Bookmark, Eye } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
+import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
 import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 
@@ -61,21 +62,25 @@ const SingleBlogDetails = () => {
       </p>
 
       {/* Author */}
-      <button
-        type="button"
-        onClick={handleAuthorProfile}
-        className="flex items-center gap-3 mt-6 text-left focus:outline-none"
-      >
-        <Avatar className="h-12 w-12 border shadow-sm">
-          <AvatarImage src={b?.author?.avatar} />
-        </Avatar>
-        <div>
-          <p className="text-gray-900 font-medium">{b?.author?.name}</p>
-          <p className="text-sm text-gray-500">
-            {moment(b.createdAt).format("MMM D, YYYY")} • 5 min read
-          </p>
-        </div>
-      </button>
+      <div className="flex items-center justify-between mt-6">
+        <button
+          type="button"
+          onClick={handleAuthorProfile}
+          className="flex items-center gap-3 text-left focus:outline-none hover:opacity-80 transition"
+        >
+          <Avatar className="h-12 w-12 border shadow-sm">
+            <AvatarImage src={b?.author?.avatar} />
+          </Avatar>
+          <div>
+            <p className="text-gray-900 font-medium">{b?.author?.name}</p>
+            <p className="text-sm text-gray-500">
+              {moment(b.createdAt).format("MMM D, YYYY")} • 5 min read
+            </p>
+          </div>
+        </button>
+        
+        <FollowButton userId={b?.author?._id} className="px-4 py-2" />
+      </div>
 
       {/* Image */}
       <div className="mt-10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)]">
@@ -105,7 +110,10 @@ const SingleBlogDetails = () => {
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
         <LikeCount props={{ blogid: b._id }} />
-        <ViewCount blogId={b._id} addView={true} />
+        <div className="flex items-center gap-1 text-sm">
+          <Eye className="h-5 w-5" />
+          <ViewCount blogId={b._id} addView={true} />
+        </div>
         <button 
           onClick={() => setShowComments(!showComments)} 
           className="flex items-center gap-1 text-sm hover:text-black transition">

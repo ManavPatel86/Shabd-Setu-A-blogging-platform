@@ -12,7 +12,8 @@ import {
     RouteSignIn,
     RouteSignUp,
     RouteBlogDetails,
-    RouteSearch, // Added this import
+    RouteSearch,
+    RouteFollowing,
 } from "./helpers/RouteName";
 import AddBlog from "./pages/Blog/AddBlog";
 import EditBlog from "./pages/Blog/EditBlog";
@@ -21,6 +22,7 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
 import ProfileView from "./Pages/ProfileView";
+import Following from "./Pages/Following";
 import AddCategory from './pages/Category/AddCategory'
 import CategoryDetails from './pages/Category/CategoryDetails'
 import EditCategory from './pages/Category/EditCategory'
@@ -38,6 +40,7 @@ function App() {
                     <Route index element={<Index />} />
                     <Route path={RouteProfile} element={<Profile />} />
                     <Route path={RouteProfileView()} element={<ProfileView />} />
+                    <Route path={RouteFollowing} element={<Following />} />
                     <Route path={RouteAddCategory} element={<AddCategory />} />
                     <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
                     <Route path={RouteEditCategory()} element={<EditCategory />} />
