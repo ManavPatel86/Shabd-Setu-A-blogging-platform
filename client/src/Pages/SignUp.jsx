@@ -11,7 +11,6 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { RouteSignIn, RouteIndex } from "@/helpers/RouteName";
 import { showToast } from "@/helpers/showToast";   
-import { getEnv } from "@/helpers/getEnv";
 
 import GoogleLogin from '@/components/ui/GoogleLogin';
 import { CiMail } from "react-icons/ci";
@@ -25,8 +24,10 @@ const SignUp = () => {
     const [step, setStep] = useState('register');
     const [pendingEmail, setPendingEmail] = useState('');
     const [otp, setOtp] = useState('');
+    const rawResendInterval = Number(import.meta.env.VITE_OTP_RESEND_INTERVAL_MINUTES || 5);
+    const RESEND_INTERVAL_SECONDS = 60 * (Number.isNaN(rawResendInterval) ? 5 : rawResendInterval);
     const [resendDisabled, setResendDisabled] = useState(false);
-    const [resendTimer, setResendTimer] = useState(30);
+    const [resendTimer, setResendTimer] = useState(0);
 
     const formSchema = z.object({
         name: z.string().min(2, "Name must be at least 2 characters"),
@@ -48,6 +49,26 @@ const SignUp = () => {
         },
     });
 
+    React.useEffect(() => {
+        if (!resendDisabled) return;
+        if (resendTimer <= 0) {
+            setResendDisabled(false);
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setResendTimer((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [resendDisabled, resendTimer]);
+
     async function onSubmit(values) {
         setIsLoading(true);
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
@@ -58,8 +79,11 @@ const SignUp = () => {
         const data = await response.json();
         setIsLoading(false);
         if (!response.ok) return showToast('error', data.message);
-        setPendingEmail(values.email);
+        setPendingEmail(values.email.trim().toLowerCase());
         setStep('otp');
+        setOtp('');
+        setResendTimer(RESEND_INTERVAL_SECONDS);
+        setResendDisabled(true);
         showToast('success', 'OTP sent to your email. Enter it below.');
     }
 
@@ -81,8 +105,10 @@ const SignUp = () => {
     }
 
     const handleResendOtp = async () => {
-        setResendDisabled(true);
-        setResendTimer(30);
+        if (!pendingEmail) {
+            return showToast('error', 'No email found. Please register again.');
+        }
+        if (resendDisabled) return;
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/resend-otp`, {
             method: 'POST',
             headers: { 'Content-type': 'application/json' },
@@ -91,20 +117,21 @@ const SignUp = () => {
         const data = await response.json();
         if (response.ok) {
             showToast('success', 'OTP resent to your email.');
+            setResendTimer(RESEND_INTERVAL_SECONDS);
+            setResendDisabled(true);
         } else {
             showToast('error', data.message);
-        }
-
-        const timer = setInterval(() => {
-            setResendTimer((prev) => {
-                if (prev === 1) {
-                    clearInterval(timer);
-                    setResendDisabled(false);
-                    return 30;
+            if (response.status === 429) {
+                const secondsMatch = data.message?.match(/(\d+)/);
+                if (secondsMatch) {
+                    const seconds = Number(secondsMatch[1]);
+                    if (!Number.isNaN(seconds)) {
+                        setResendTimer(seconds);
+                        setResendDisabled(true);
+                    }
                 }
-                return prev - 1;
-            });
-        }, 1000);
+            }
+        }
     }
 
     return (
@@ -134,7 +161,8 @@ const SignUp = () => {
                 </div>
 
                 {/* Form */}
-                <Form {...form}>
+                {step === 'register' && (
+                    <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         {/* Name Field */}
                         <FormField
@@ -248,6 +276,7 @@ const SignUp = () => {
                         </Button>
                     </form>
                 </Form>
+                )}
 
                 {/* OTP Verification Form - Step 2 */}
                 {step === 'otp' && (
