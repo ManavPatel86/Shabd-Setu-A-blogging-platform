@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    isVerified: { 
+        type: Boolean,
+        default: false
+    },
     savedBlogs: {
         type: [{
             type: mongoose.Schema.Types.ObjectId,
