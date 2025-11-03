@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
@@ -11,6 +11,11 @@ import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import ViewCount from "@/components/ViewCount";
+import FollowButton from "@/components/FollowButton";
+import { useSelector } from "react-redux";
+import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
@@ -26,6 +31,14 @@ const SingleBlogDetails = () => {
       }, 100);
     }
   }, [searchParams]);
+  const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate(RouteSignIn, { replace: true });
+    }
+  }, [isLoggedIn, navigate]);
 
   const { data, loading } = useFetch(
     `${getEnv("VITE_API_BASE_URL")}/blog/get-blog/${blog}`,
@@ -36,6 +49,11 @@ const SingleBlogDetails = () => {
   if (loading) return <Loading />;
 
   const b = data?.blog;
+  const handleAuthorProfile = () => {
+    if (b?.author?._id) {
+      navigate(RouteProfileView(b.author._id));
+    }
+  };
   if (!b) return <div className="text-center py-10 text-gray-500">Blog not found</div>;
 
   return (
@@ -57,16 +75,24 @@ const SingleBlogDetails = () => {
       </p>
 
       {/* Author */}
-      <div className="flex items-center gap-3 mt-6">
-        <Avatar className="h-12 w-12 border shadow-sm">
-          <AvatarImage src={b?.author?.avatar} />
-        </Avatar>
-        <div>
-          <p className="text-gray-900 font-medium">{b?.author?.name}</p>
-          <p className="text-sm text-gray-500">
-            {moment(b.createdAt).format("MMM D, YYYY")} • 5 min read
-          </p>
-        </div>
+      <div className="flex items-center justify-between mt-6">
+        <button
+          type="button"
+          onClick={handleAuthorProfile}
+          className="flex items-center gap-3 text-left focus:outline-none hover:opacity-80 transition"
+        >
+          <Avatar className="h-12 w-12 border shadow-sm">
+            <AvatarImage src={b?.author?.avatar} />
+          </Avatar>
+          <div>
+            <p className="text-gray-900 font-medium">{b?.author?.name}</p>
+            <p className="text-sm text-gray-500">
+              {moment(b.createdAt).format("MMM D, YYYY")} • 5 min read
+            </p>
+          </div>
+        </button>
+        
+        <FollowButton userId={b?.author?._id} className="px-4 py-2" />
       </div>
 
       {/* Image */}
@@ -97,6 +123,10 @@ const SingleBlogDetails = () => {
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
         <LikeCount blogid={b._id} />
+        <div className="flex items-center gap-1 text-sm">
+          <Eye className="h-5 w-5" />
+          <ViewCount blogId={b._id} addView={true} />
+        </div>
         <button 
           onClick={() => setShowComments(!showComments)} 
           className="flex items-center gap-1 text-sm hover:text-black transition">
