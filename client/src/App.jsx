@@ -13,6 +13,7 @@ import {
     RouteSignUp,
     RouteBlogDetails,
     RouteSearch,
+    RouteCommentDetails
     RouteFollowing,
 } from "./helpers/RouteName";
 import AddBlog from "./pages/Blog/AddBlog";
@@ -21,6 +22,7 @@ import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
+import Comments from "./pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";
 import AddCategory from './pages/Category/AddCategory'
@@ -50,6 +52,9 @@ function App() {
                     <Route path={RouteBlog} element={<BlogDetails />} />
                     <Route path={RouteBlogEdit()} element={<EditBlog />} />
                     <Route path={RouteSearch()} element={<SearchResult />} />
+
+                    {/* Comments */}
+                    <Route path={RouteCommentDetails} element={<Comments />} />
 
                     {/* This is the new public blog detail route */}
                     <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />

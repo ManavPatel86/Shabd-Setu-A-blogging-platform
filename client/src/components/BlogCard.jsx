@@ -23,8 +23,16 @@ const BlogCard = ({ blog }) => {
 
   const navigate = useNavigate();
 
-  const handleOpen = () => {
-    navigate(RouteBlogDetails(category?.slug, slug || _id));
+  const navigateToBlog = (showComments = false) => {
+    navigate(RouteBlogDetails(category?.slug, slug || _id) + (showComments ? '?comments=true' : ''));
+  };
+
+  const handleCardClick = (e) => {
+    // If the click is coming from the actions bar, don't navigate
+    if (e.target.closest('.blog-actions')) {
+      return;
+    }
+    navigateToBlog(false);
   };
 
   const handleAuthorClick = (event) => {
@@ -36,7 +44,7 @@ const BlogCard = ({ blog }) => {
 
   return (
     <div
-      onClick={handleOpen}
+      onClick={handleCardClick}
       className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all cursor-pointer flex flex-col p-5"
     >
       {/* Top Category */}
@@ -101,9 +109,14 @@ const BlogCard = ({ blog }) => {
         <button className="flex items-center gap-1 text-gray-600 hover:text-black text-sm">
           <Bot className="h-4 w-4" /> Summary
         </button>
-        <div className="flex items-center gap-4 text-gray-500" onClick={(e) => e.stopPropagation()}>
-          <LikeCount props={{ blogid: _id }} />
-          <MessageCircle className="h-4 w-4 hover:text-black" />
+        <div className="blog-actions flex items-center gap-4 text-gray-500">
+          <LikeCount blogid={_id} />
+          <button onClick={(e) => {
+            e.preventDefault();
+            navigateToBlog(true);
+          }} className="flex items-center gap-1 text-gray-600 hover:text-black">
+            <MessageCircle className="h-4 w-4" />
+          </button>
           <Share2 className="h-4 w-4 hover:text-black" />
           <Bookmark className="h-4 w-4 hover:text-black" />
         </div>

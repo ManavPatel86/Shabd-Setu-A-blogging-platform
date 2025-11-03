@@ -1,18 +1,32 @@
 import { handleError } from "../helpers/handleError.js"
 import Comment from "../models/comment.model.js"
+import mongoose from "mongoose"
 export const addcomment = async (req, res, next) => {
     try {
-       const { user, blogid, comment } = req.body
+        const { blogid, comment } = req.body
+        
+        if (!blogid || !comment) {
+            return next(handleError(400, 'Blog ID and comment are required'))
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(blogid)) {
+            return next(handleError(400, 'Invalid blog ID'))
+        }
+
         const newComment = new Comment({
-            user: user,
+            user: req.user._id, // Get user from auth middleware
             blogid: blogid,
-            comment: comment
+            comment: comment.trim()
         })
 
         await newComment.save()
+
+        // Populate the user details for immediate display
+        await newComment.populate('user', 'name avatar')
+
         res.status(200).json({
             success: true,
-            message: 'Comment submited.',
+            message: 'Comment submitted successfully.',
             comment: newComment
         })
 
@@ -53,11 +67,33 @@ export const getAllComments = async (req, res, next) => {
         const user = req.user
         let comments
         if (user.role === 'admin') {
-            comments = await Comment.find().populate('blogid', 'title').populate('user', 'name')
-
+            comments = await Comment.find()
+                .populate({
+                    path: 'blogid',
+                    select: 'title slug category',
+                    populate: {
+                        path: 'category',
+                        select: 'name slug'
+                    }
+                })
+                .populate('user', 'name avatar')
+                .sort({ createdAt: -1 })
+                .lean()
+                .exec()
         } else {
-
-            comments = await Comment.find({ user: user._id }).populate('blogid', 'title').populate('user', 'name')
+            comments = await Comment.find({ user: user._id })
+                .populate({
+                    path: 'blogid',
+                    select: 'title slug category',
+                    populate: {
+                        path: 'category',
+                        select: 'name slug'
+                    }
+                })
+                .populate('user', 'name avatar')
+                .sort({ createdAt: -1 })
+                .lean()
+                .exec()
         }
 
         res.status(200).json({

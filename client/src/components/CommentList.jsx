@@ -6,7 +6,7 @@ import { AvatarImage } from '@radix-ui/react-avatar'
 import usericon from '@/assets/images/user.png'
 import moment from 'moment'
 
-const CommentList = ({ blogId }) => {
+const CommentList = ({ blogid }) => {
     const [refreshKey, setRefreshKey] = useState(0);
     
     useEffect(() => {
@@ -15,7 +15,7 @@ const CommentList = ({ blogId }) => {
         return () => window.removeEventListener('refreshComments', handleRefresh);
     }, []);
 
-    const { data, loading } = useFetch(`${getEnv('VITE_API_BASE_URL')}/comment/get/${blogId}`, {
+    const { data, loading } = useFetch(`${getEnv('VITE_API_BASE_URL')}/comment/get/${blogid}`, {
         method: 'get',
         credentials: 'include',
     }, [refreshKey]);

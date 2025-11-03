@@ -23,7 +23,7 @@ import { useSelector } from "react-redux";
 import { RouteCategoryDetails } from "@/helpers/RouteName";
 import { RouteEditCategory } from "@/helpers/RouteName";
 import { RouteBlog } from "@/helpers/RouteName";
-
+import { RouteCommentDetails } from "@/helpers/RouteName";
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
@@ -77,7 +77,7 @@ function AppSidebar({ className }) {
                                 
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link to="" className="flex items-center gap-2">
+                                        <Link to={RouteCommentDetails} className="flex items-center gap-2">
                                             <FaRegComments />
                                             Comments
                                         </Link>

@@ -6,10 +6,12 @@ import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
-import { useNavigate, useParams } from "react-router-dom";
-import { MessageCircle, Share2, Bookmark, Eye } from "lucide-react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
@@ -17,7 +19,18 @@ import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
+  const [searchParams] = useSearchParams();
   const [showComments, setShowComments] = useState(false);
+  const commentsRef = useRef(null);
+
+  useEffect(() => {
+    if (searchParams.get('comments') === 'true') {
+      setShowComments(true);
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [searchParams]);
   const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
   const navigate = useNavigate();
 
@@ -109,7 +122,7 @@ const SingleBlogDetails = () => {
 
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
-        <LikeCount props={{ blogid: b._id }} />
+        <LikeCount blogid={b._id} />
         <div className="flex items-center gap-1 text-sm">
           <Eye className="h-5 w-5" />
           <ViewCount blogId={b._id} addView={true} />
@@ -129,8 +142,8 @@ const SingleBlogDetails = () => {
 
       {/* Comments Section */}
       {showComments && (
-        <div className="mt-10 border-t pt-6">
-          <Comments props={{ blogid: b._id }} />
+        <div ref={commentsRef} className="mt-10 border-t pt-6">
+          <Comments blogid={b._id} />
         </div>
       )}
     </div>

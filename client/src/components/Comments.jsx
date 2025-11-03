@@ -13,35 +13,32 @@ import { RouteSignIn } from '@/helpers/RouteName';
 import { Link } from 'react-router-dom';
 import CommentList from './CommentList';
 
-const Comments = ({ props }) => {
+const Comments = ({ blogid }) => {
     const user = useSelector((state)=> state.user)
 
     const formSchema = z.object({
         comment: z.string().min(3, 'Comment must be at least 3 character long.'),
-        
     })
   
-      const form = useForm({
-          resolver: zodResolver(formSchema),
-          defaultValues: {
-              comment: '',
-              
-          },
-      })
+    const form = useForm({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            comment: '',
+        },
+    })
 
-      async function onSubmit(values) {
-                try {
-                    const newValues = {
-                        blogid: props.blogid,
-                        user: user.user._id,
-                        comment: values.comment
-                    }
-                    const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/comment/add`, {
-                        method: 'POST',
-                        headers: { 'Content-type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify(newValues)
-                    })
+    async function onSubmit(values) {
+        try {
+            const newValues = {
+                blogid,
+                comment: values.comment
+            }
+            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/comment/add`, {
+                method: 'POST',
+                headers: { 'Content-type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(newValues)
+            })
                     const data = await response.json()
                     if (!response.ok) {
                         return showToast('error', data.message)
@@ -58,7 +55,7 @@ const Comments = ({ props }) => {
     <div>
         <h4 className='flex items-center gap-2 text-2xl font-bold mb-4'>
         <FaRegComments /> Comments </h4>
-        <CommentList blogId={props.blogid} />
+        <CommentList blogid={blogid} />
         {user && user.isLoggedIn 
         ?
         <Form {...form}>
