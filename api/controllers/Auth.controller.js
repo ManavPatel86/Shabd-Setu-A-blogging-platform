@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
 import User from "../models/user.model.js"
-import OtpCode from "../models/otpCode.model.js"
 import bcryptjs from 'bcryptjs'
 import { handleError } from "../helpers/handleError.js";
 import jwt from 'jsonwebtoken'
@@ -16,98 +14,130 @@ const minutesToMs = mins => mins * 60 * 1000;
 
 export const Register = async (req, res, next) => {
     try {
-        console.log(req.body);
-        const { name, email, password } = req.body
-        const checkuser = await User.findOne({ email })
-        if (checkuser) {
-            // user already registered 
-            next(handleError(409, 'User already registered.'))
+        const { name, email, password } = req.body;
+
+        if (!name || !email || !password) {
+            return next(handleError(400, "Name, email and password are required."));
         }
 
-        const hashedPassword = bcryptjs.hashSync(password)
-        // register user  
-        const user = new User({
-            name,
-            email,
-            password: hashedPassword,
-            isVerified: false
-        })
+        const normalizedEmail = email.trim().toLowerCase();
 
-        const savedUser = await user.save();
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) {
+            return next(handleError(409, "User already registered."));
+        }
 
-        // create and send OTP
+        const hashedPassword = bcryptjs.hashSync(password);
+
         await createAndSendOtp({
-        userId: savedUser._id,
-        email: savedUser.email,
-        sendEmailFn: async ({ email, code, expiresAt }) => {
-            // re-use your mailer
-            await sendOtpEmail({ to: email, code, expiresAt });
-        }
+            email: normalizedEmail,
+            pendingUser: {
+                name: name.trim(),
+                passwordHash: hashedPassword,
+                role: "user"
+            },
+            sendEmailFn: async ({ email: targetEmail, code, expiresAt }) => {
+                await sendOtpEmail({ to: targetEmail, code, expiresAt });
+            }
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            message: 'Registration successful. OTP sent to email for verification.',
-            data: { userId: savedUser._id, email: savedUser.email, otpExpiryMinutes: OTP_EXPIRY_MINUTES }
-        })
+            message: "OTP sent to your email for verification.",
+            data: {
+                email: normalizedEmail,
+                otpExpiryMinutes: OTP_EXPIRY_MINUTES,
+                resendIntervalMinutes: RESEND_INTERVAL_MINUTES
+            }
+        });
 
     } catch (error) {
-        next(handleError(500, error.message))
+        return next(handleError(500, error.message));
     }
-}
+};
 
 export const verifyOtp = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
         if (!email || !otp) {
-            return next(handleError(400, 'Email and OTP are required.'));
+            return next(handleError(400, "Email and OTP are required."));
         }
 
-        const entry = await OtpCode.findOne({ email }).sort({ createdAt: -1 });
-        if (!entry) {
-            return next(handleError(404, 'OTP not found.'));
-        }
-        if (entry.expiresAt < new Date()) {
-            return next(handleError(400, 'OTP expired.'));
-        }
-        if (entry.code !== otp) {
-            entry.attempts += 1;
-            await entry.save();
-            return next(handleError(400, 'Invalid OTP.'));
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const pendingUser = await verifyOtpUtil({ email: normalizedEmail, code: otp });
+
+        if (!pendingUser) {
+            return next(handleError(400, "No pending registration found. Please register again."));
         }
 
-        await User.updateOne({ email }, { $set: { isVerified: true } });
-        await OtpCode.deleteMany({ email });
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) {
+            return res.status(200).json({ success: true, message: "Email already verified. Please sign in." });
+        }
 
-        return res.status(200).json({ success: true, message: 'Email verified.' });
+        if (!pendingUser.passwordHash || !pendingUser.name) {
+            return next(handleError(400, "Pending registration data is incomplete. Please register again."));
+        }
+
+        const newUser = new User({
+            name: pendingUser.name,
+            email: normalizedEmail,
+            password: pendingUser.passwordHash,
+            role: pendingUser.role || "user",
+            avatar: pendingUser.avatar
+        });
+
+        await newUser.save();
+
+        return res.status(200).json({ success: true, message: "Email verified. Registration complete." });
     } catch (error) {
-        next(handleError(500, error.message));
+        if (error.code === "OTP_NOT_FOUND" || error.code === "OTP_EXPIRED" || error.code === "INVALID_OTP") {
+            return next(handleError(400, error.message));
+        }
+        return next(handleError(500, error.message));
     }
 };
 
 export const resendOtp = async (req, res, next) => {
     try {
-        const { userId, email } = req.body;
-        if (!userId || !email) return next(handleError(400, "Missing required fields: userId, email"));
+        const { email } = req.body;
+        if (!email) {
+            return next(handleError(400, "Email is required."));
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
 
         try {
-        const otpDoc = await resendOtpUtil({
-            userId,
-            email,
-            sendEmailFn: async ({ email, code, expiresAt }) => {
-            await sendOtpEmail({ to: email, code, expiresAt });
-            }
-        });
+            const otpDoc = await resendOtpUtil({
+                email: normalizedEmail,
+                sendEmailFn: async ({ email: targetEmail, code, expiresAt }) => {
+                    await sendOtpEmail({ to: targetEmail, code, expiresAt });
+                }
+            });
 
-        res.status(200).json({
-            success: true,
-            message: "OTP resent successfully.",
-            data: { lastSentAt: otpDoc.lastSentAt, resendCount: otpDoc.resendCount, otpExpiryMinutes: OTP_EXPIRY_MINUTES }
-        });
+            const nextAllowedAt = new Date(otpDoc.lastSentAt.getTime() + minutesToMs(RESEND_INTERVAL_MINUTES));
+
+            return res.status(200).json({
+                success: true,
+                message: "OTP resent successfully.",
+                data: {
+                    lastSentAt: otpDoc.lastSentAt,
+                    resendCount: otpDoc.resendCount,
+                    nextAllowedAt,
+                    otpExpiryMinutes: OTP_EXPIRY_MINUTES
+                }
+            });
 
         } catch (err) {
-        if (err.code === "RESEND_TOO_SOON") return next(handleError(429, err.message));
-        return next(handleError(400, err.message));
+            if (err.code === "RESEND_TOO_SOON") {
+                const waitSeconds = err.waitSeconds || RESEND_INTERVAL_MINUTES * 60;
+                return next(handleError(429, `Resend allowed after ${waitSeconds} second(s).`));
+            }
+            if (err.code === "OTP_NOT_FOUND") {
+                return next(handleError(404, err.message));
+            }
+            return next(handleError(400, err.message));
         }
 
     } catch (error) {
@@ -159,18 +189,18 @@ export const Login = async (req, res) => {
 export const GoogleLogin = async (req, res, next) => {
     try {
         const { name, email, avatar } = req.body
+        const normalizedEmail = email?.trim().toLowerCase();
         let user
-        user = await User.findOne({ email })
+        user = await User.findOne({ email: normalizedEmail })
         if (!user) {
             //  create new user 
             const password = Math.random().toString()
             const hashedPassword = bcryptjs.hashSync(password)
             const newUser = new User({
                 name,
-                email,
+                email: normalizedEmail,
                 password: hashedPassword,
-                avatar,
-                isVerified: true
+                avatar
             })
 
             user = await newUser.save()
