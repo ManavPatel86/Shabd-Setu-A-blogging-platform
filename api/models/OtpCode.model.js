@@ -13,4 +13,5 @@ const OtpCodeSchema = new mongoose.Schema({
 // TTL index will remove document after expiresAt
 OtpCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model('OtpCode', OtpCodeSchema);
+const OtpCode = mongoose.model('OtpCode', OtpCodeSchema);
+export default OtpCode;

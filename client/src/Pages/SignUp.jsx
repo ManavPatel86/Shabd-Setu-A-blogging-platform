@@ -22,6 +22,11 @@ const SignUp = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [step, setStep] = useState('register');
+    const [pendingEmail, setPendingEmail] = useState('');
+    const [otp, setOtp] = useState('');
+    const [resendDisabled, setResendDisabled] = useState(false);
+    const [resendTimer, setResendTimer] = useState(30);
 
     const formSchema = z.object({
         name: z.string().min(2, "Name must be at least 2 characters"),
@@ -44,24 +49,62 @@ const SignUp = () => {
     });
 
     async function onSubmit(values) {
-        try {
-            console.log("ENV VALUE = ", import.meta.env.VITE_API_BASE_URL);
-            console.log("HELPER VALUE = ", getEnv("VITE_API_BASE_URL"));
-            const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-type': 'application/json' },
-                body: JSON.stringify(values)
-            })
-            const data = await response.json()
-            if (!response.ok) {
-                return showToast('error', data.message)
-            }
+        setIsLoading(true);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify(values)
+        })
+        const data = await response.json();
+        setIsLoading(false);
+        if (!response.ok) return showToast('error', data.message);
+        setPendingEmail(values.email);
+        setStep('otp');
+        showToast('success', 'OTP sent to your email. Enter it below.');
+    }
 
-            navigate(RouteIndex)
-            showToast('success', data.message)
-        } catch (error) {
-            showToast('error', error.message)
+    async function handleVerifyOtp(e) {
+        e.preventDefault();
+        if (otp.length !== 6) return showToast('error', 'Enter 6-digit OTP');
+        setIsLoading(true);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email: pendingEmail, otp })
+        });
+        const data = await response.json();
+        setIsLoading(false);
+        if (!response.ok) return showToast('error', data.message);
+        showToast('success', 'Email verified. You can sign in now.');
+        navigate(RouteSignIn);
+    }
+
+    const handleResendOtp = async () => {
+        setResendDisabled(true);
+        setResendTimer(30);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/resend-otp`, {
+            method: 'POST',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify({ email: pendingEmail })
+        })
+        const data = await response.json();
+        if (response.ok) {
+            showToast('success', 'OTP resent to your email.');
+        } else {
+            showToast('error', data.message);
         }
+
+        const timer = setInterval(() => {
+            setResendTimer((prev) => {
+                if (prev === 1) {
+                    clearInterval(timer);
+                    setResendDisabled(false);
+                    return 30;
+                }
+                return prev - 1;
+            });
+        }, 1000);
     }
 
     return (
@@ -205,6 +248,37 @@ const SignUp = () => {
                         </Button>
                     </form>
                 </Form>
+
+                {/* OTP Verification Form - Step 2 */}
+                {step === 'otp' && (
+                    <form onSubmit={handleVerifyOtp} className="space-y-6">
+                        <p className="text-sm text-gray-600">Enter the 6-digit code sent to {pendingEmail}</p>
+                        <Input
+                            type="text"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            maxLength={6}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg"
+                            placeholder="Enter OTP"
+                        />
+                        <Button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg"
+                        >
+                            {isLoading ? 'Verifying...' : 'Verify OTP'}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={handleResendOtp}
+                            disabled={resendDisabled}
+                            className="w-full h-14 text-[#2563EB] font-semibold rounded-xl shadow-lg"
+                        >
+                            {resendDisabled ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                        </Button>
+                    </form>
+                )}
 
                 {/* Divider */}
                 <div className="mt-8 pt-6 border-t border-gray-200">
