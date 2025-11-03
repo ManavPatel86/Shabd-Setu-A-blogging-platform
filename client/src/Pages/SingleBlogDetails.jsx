@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
@@ -6,18 +6,30 @@ import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
-import { useNavigate, useParams } from "react-router-dom";
-import { MessageCircle, Share2, Bookmark, Eye } from "lucide-react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { MessageCircle, Share2, Eye } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
 import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
+import SaveButton from "@/components/SaveButton";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
+  const [searchParams] = useSearchParams();
   const [showComments, setShowComments] = useState(false);
+  const commentsRef = useRef(null);
+
+  useEffect(() => {
+    if (searchParams.get('comments') === 'true') {
+      setShowComments(true);
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [searchParams]);
   const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
   const navigate = useNavigate();
 
@@ -109,7 +121,7 @@ const SingleBlogDetails = () => {
 
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
-        <LikeCount props={{ blogid: b._id }} />
+        <LikeCount blogid={b._id} />
         <div className="flex items-center gap-1 text-sm">
           <Eye className="h-5 w-5" />
           <ViewCount blogId={b._id} addView={true} />
@@ -122,15 +134,13 @@ const SingleBlogDetails = () => {
         <button className="flex items-center gap-1 text-sm hover:text-black transition">
           <Share2 className="h-5 w-5" /> Share
         </button>
-        <button className="flex items-center gap-1 text-sm hover:text-black transition">
-          <Bookmark className="h-5 w-5" /> Save
-        </button>
+        <SaveButton blogId={b._id} withLabel className="text-sm" />
       </div>
 
       {/* Comments Section */}
       {showComments && (
-        <div className="mt-10 border-t pt-6">
-          <Comments props={{ blogid: b._id }} />
+        <div ref={commentsRef} className="mt-10 border-t pt-6">
+          <Comments blogid={b._id} />
         </div>
       )}
     </div>

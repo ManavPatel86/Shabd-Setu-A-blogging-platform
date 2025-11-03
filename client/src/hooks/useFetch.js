@@ -8,6 +8,12 @@ export const useFetch = (url, options = {}, dependencies = []) => {
 
     useEffect(() => {
         const fetData = async () => {
+            if (!url) {
+                setLoading(false)
+                setData(undefined)
+                setError(undefined)
+                return
+            }
             setLoading(true)
             try {
                 const response = await fetch(url, options)

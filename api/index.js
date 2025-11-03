@@ -13,6 +13,7 @@ import CommentRouote from './routes/Comment.route.js'
 import BlogLikeRoute from './routes/Bloglike.route.js'
 import ViewRoute from './routes/view.route.js'
 import FollowRoute from './routes/follow.route.js'
+import SaveRoute from './routes/save.route.js'
 
 import { log } from 'console';
 import Blog from './models/blog.model.js';
@@ -40,6 +41,7 @@ app.use('/api/comment',CommentRouote)
 app.use('/api/bloglike',BlogLikeRoute)
 app.use('/api/view', ViewRoute)
 app.use('/api/follow', FollowRoute)
+app.use('/api/save', SaveRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
