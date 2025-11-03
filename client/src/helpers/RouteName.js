@@ -9,6 +9,7 @@ export const RouteProfileView = (userId) => {
     return "/profile/view/:userId";
 };
 export const RouteFollowing = "/following";
+export const RouteSaved = "/saved";
 
 // Admin Category Routes
 export const RouteCategoryDetails = "/categories";

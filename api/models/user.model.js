@@ -31,6 +31,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    savedBlogs: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Blog'
+        }],
+        default: []
+    }
 })
 
 const User = mongoose.model('User', userSchema, 'users')

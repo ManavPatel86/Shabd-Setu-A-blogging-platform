@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
@@ -6,16 +6,15 @@ import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
-import { useParams, useSearchParams } from "react-router-dom";
-import { MessageCircle, Share2, Bookmark } from "lucide-react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { MessageCircle, Share2, Eye } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
 import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
+import SaveButton from "@/components/SaveButton";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
@@ -135,9 +134,7 @@ const SingleBlogDetails = () => {
         <button className="flex items-center gap-1 text-sm hover:text-black transition">
           <Share2 className="h-5 w-5" /> Share
         </button>
-        <button className="flex items-center gap-1 text-sm hover:text-black transition">
-          <Bookmark className="h-5 w-5" /> Save
-        </button>
+        <SaveButton blogId={b._id} withLabel className="text-sm" />
       </div>
 
       {/* Comments Section */}

@@ -17,13 +17,18 @@ import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
 import { GoDot } from "react-icons/go";
-import { RouteIndex, RouteFollowing } from "@/helpers/RouteName";
+import {
+    RouteIndex,
+    RouteFollowing,
+    RouteSaved,
+    RouteCategoryDetails,
+    RouteEditCategory,
+    RouteBlog,
+    RouteCommentDetails
+} from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
-import { RouteCategoryDetails } from "@/helpers/RouteName";
-import { RouteEditCategory } from "@/helpers/RouteName";
-import { RouteBlog } from "@/helpers/RouteName";
-import { RouteCommentDetails } from "@/helpers/RouteName";
+import { Bookmark } from "lucide-react";
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
@@ -80,6 +85,15 @@ function AppSidebar({ className }) {
                                         <Link to={RouteCommentDetails} className="flex items-center gap-2">
                                             <FaRegComments />
                                             Comments
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to={RouteSaved} className="flex items-center gap-2">
+                                            <Bookmark className="h-4 w-4" />
+                                            Saved
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
