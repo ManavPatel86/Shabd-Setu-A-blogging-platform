@@ -6,15 +6,26 @@ import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { MessageCircle, Share2, Bookmark } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
+  const [searchParams] = useSearchParams();
   const [showComments, setShowComments] = useState(false);
+  const commentsRef = useRef(null);
+
+  useEffect(() => {
+    if (searchParams.get('comments') === 'true') {
+      setShowComments(true);
+      setTimeout(() => {
+        commentsRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [searchParams]);
 
   const { data, loading } = useFetch(
     `${getEnv("VITE_API_BASE_URL")}/blog/get-blog/${blog}`,
@@ -85,7 +96,7 @@ const SingleBlogDetails = () => {
 
       {/* Action Bar */}
       <div className="flex items-center gap-6 text-gray-600">
-        <LikeCount props={{ blogid: b._id }} />
+        <LikeCount blogid={b._id} />
         <button 
           onClick={() => setShowComments(!showComments)} 
           className="flex items-center gap-1 text-sm hover:text-black transition">
@@ -101,8 +112,8 @@ const SingleBlogDetails = () => {
 
       {/* Comments Section */}
       {showComments && (
-        <div className="mt-10 border-t pt-6">
-          <Comments props={{ blogid: b._id }} />
+        <div ref={commentsRef} className="mt-10 border-t pt-6">
+          <Comments blogid={b._id} />
         </div>
       )}
     </div>

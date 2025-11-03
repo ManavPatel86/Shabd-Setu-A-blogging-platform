@@ -6,12 +6,12 @@ import { FaRegHeart } from "react-icons/fa";
 import { useSelector } from 'react-redux';
 import { FaHeart } from "react-icons/fa";
 
-const LikeCount = ({ props }) => {
+const LikeCount = ({ blogid }) => {
     const [likeCount, setLikeCount] = useState(0)
     const [hasLiked, setHasLiked] = useState(false)
     const user = useSelector(state => state.user)
 
-    const { data: blogLikeCount, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/bloglike/get-like/${props.blogid}/${user && user.isLoggedIn ? user.user._id : ''}`, {
+    const { data: blogLikeCount, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/bloglike/get-like/${blogid}/${user && user.isLoggedIn ? user.user._id : ''}`, {
         method: 'get',
         credentials: 'include',
     })
@@ -33,7 +33,7 @@ const LikeCount = ({ props }) => {
                 method: 'post',
                 credentials: 'include',
                 headers: { 'Content-type': "application/json" },
-                body: JSON.stringify({ user: user.user._id, blogid: props.blogid })
+                body: JSON.stringify({ user: user.user._id, blogid })
             })
 
             if (!response.ok) {
