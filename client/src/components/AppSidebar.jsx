@@ -24,7 +24,8 @@ import {
     RouteCategoryDetails,
     RouteEditCategory,
     RouteBlog,
-    RouteCommentDetails
+    RouteCommentDetails,
+    RouteUser
 } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
@@ -126,7 +127,7 @@ function AppSidebar({ className }) {
 
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild>
-                                        <Link to="" className="flex items-center gap-2">
+                                        <Link to={RouteUser} className="flex items-center gap-2">
                                             <LuUsers />
                                                 Manage Users
                                         </Link>

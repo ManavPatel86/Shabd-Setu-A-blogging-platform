@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
+    isBlacklisted: {
+        type: Boolean,
+        default: false
+    },
     role: {
         type: String,
         default: 'user',
