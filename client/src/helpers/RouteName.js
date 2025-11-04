@@ -19,7 +19,7 @@ export const RouteEditCategory = (category_id)=>{
         return `/category/edit/${category_id}`;
     }
     else{
-        return `/category/edit/:category_id`;
+        return "/category/edit/:category_id";
     }
 }
 
@@ -30,7 +30,7 @@ export const RouteBlogEdit = (blogid) => {
     if (blogid) {
         return `/blog/edit/${blogid}`
     } else {
-        return `/blog/edit/:blogid`
+        return "/blog/edit/:blogid"
     }
 }
 
@@ -47,9 +47,14 @@ export const RouteBlogDetails = (category, blog) => {
 
 export const RouteSearch = (q) => {
     if (q) {
-        return `/search?q=${q}`
+        const trimmed = q.trim()
+        if (!trimmed) {
+            return '/search'
+        }
+        const encoded = encodeURIComponent(trimmed)
+        return `/search?q=${encoded}`
     } else {
-        return `/search`
+        return '/search'
     }
 }
 
