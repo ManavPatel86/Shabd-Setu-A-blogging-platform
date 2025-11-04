@@ -24,6 +24,9 @@ export const Register = async (req, res, next) => {
 
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
+            if (existingUser.isBlacklisted) {
+                return next(handleError(403, "Your account has been blacklisted. Please contact support."));
+            }
             return next(handleError(409, "User already registered."));
         }
 
@@ -150,9 +153,13 @@ export const resendOtp = async (req, res, next) => {
 export const Login = async (req, res) => {
     try {
         const { email, password } = req.body
-        const user = await User.findOne({ email })
+        const normalizedEmail = email?.trim().toLowerCase()
+        const user = await User.findOne({ email: normalizedEmail })
         if (!user) {
             return res.status(404).json({ message: 'Invalid login credentials.' });
+        }
+        if (user.isBlacklisted) {
+            return res.status(403).json({ message: 'Your account has been blacklisted. Please contact support.' });
         }
         const comparePassword = await bcryptjs.compare(password, user.password)
         if (!comparePassword) {
@@ -163,7 +170,8 @@ export const Login = async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar
+            avatar: user.avatar,
+            role: user.role
         }, process.env.JWT_SECRET)
 
         res.cookie('access_token', token, {
@@ -205,6 +213,8 @@ export const GoogleLogin = async (req, res, next) => {
 
             user = await newUser.save()
 
+        } else if (user.isBlacklisted) {
+            return next(handleError(403, 'Your account has been blacklisted. Please contact support.'))
         }
 
 
@@ -212,7 +222,8 @@ export const GoogleLogin = async (req, res, next) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar
+            avatar: user.avatar,
+            role: user.role
         }, process.env.JWT_SECRET)
 
 

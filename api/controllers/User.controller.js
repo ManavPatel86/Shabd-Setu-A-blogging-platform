@@ -67,6 +67,10 @@ export const updateUser = async (req, res, next) => {
 
 export const getAllUser = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== 'admin') {
+            return next(handleError(403, 'Only admins can access this resource.'))
+        }
+
         const user = await User.find().sort({ createdAt: -1 })
         res.status(200).json({
             success: true,
@@ -78,11 +82,58 @@ export const getAllUser = async (req, res, next) => {
 }
 export const deleteUser = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== 'admin') {
+            return next(handleError(403, 'Only admins can access this resource.'))
+        }
+
         const { id } = req.params
         const user = await User.findByIdAndDelete(id)
         res.status(200).json({
             success: true,
             message: 'Data deleted.'
+        })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
+export const updateUserBlacklistStatus = async (req, res, next) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return next(handleError(403, 'Only admins can access this resource.'))
+        }
+
+        const { userid } = req.params
+        const { isBlacklisted } = req.body
+
+        if (typeof isBlacklisted !== 'boolean') {
+            return next(handleError(400, 'isBlacklisted must be provided as a boolean.'))
+        }
+
+        if (req.user._id?.toString() === userid) {
+            return next(handleError(400, 'You cannot update blacklist status for your own account.'))
+        }
+
+        const targetUser = await User.findById(userid)
+
+        if (!targetUser) {
+            return next(handleError(404, 'User not found.'))
+        }
+
+        if (targetUser.role === 'admin' && isBlacklisted) {
+            return next(handleError(400, 'Admin accounts cannot be blacklisted.'))
+        }
+
+        targetUser.isBlacklisted = isBlacklisted
+        await targetUser.save()
+
+        const responseUser = targetUser.toObject({ getters: true })
+        delete responseUser.password
+
+        res.status(200).json({
+            success: true,
+            message: `User ${isBlacklisted ? 'blacklisted' : 'removed from blacklist'} successfully.`,
+            user: responseUser
         })
     } catch (error) {
         next(handleError(500, error.message))
