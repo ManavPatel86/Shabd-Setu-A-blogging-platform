@@ -3,6 +3,9 @@ import { handleError } from "../helpers/handleError.js"
 import Blog from "../models/blog.model.js"
 import { encode } from 'entities'
 import Category from "../models/category.model.js"
+import User from "../models/user.model.js"
+
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const addBlog = async (req, res, next) => {
     try {
         const data = JSON.parse(req.body.data)
@@ -195,11 +198,41 @@ export const getBlogByCategory = async (req, res, next) => {
 }
 export const search = async (req, res, next) => {
     try {
-        const { q } = req.query
-        
-        const blog = await Blog.find({ title: { $regex: q, $options: 'i' } }).populate('author', 'name avatar role').populate('category', 'name slug').lean().exec()
+        const rawQuery = req.query.q || ''
+        const query = rawQuery.trim()
+
+        if (!query) {
+            return res.status(200).json({
+                blog: [],
+                authors: []
+            })
+        }
+
+        const regex = new RegExp(escapeRegex(query), 'i')
+
+        const blog = await Blog.find({
+            $or: [
+                { title: regex },
+                { slug: regex },
+            ]
+        })
+            .populate('author', 'name avatar role')
+            .populate('category', 'name slug')
+            .lean()
+            .exec()
+
+        const authors = await User.find({
+            name: regex,
+            isBlacklisted: { $ne: true }
+        })
+            .select('name avatar bio role')
+            .limit(12)
+            .lean()
+            .exec()
+
         res.status(200).json({
             blog,
+            authors,
         })
     } catch (error) {
         next(handleError(500, error.message))
