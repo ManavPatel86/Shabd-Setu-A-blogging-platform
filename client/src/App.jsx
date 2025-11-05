@@ -15,6 +15,7 @@ import {
     RouteSearch,
     RouteCommentDetails,
     RouteFollowing,
+    RouteFollowers,
     RouteSaved,
     RouteUser,
 } from "./helpers/RouteName";
@@ -27,6 +28,7 @@ import Profile from "./pages/Profile";
 import Comments from "./pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";
+import Followers from "./Pages/Followers";
 import Saved from "./Pages/Saved";
 import ManageUsers from "./Pages/ManageUsers";
 import AddCategory from './pages/Category/AddCategory'
@@ -47,6 +49,7 @@ function App() {
                     <Route path={RouteProfile} element={<Profile />} />
                     <Route path={RouteProfileView()} element={<ProfileView />} />
                     <Route path={RouteFollowing} element={<Following />} />
+                    <Route path={RouteFollowers} element={<Followers />} />
                     <Route path={RouteAddCategory} element={<AddCategory />} />
                     <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
                     <Route path={RouteEditCategory()} element={<EditCategory />} />
