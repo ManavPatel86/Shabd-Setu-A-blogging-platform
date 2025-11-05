@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Loading from "@/components/Loading";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
@@ -25,7 +25,8 @@ const SingleBlogDetails = () => {
   const [summary, setSummary] = useState("");
   const [summaryError, setSummaryError] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryTrigger, setSummaryTrigger] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const summaryAbortRef = useRef(null);
 
   useEffect(() => {
     if (searchParams.get('comments') === 'true') {
@@ -52,23 +53,25 @@ const SingleBlogDetails = () => {
 
   const b = data?.blog;
 
-  useEffect(() => {
-    if (!b?._id) {
-      setSummary("");
-      setSummaryError("");
-      return;
-    }
+  const fetchSummary = useCallback(
+    async (refresh = false) => {
+      if (!b?._id) return;
 
-    const controller = new AbortController();
-    let isActive = true;
+      if (summaryAbortRef.current) {
+        summaryAbortRef.current.abort();
+      }
 
-    const fetchSummary = async () => {
+      const controller = new AbortController();
+      summaryAbortRef.current = controller;
+
       try {
         setSummaryLoading(true);
         setSummaryError("");
-        setSummary("");
+        if (refresh) {
+          setSummary("");
+        }
 
-        const query = summaryTrigger > 0 ? "?refresh=true" : "";
+        const query = refresh ? "?refresh=true" : "";
         const response = await fetch(
           `${getEnv("VITE_API_BASE_URL")}/blog/summary/${b._id}${query}`,
           {
@@ -84,35 +87,67 @@ const SingleBlogDetails = () => {
           throw new Error(result?.message || "Failed to generate summary");
         }
 
-        if (isActive) {
-          setSummary(result?.summary || "");
-        }
+        setSummary(result?.summary || "");
       } catch (error) {
-        if (!isActive || error.name === "AbortError") return;
+        if (error.name === "AbortError") return;
         setSummary("");
         setSummaryError(error.message || "Failed to generate summary");
       } finally {
-        if (isActive) {
-          setSummaryLoading(false);
+        if (summaryAbortRef.current === controller) {
+          summaryAbortRef.current = null;
         }
+        setSummaryLoading(false);
+      }
+    },
+    [b?._id]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (summaryAbortRef.current) {
+        summaryAbortRef.current.abort();
       }
     };
+  }, []);
 
-    fetchSummary();
+  useEffect(() => {
+    if (!showSummary) {
+      return;
+    }
 
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [b?._id, summaryTrigger]);
+    if (!summary && !summaryLoading) {
+      fetchSummary(false);
+    }
+  }, [showSummary, summary, summaryLoading, fetchSummary]);
 
   const summaryRequested = searchParams.get('summary') === 'true'
+
+  useEffect(() => {
+    if (summaryAbortRef.current) {
+      summaryAbortRef.current.abort();
+      summaryAbortRef.current = null;
+    }
+    setSummary("");
+    setSummaryError("");
+    setSummaryLoading(false);
+    setShowSummary(summaryRequested);
+  }, [b?._id, summaryRequested]);
 
   useEffect(() => {
     if (summaryRequested && summaryRef.current) {
       summaryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [summaryRequested, summary]);
+
+  const handleSummaryToggle = () => {
+    const nextState = !showSummary;
+    if (!nextState && summaryAbortRef.current) {
+      summaryAbortRef.current.abort();
+      summaryAbortRef.current = null;
+      setSummaryLoading(false);
+    }
+    setShowSummary(nextState);
+  };
 
   if (loading) return <Loading />;
 
@@ -167,66 +202,58 @@ const SingleBlogDetails = () => {
         <img src={b.featuredImage} alt={b.title} className="w-full object-cover rounded-2xl" />
       </div>
 
-      {/* AI Summary */}
-      <section
-        ref={summaryRef}
-        className="mt-10 p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 border border-blue-100 rounded-2xl shadow-sm"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-blue-900">AI Summary</h2>
-            <p className="text-sm text-blue-700/70">Powered by Gemini to help you skim the highlights.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSummaryTrigger((prev) => prev + 1)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-60"
-            disabled={summaryLoading}
-          >
-            {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {summaryLoading ? "Updating" : "Refresh summary"}
-          </button>
-        </div>
+      <div className="mt-8 flex justify-end">
+        <button
+          type="button"
+          onClick={handleSummaryToggle}
+          className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+        >
+          {showSummary ? "Hide AI Summary" : "Generate AI Summary"}
+        </button>
+      </div>
 
-        <div className="mt-4">
-          {summaryLoading && !summary ? (
-            <div className="flex items-center gap-2 text-blue-700 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating summary...
+      {showSummary ? (
+        <section
+          ref={summaryRef}
+          className="mt-6 p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 border border-blue-100 rounded-2xl shadow-sm"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-blue-900">AI Summary</h2>
+              <p className="text-sm text-blue-700/70">Powered by Gemini to help you skim the highlights.</p>
             </div>
-          ) : summaryError ? (
-            <p className="text-sm text-red-600">{summaryError}</p>
-          ) : summary ? (
-            <div className="space-y-4 text-sm leading-relaxed text-slate-800">
-              {(() => {
-                const lines = summary
-                  .split("\n")
-                  .map((line) => line.trim())
-                  .filter(Boolean);
-                const paragraphs = lines.filter((line) => !line.startsWith("-"));
-                const bullets = lines.filter((line) => line.startsWith("-"));
-                return (
-                  <>
-                    {paragraphs.map((paragraph, index) => (
-                      <p key={`summary-paragraph-${index}`}>{paragraph}</p>
-                    ))}
-                    {bullets.length > 0 && (
-                      <ul className="space-y-1 list-disc list-inside text-slate-700">
-                        {bullets.map((bullet, index) => (
-                          <li key={`summary-bullet-${index}`}>
-                            {bullet.replace(/^-/,'').trim()}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Summary will appear here once generated.</p>
-          )}
-        </div>
-      </section>
+            <button
+              type="button"
+              onClick={() => fetchSummary(true)}
+              className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-60"
+              disabled={summaryLoading}
+            >
+              {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {summaryLoading ? "Updating" : "Refresh summary"}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            {summaryLoading && !summary ? (
+              <div className="flex items-center gap-2 text-blue-700 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Generating summary...
+              </div>
+            ) : summaryError ? (
+              <p className="text-sm text-red-600">{summaryError}</p>
+            ) : summary ? (
+              <div className="space-y-4 text-sm leading-relaxed text-slate-800">
+                {summary.split("\n").map((paragraph, index) => (
+                  paragraph.trim() ? (
+                    <p key={`summary-paragraph-${index}`}>{paragraph.trim()}</p>
+                  ) : null
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Summary will appear here once generated.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {/* Content */}
       <article
