@@ -32,6 +32,24 @@ const blogSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    summary: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    summaryRefreshCounts: [
+        {
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+            },
+            count: {
+                type: Number,
+                default: 0,
+                min: 0,
+            }
+        }
+    ],
     views: {
         type: Number,
         default: 0

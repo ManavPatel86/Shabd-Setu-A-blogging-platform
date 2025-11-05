@@ -218,9 +218,15 @@ export const generateBlogSummary = async (req, res, next) => {
         }
 
         const { blogId } = req.params
+        const refreshRequested = String(req.query?.refresh || '').toLowerCase() === 'true'
+        const userId = req.user?._id
 
         if (!blogId) {
             return next(handleError(400, 'Blog id is required.'))
+        }
+
+        if (!userId) {
+            return next(handleError(401, 'Authentication required to generate summary.'))
         }
 
         const blog = await Blog.findById(blogId)
@@ -231,6 +237,45 @@ export const generateBlogSummary = async (req, res, next) => {
 
         if (!blog.blogContent) {
             return next(handleError(400, 'Blog content is missing.'))
+        }
+
+        const cachedSummary = (blog.summary || '').trim()
+
+        if (!refreshRequested && cachedSummary) {
+            return res.status(200).json({
+                success: true,
+                summary: cachedSummary,
+                cached: true,
+                refreshed: false,
+            })
+        }
+
+        const MAX_REFRESHES_PER_USER = 3
+
+        let refreshEntry = null
+
+        if (refreshRequested) {
+            if (!Array.isArray(blog.summaryRefreshCounts)) {
+                blog.summaryRefreshCounts = []
+            }
+
+            refreshEntry = blog.summaryRefreshCounts.find((entry) =>
+                entry?.user && entry.user.toString() === userId.toString()
+            )
+
+            if (refreshEntry?.count >= MAX_REFRESHES_PER_USER) {
+                if (cachedSummary) {
+                    return res.status(200).json({
+                        success: true,
+                        summary: cachedSummary,
+                        cached: true,
+                        refreshed: false,
+                        remainingRefreshes: 0,
+                    })
+                }
+
+                return next(handleError(429, 'Refresh limit reached for this blog.'))
+            }
         }
 
         if (isHttpUrl(blog.blogContent) && typeof fetch !== 'function') {
@@ -257,10 +302,28 @@ export const generateBlogSummary = async (req, res, next) => {
             ? `${plainText.slice(0, MAX_CONTENT_LENGTH)}...`
             : plainText
 
+        const exampleContent = `Minimalism isn't about deprivation; it's a deliberate choice to keep what matters and let go of the rest.
+It frees time, space, and attention for experiences, creativity, and community.
+By paring down possessions, we discover what genuinely adds value to everyday life.`
+
+        const exampleSummary = `Minimalist living centers on intentionally owning less so daily energy goes toward people and passions rather than possessions.
+
+It replaces clutter with calm, making room for creativity, relationships, and restorative routines.
+
+To begin, review each room for meaningful items only, adopt one-in-one-out habits, and reframe shopping as an intentional choice instead of an impulse.`
+
         const prompt = ChatPromptTemplate.fromMessages([
             [
                 'system',
-                'You craft concise, engaging summaries for blog posts on the Shabd Setu platform. Highlight the central idea, tone, and 2-3 actionable insights. Respond in markdown with two short paragraphs followed by a bullet list of key takeaways.'
+                'You craft clean, human readable blog summaries for the Shabd Setu platform. Write in plain text only—no markdown, bullet symbols, headings, emojis, or emphasis. Deliver few concise paragraphs (2-3 sentences each) separated by a single blank line. Capture the core theme, tone, and the most practical insights. Keep the complete response at or under 500 words.'
+            ],
+            [
+                'human',
+                `Example request:\nBlog title: The Joy of Minimalist Living\n\nContent to summarize:\n${exampleContent}`
+            ],
+            [
+                'ai',
+                exampleSummary
             ],
             [
                 'human',
@@ -268,14 +331,14 @@ export const generateBlogSummary = async (req, res, next) => {
             ],
         ])
 
-    const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+        const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
         const runChain = async (modelId) => {
             const model = new ChatGoogleGenerativeAI({
                 apiKey: process.env.GEMINI_API_KEY,
                 model: modelId,
                 temperature: 0.3,
-                maxOutputTokens: 512,
+                maxOutputTokens: 768,
             })
 
             const chain = prompt.pipe(model).pipe(new StringOutputParser())
@@ -325,9 +388,61 @@ export const generateBlogSummary = async (req, res, next) => {
             )
         }
 
-        res.status(200).json({
+        const cleanedSummary = summary
+            .replace(/\r/g, '')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .split('\n')
+            .map((line) => line.replace(/^[-•\u2022\*]\s*/, '').trimEnd())
+            .join('\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim()
+
+        let limitedSummary = cleanedSummary
+        const wordIterator = cleanedSummary.matchAll(/\S+/g)
+        let wordCount = 0
+        let cutoffIndex = null
+
+        for (const match of wordIterator) {
+            wordCount += 1
+            if (wordCount > 500) {
+                cutoffIndex = match.index
+                break
+            }
+        }
+
+        if (cutoffIndex !== null) {
+            limitedSummary = cleanedSummary.slice(0, cutoffIndex).trimEnd()
+        }
+
+        if (refreshRequested) {
+            if (refreshEntry) {
+                refreshEntry.count += 1
+            } else {
+                blog.summaryRefreshCounts.push({ user: userId, count: 1 })
+            }
+
+            await blog.save({ validateBeforeSave: false })
+
+            const currentCount = refreshEntry ? refreshEntry.count : 1
+
+            return res.status(200).json({
+                success: true,
+                summary: limitedSummary,
+                cached: false,
+                refreshed: true,
+                remainingRefreshes: Math.max(0, MAX_REFRESHES_PER_USER - currentCount),
+            })
+        }
+
+        blog.summary = limitedSummary
+        await blog.save({ validateBeforeSave: false })
+
+        return res.status(200).json({
             success: true,
-            summary,
+            summary: limitedSummary,
+            cached: false,
+            refreshed: false,
         })
     } catch (error) {
         next(handleError(500, error.message || 'Failed to generate summary.'))
