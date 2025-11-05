@@ -16,7 +16,7 @@ BlogRoute.get('/get-related-blog/:category/:blog', getRelatedBlog)
 BlogRoute.get('/get-blog-by-category/:category', getBlogByCategory)
 BlogRoute.get('/search', search)
 BlogRoute.get('/author/:authorId', getBlogsByAuthor)
-BlogRoute.get('/summary/:blogId', generateBlogSummary)
+BlogRoute.get('/summary/:blogId', authenticate, generateBlogSummary)
 
 BlogRoute.get('/blogs', getAllBlogs)
 

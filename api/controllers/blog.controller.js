@@ -218,9 +218,15 @@ export const generateBlogSummary = async (req, res, next) => {
         }
 
         const { blogId } = req.params
+        const refreshRequested = String(req.query?.refresh || '').toLowerCase() === 'true'
+        const userId = req.user?._id
 
         if (!blogId) {
             return next(handleError(400, 'Blog id is required.'))
+        }
+
+        if (!userId) {
+            return next(handleError(401, 'Authentication required to generate summary.'))
         }
 
         const blog = await Blog.findById(blogId)
@@ -231,6 +237,45 @@ export const generateBlogSummary = async (req, res, next) => {
 
         if (!blog.blogContent) {
             return next(handleError(400, 'Blog content is missing.'))
+        }
+
+        const cachedSummary = (blog.summary || '').trim()
+
+        if (!refreshRequested && cachedSummary) {
+            return res.status(200).json({
+                success: true,
+                summary: cachedSummary,
+                cached: true,
+                refreshed: false,
+            })
+        }
+
+        const MAX_REFRESHES_PER_USER = 3
+
+        let refreshEntry = null
+
+        if (refreshRequested) {
+            if (!Array.isArray(blog.summaryRefreshCounts)) {
+                blog.summaryRefreshCounts = []
+            }
+
+            refreshEntry = blog.summaryRefreshCounts.find((entry) =>
+                entry?.user && entry.user.toString() === userId.toString()
+            )
+
+            if (refreshEntry?.count >= MAX_REFRESHES_PER_USER) {
+                if (cachedSummary) {
+                    return res.status(200).json({
+                        success: true,
+                        summary: cachedSummary,
+                        cached: true,
+                        refreshed: false,
+                        remainingRefreshes: 0,
+                    })
+                }
+
+                return next(handleError(429, 'Refresh limit reached for this blog.'))
+            }
         }
 
         if (isHttpUrl(blog.blogContent) && typeof fetch !== 'function') {
@@ -261,7 +306,7 @@ export const generateBlogSummary = async (req, res, next) => {
 It frees time, space, and attention for experiences, creativity, and community.
 By paring down possessions, we discover what genuinely adds value to everyday life.`
 
-    const exampleSummary = `Minimalist living centers on intentionally owning less so daily energy goes toward people and passions rather than possessions.
+        const exampleSummary = `Minimalist living centers on intentionally owning less so daily energy goes toward people and passions rather than possessions.
 
 It replaces clutter with calm, making room for creativity, relationships, and restorative routines.
 
@@ -286,7 +331,7 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
             ],
         ])
 
-    const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+        const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
         const runChain = async (modelId) => {
             const model = new ChatGoogleGenerativeAI({
@@ -370,9 +415,34 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
             limitedSummary = cleanedSummary.slice(0, cutoffIndex).trimEnd()
         }
 
-        res.status(200).json({
+        if (refreshRequested) {
+            if (refreshEntry) {
+                refreshEntry.count += 1
+            } else {
+                blog.summaryRefreshCounts.push({ user: userId, count: 1 })
+            }
+
+            await blog.save({ validateBeforeSave: false })
+
+            const currentCount = refreshEntry ? refreshEntry.count : 1
+
+            return res.status(200).json({
+                success: true,
+                summary: limitedSummary,
+                cached: false,
+                refreshed: true,
+                remainingRefreshes: Math.max(0, MAX_REFRESHES_PER_USER - currentCount),
+            })
+        }
+
+        blog.summary = limitedSummary
+        await blog.save({ validateBeforeSave: false })
+
+        return res.status(200).json({
             success: true,
             summary: limitedSummary,
+            cached: false,
+            refreshed: false,
         })
     } catch (error) {
         next(handleError(500, error.message || 'Failed to generate summary.'))

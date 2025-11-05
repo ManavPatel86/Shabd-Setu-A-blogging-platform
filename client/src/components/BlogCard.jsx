@@ -28,6 +28,7 @@ const BlogCard = ({ blog }) => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [summary, setSummary] = useState("");
+  const [cachedSummary, setCachedSummary] = useState("");
   const abortControllerRef = useRef(null);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ const BlogCard = ({ blog }) => {
     try {
       setSummaryLoading(true);
       setSummaryError("");
-      if (refresh) {
+      if (refresh && !cachedSummary) {
         setSummary("");
       }
 
@@ -90,10 +91,17 @@ const BlogCard = ({ blog }) => {
         throw new Error(result?.message || "Failed to generate summary");
       }
 
-      setSummary(result?.summary || "");
+      const incomingSummary = result?.summary || "";
+
+      if (result?.cached || !refresh) {
+        setCachedSummary(incomingSummary);
+        setSummary(incomingSummary);
+      } else {
+        setSummary(incomingSummary || cachedSummary);
+      }
     } catch (error) {
       if (error.name === "AbortError") return;
-      setSummary("");
+      setSummary(cachedSummary || "");
       setSummaryError(error.message || "Failed to generate summary");
     } finally {
       if (abortControllerRef.current === controller) {
@@ -110,14 +118,23 @@ const BlogCard = ({ blog }) => {
     const nextState = !isSummaryOpen;
     setIsSummaryOpen(nextState);
 
-    if (nextState && !summary && !summaryLoading) {
-      fetchSummary(false);
+    if (nextState) {
+      if (cachedSummary) {
+        setSummary(cachedSummary);
+        setSummaryError("");
+      } else if (!summary && !summaryLoading) {
+        fetchSummary(false);
+      }
     }
   };
 
   const handleSummaryRefresh = (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (cachedSummary) {
+      setSummary(cachedSummary);
+      setSummaryError("");
+    }
     fetchSummary(true);
   };
 
