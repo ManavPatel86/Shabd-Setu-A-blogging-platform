@@ -7,7 +7,7 @@ import { useFetch } from "@/hooks/useFetch";
 import { decode } from "entities";
 import moment from "moment";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { MessageCircle, Share2, Eye } from "lucide-react";
+import { MessageCircle, Share2, Eye, Loader2 } from "lucide-react";
 import LikeCount from "@/components/LikeCount";
 import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
@@ -21,6 +21,11 @@ const SingleBlogDetails = () => {
   const [searchParams] = useSearchParams();
   const [showComments, setShowComments] = useState(false);
   const commentsRef = useRef(null);
+  const summaryRef = useRef(null);
+  const [summary, setSummary] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryTrigger, setSummaryTrigger] = useState(0);
 
   useEffect(() => {
     if (searchParams.get('comments') === 'true') {
@@ -45,9 +50,72 @@ const SingleBlogDetails = () => {
     [blog]
   );
 
+  const b = data?.blog;
+
+  useEffect(() => {
+    if (!b?._id) {
+      setSummary("");
+      setSummaryError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    let isActive = true;
+
+    const fetchSummary = async () => {
+      try {
+        setSummaryLoading(true);
+        setSummaryError("");
+        setSummary("");
+
+        const query = summaryTrigger > 0 ? "?refresh=true" : "";
+        const response = await fetch(
+          `${getEnv("VITE_API_BASE_URL")}/blog/summary/${b._id}${query}`,
+          {
+            method: "get",
+            credentials: "include",
+            signal: controller.signal,
+          }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result?.message || "Failed to generate summary");
+        }
+
+        if (isActive) {
+          setSummary(result?.summary || "");
+        }
+      } catch (error) {
+        if (!isActive || error.name === "AbortError") return;
+        setSummary("");
+        setSummaryError(error.message || "Failed to generate summary");
+      } finally {
+        if (isActive) {
+          setSummaryLoading(false);
+        }
+      }
+    };
+
+    fetchSummary();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [b?._id, summaryTrigger]);
+
+  const summaryRequested = searchParams.get('summary') === 'true'
+
+  useEffect(() => {
+    if (summaryRequested && summaryRef.current) {
+      summaryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [summaryRequested, summary]);
+
   if (loading) return <Loading />;
 
-  const b = data?.blog;
   const handleAuthorProfile = () => {
     if (b?.author?._id) {
       navigate(RouteProfileView(b.author._id));
@@ -98,6 +166,67 @@ const SingleBlogDetails = () => {
       <div className="mt-10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)]">
         <img src={b.featuredImage} alt={b.title} className="w-full object-cover rounded-2xl" />
       </div>
+
+      {/* AI Summary */}
+      <section
+        ref={summaryRef}
+        className="mt-10 p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 border border-blue-100 rounded-2xl shadow-sm"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-blue-900">AI Summary</h2>
+            <p className="text-sm text-blue-700/70">Powered by Gemini to help you skim the highlights.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSummaryTrigger((prev) => prev + 1)}
+            className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-60"
+            disabled={summaryLoading}
+          >
+            {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {summaryLoading ? "Updating" : "Refresh summary"}
+          </button>
+        </div>
+
+        <div className="mt-4">
+          {summaryLoading && !summary ? (
+            <div className="flex items-center gap-2 text-blue-700 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Generating summary...
+            </div>
+          ) : summaryError ? (
+            <p className="text-sm text-red-600">{summaryError}</p>
+          ) : summary ? (
+            <div className="space-y-4 text-sm leading-relaxed text-slate-800">
+              {(() => {
+                const lines = summary
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter(Boolean);
+                const paragraphs = lines.filter((line) => !line.startsWith("-"));
+                const bullets = lines.filter((line) => line.startsWith("-"));
+                return (
+                  <>
+                    {paragraphs.map((paragraph, index) => (
+                      <p key={`summary-paragraph-${index}`}>{paragraph}</p>
+                    ))}
+                    {bullets.length > 0 && (
+                      <ul className="space-y-1 list-disc list-inside text-slate-700">
+                        {bullets.map((bullet, index) => (
+                          <li key={`summary-bullet-${index}`}>
+                            {bullet.replace(/^-/,'').trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Summary will appear here once generated.</p>
+          )}
+        </div>
+      </section>
 
       {/* Content */}
       <article
