@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React from 'react'
 import logo from "@/assets/images/logo-white.svg";
 import { Button } from "./ui/button";
 import { Link, useNavigate } from 'react-router-dom'
 import { MdLogin } from "react-icons/md";
 import SearchBox from "./SearchBox";
-import { RouteIndex, RouteProfile, RouteSignIn } from "@/helpers/RouteName";
+import { RouteBlogAdd, RouteFollowing, RouteIndex, RouteProfile, RouteSignIn } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import usericon from '@/assets/images/user.png'
@@ -12,7 +12,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -20,7 +19,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { FaRegUser } from "react-icons/fa";
 import { FaPlus } from "react-icons/fa6";
-import { IoLogOutOutline, IoSearch } from "react-icons/io5";
+import { IoLogOutOutline } from "react-icons/io5";
+import { Users } from "lucide-react";
 import { removeUser } from '@/redux/user/user.slice';
 import { showToast } from '@/helpers/showToast';
 import { getEnv } from '@/helpers/getEnv';
@@ -30,7 +30,14 @@ const Topbar = () => {
 
     const dispath = useDispatch()
     const navigate = useNavigate()
-    const user = useSelector((state) => state.user) 
+    const user = useSelector((state) => state.user)
+    const loggedInUser = user?.user
+
+    const avatarSrc = loggedInUser?.avatar || usericon
+    const displayName = loggedInUser?.name || 'User'
+    const displayEmail = loggedInUser?.email || ''
+    const initials = displayName?.charAt(0)?.toUpperCase() || 'U'
+    const roleLabel = loggedInUser?.role === 'admin' ? 'Admin' : 'Member'
 
     const handleLogout = async () => {
         try {
@@ -89,36 +96,65 @@ const Topbar = () => {
                     :
                     <DropdownMenu>
                         <DropdownMenuTrigger>
-                            <Avatar className={"w-8 h-8 cursor-pointer"}>
-                                <AvatarImage src={user?.user?.avatar || usericon} />
+                            <Avatar className="h-9 w-9 cursor-pointer border-2 border-blue-100 shadow-sm">
+                                <AvatarImage src={avatarSrc} />
                                 <AvatarFallback>
-                                    {user?.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                    {initials}
                                 </AvatarFallback>
                             </Avatar>
 
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuLabel>
-                                <p>{user.user.name}</p>
-                                <p className='text-sm'>{user.user.email}</p>
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild className="cursor-pointer">
-                                <Link to={RouteProfile}>
-                                    <FaRegUser />
-                                    Profile
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild className="cursor-pointer">
-                                <Link to={RouteIndex}>
-                                    <FaPlus />
-                                    Create Blog
-                                </Link>
-                            </DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="w-80 overflow-hidden rounded-xl border border-slate-200 p-0 shadow-xl">
+                            <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-500 px-4 py-5 text-white">
+                                <Avatar className="h-12 w-12 border-2 border-white/70 shadow-md">
+                                    <AvatarImage src={avatarSrc} />
+                                    <AvatarFallback>{initials}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold">{displayName}</p>
+                                    <p className="truncate text-xs text-white/75">{displayEmail}</p>
+                                    <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-wide">
+                                        <span className="rounded-full border border-white/40 px-2 py-0.5 font-semibold text-white/90">{roleLabel}</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <DropdownMenuSeparator />
+                            <div className="px-4 py-3">
+                                <DropdownMenuItem
+                                    asChild
+                                    className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                                >
+                                    <Link to={RouteProfile} className="flex items-center gap-2">
+                                        <FaRegUser className="text-slate-500" />
+                                        View Profile
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    asChild
+                                    className="cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                                >
+                                    <Link to={RouteFollowing} className="flex items-center gap-2">
+                                        <Users className="h-4 w-4 text-slate-500" />
+                                        Following
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild className="p-0">
+                                    <Link
+                                        to={RouteBlogAdd}
+                                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:bg-blue-700"
+                                    >
+                                        <FaPlus className="text-white" />
+                                        Write a Blog
+                                    </Link>
+                                </DropdownMenuItem>
+                            </div>
 
-                            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                            <DropdownMenuSeparator className="my-0" />
+
+                            <DropdownMenuItem
+                                onClick={handleLogout}
+                                className="cursor-pointer px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                            >
                                 <IoLogOutOutline color='red' />
                                 Logout
                             </DropdownMenuItem>
