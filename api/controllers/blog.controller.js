@@ -1,11 +1,25 @@
 import cloudinary from "../config/cloudinary.js"
 import { handleError } from "../helpers/handleError.js"
 import Blog from "../models/blog.model.js"
-import { encode } from 'entities'
+import { encode, decode } from 'entities'
 import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
+import { ChatPromptTemplate } from "@langchain/core/prompts"
+import { StringOutputParser } from "@langchain/core/output_parsers"
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const MAX_CONTENT_LENGTH = 12000;
+
+const isHttpUrl = (value = '') => /^https?:\/\//i.test(value);
+
+const toPlainText = (value = '') => decode(value)
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 export const addBlog = async (req, res, next) => {
     try {
         const data = JSON.parse(req.body.data)
@@ -194,6 +208,129 @@ export const getBlogByCategory = async (req, res, next) => {
         })
     } catch (error) {
         next(handleError(500, error.message))
+    }
+}
+
+export const generateBlogSummary = async (req, res, next) => {
+    try {
+        if (!process.env.GEMINI_API_KEY) {
+            return next(handleError(500, 'Gemini API key is not configured.'))
+        }
+
+        const { blogId } = req.params
+
+        if (!blogId) {
+            return next(handleError(400, 'Blog id is required.'))
+        }
+
+        const blog = await Blog.findById(blogId)
+
+        if (!blog) {
+            return next(handleError(404, 'Blog not found.'))
+        }
+
+        if (!blog.blogContent) {
+            return next(handleError(400, 'Blog content is missing.'))
+        }
+
+        if (isHttpUrl(blog.blogContent) && typeof fetch !== 'function') {
+            return next(handleError(500, 'Fetch API is not available to retrieve blog content.'))
+        }
+
+        let sourceContent = blog.blogContent
+
+        if (isHttpUrl(sourceContent)) {
+            const response = await fetch(sourceContent)
+            if (!response.ok) {
+                return next(handleError(502, 'Unable to download blog content from Cloudinary.'))
+            }
+            sourceContent = await response.text()
+        }
+
+        const plainText = toPlainText(sourceContent)
+
+        if (!plainText) {
+            return next(handleError(400, 'Blog content is empty after processing.'))
+        }
+
+        const contentForSummary = plainText.length > MAX_CONTENT_LENGTH
+            ? `${plainText.slice(0, MAX_CONTENT_LENGTH)}...`
+            : plainText
+
+        const prompt = ChatPromptTemplate.fromMessages([
+            [
+                'system',
+                'You craft concise, engaging summaries for blog posts on the Shabd Setu platform. Highlight the central idea, tone, and 2-3 actionable insights. Respond in markdown with two short paragraphs followed by a bullet list of key takeaways.'
+            ],
+            [
+                'human',
+                'Blog title: {title}\n\nContent to summarize:\n{content}\n\nGenerate the summary now.'
+            ],
+        ])
+
+    const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+
+        const runChain = async (modelId) => {
+            const model = new ChatGoogleGenerativeAI({
+                apiKey: process.env.GEMINI_API_KEY,
+                model: modelId,
+                temperature: 0.3,
+                maxOutputTokens: 512,
+            })
+
+            const chain = prompt.pipe(model).pipe(new StringOutputParser())
+
+            const payload = {
+                title: blog.title,
+                content: contentForSummary,
+            }
+
+            return (await chain.invoke({
+                title: payload.title,
+
+                content: payload.content,
+            })).trim()
+        }
+
+        const candidateModels = Array.from(new Set([
+            preferredModel,
+            'gemini-2.5-pro',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-2.0-flash',
+            'gemini-2.0-flash-lite',
+            'gemini-1.5-pro',
+            'gemini-1.5-flash',
+            'gemini-pro',
+        ])).filter(Boolean)
+
+        let summary
+        let lastError
+
+        for (const modelId of candidateModels) {
+            try {
+                summary = await runChain(modelId)
+                break
+            } catch (error) {
+                lastError = error
+            }
+        }
+
+        if (!summary) {
+            const message = lastError?.message || 'Gemini returned no output.'
+            const statusCode = lastError?.status === 404 ? 502 : 500
+            throw handleError(
+                statusCode,
+                `${message} Please confirm your GEMINI_MODEL matches an available model (eg. gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite). See https://ai.google.dev/gemini-api/docs/models/gemini for the latest list.`
+            )
+        }
+
+        res.status(200).json({
+            success: true,
+            summary,
+        })
+    } catch (error) {
+        next(handleError(500, error.message || 'Failed to generate summary.'))
     }
 }
 export const search = async (req, res, next) => {
