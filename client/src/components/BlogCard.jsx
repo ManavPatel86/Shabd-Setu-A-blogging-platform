@@ -9,7 +9,7 @@ import SaveButton from "./SaveButton";
 import { getEnv } from "@/helpers/getEnv";
 
 const BlogCard = ({ blog }) => {
-  // ✅ Defensive check to prevent crash if blog is undefined
+  // Defensive check to prevent crash if blog is undefined
   if (!blog) return null;
 
   const {

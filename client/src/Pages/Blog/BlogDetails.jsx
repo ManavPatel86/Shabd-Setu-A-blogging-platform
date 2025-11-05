@@ -20,6 +20,7 @@ import { useState } from 'react'
 import { FiEdit } from "react-icons/fi";
 import { FaRegTrashAlt } from "react-icons/fa";
 import moment from 'moment'
+import { useSelector } from 'react-redux'
 
 const BlogDetails = () => {
     const [refreshData, setRefreshData] = useState(false)
@@ -27,6 +28,9 @@ const BlogDetails = () => {
         method: 'get',
         credentials: 'include'
     }, [refreshData])
+    const user = useSelector((state) => state.user)
+
+    const isAdmin = user?.user?.role === 'admin'
 
     const handleDelete = async (id) => {
         const deleted = await deleteData(`${getEnv('VITE_API_BASE_URL')}/blog/delete/${id}`)
@@ -56,11 +60,10 @@ const BlogDetails = () => {
 
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Author </TableHead>
-                                <TableHead>Category </TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Slug</TableHead>
-                                <TableHead>Dated</TableHead>
+                                {isAdmin && <TableHead>Author</TableHead>}
+                                <TableHead className="whitespace-normal">Title</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead>Date</TableHead>
                                 <TableHead>Action</TableHead>
                             </TableRow>
 
@@ -70,12 +73,10 @@ const BlogDetails = () => {
 
                                 blogData.blog.map(blog =>
                                     <TableRow key={blog._id}>
-                                        <TableCell>{blog?.author?.name}</TableCell>
+                                        {isAdmin && <TableCell>{blog?.author?.name}</TableCell>}
+                                        <TableCell className="max-w-[240px] whitespace-normal break-words text-sm">{blog?.title}</TableCell>
                                         <TableCell>{blog?.category?.name}</TableCell>
-                                        <TableCell>{blog?.title}</TableCell>
-                                        <TableCell>{blog?.slug}</TableCell>
                                         <TableCell>{moment(blog?.createdAt).format('DD-MM-YYYY')}</TableCell>
-                                     
                                         <TableCell className="flex gap-3">
                                             <Button variant="outline" className="hover:bg-violet-500 hover:text-white" asChild>
                                                 <Link to={RouteBlogEdit(blog._id)}>
