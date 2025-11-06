@@ -43,7 +43,9 @@ const Followers = () => {
     );
   }
 
-  const followers = Array.isArray(data?.followers) ? data.followers : [];
+  const followers = Array.isArray(data?.followers)
+    ? data.followers.filter(Boolean)
+    : [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -66,15 +68,15 @@ const Followers = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {followers.map((follower) => (
+          {followers.map((follower, idx) => (
             <div
-              key={follower._id}
+              key={follower?._id || idx}
               className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => follower?._id && navigate(RouteProfileView(follower._id))}
             >
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16 border-2 border-gray-200">
-                  <AvatarImage src={follower?.avatar} alt={follower?.name} />
+                  <AvatarImage src={follower?.avatar ?? undefined} alt={follower?.name ?? 'Follower'} />
                   <AvatarFallback>
                     {follower?.name ? follower.name.charAt(0).toUpperCase() : "F"}
                   </AvatarFallback>

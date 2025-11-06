@@ -57,7 +57,10 @@ const Comments = () => {
                         <div key={comment._id} className="bg-white p-4 rounded-lg shadow">
                             <div className="flex justify-between items-start mb-3">
                                 <Link 
-                                    to={RouteBlogDetails(comment.blogid?.category?.slug || 'category', comment.blogid?.slug || comment.blogid?._id)} 
+                                    to={RouteBlogDetails(
+                                        comment.blogid?.categories?.[0]?.slug || comment.blogid?.category?.slug || 'category',
+                                        comment.blogid?.slug || comment.blogid?._id
+                                    )} 
                                     className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                                 >
                                     {comment.blogid?.title || 'Untitled Blog'}
