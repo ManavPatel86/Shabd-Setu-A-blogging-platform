@@ -21,28 +21,28 @@ import {
     RouteUser,
     RouteLanding,
 } from "./helpers/RouteName";
-import AddBlog from "./pages/Blog/AddBlog";
-import EditBlog from "./pages/Blog/EditBlog";
-import Index from "./pages/Index";
-import SignIn from "./pages/SignIn";
-import SignUp from "./pages/SignUp";
-import Profile from "./pages/Profile";
-import Comments from "./pages/Comments";
+import AddBlog from "./Pages/Blog/AddBlog";
+import EditBlog from "./Pages/Blog/EditBlog";
+import Index from "./Pages/Index";
+import SignIn from "./Pages/SignIn";
+import SignUp from "./Pages/SignUp";
+import Profile from "./Pages/Profile";
+import Comments from "./Pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";
 import Followers from "./Pages/Followers";
 import Saved from "./Pages/Saved";
 import ManageUsers from "./Pages/ManageUsers";
-import AddCategory from './pages/Category/AddCategory'
-import CategoryDetails from './pages/Category/CategoryDetails'
-import EditCategory from './pages/Category/EditCategory'
+import AddCategory from './Pages/Category/AddCategory'
+import CategoryDetails from './Pages/Category/CategoryDetails'
+import EditCategory from './Pages/Category/EditCategory'
 import { RouteCategoryDetails, RouteEditCategory } from "./helpers/RouteName";
 
-import BlogDetails from "./pages/Blog/BlogDetails";
+import BlogDetails from "./Pages/Blog/BlogDetails";
 import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
-import Landing from "./pages/Landing";
+import Landing from "./Pages/Landing";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
