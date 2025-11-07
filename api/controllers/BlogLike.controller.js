@@ -6,19 +6,34 @@ import { notifyLike } from "../utils/notifyTriggers.js";
 
 export const doLike = async (req, res, next) => {
     try {
-        const { user, blogid } = req.body
-        let like
-        like = await BlogLike.findOne({ user, blogid })
+        const { blogid } = req.body
+        const authUserId = req.user?._id?.toString()
+        const fallbackUserId = req.body.user
+        const userId = authUserId || fallbackUserId
+
+        if (!userId) {
+            return next(handleError(400, 'Unable to identify user for like action'))
+        }
+
+        let like = await BlogLike.findOne({ user: userId, blogid })
+        let createdNewLike = false
+
         if (!like) {
-            const saveLike = new BlogLike({
-                user, blogid
-            })
-            like = await saveLike.save()
+            like = await BlogLike.create({ user: userId, blogid })
+            createdNewLike = true
         } else {
             await BlogLike.findByIdAndDelete(like._id)
         }
 
         const likecount = await BlogLike.countDocuments({ blogid })
+
+        if (createdNewLike && blogid) {
+            try {
+                await notifyLike({ likerId: userId, blogId: blogid })
+            } catch (notificationError) {
+                console.error('Failed to enqueue like notification', notificationError)
+            }
+        }
 
         res.status(200).json({
             likecount
@@ -56,20 +71,20 @@ export const likeBlog = async (req, res) => {
     const { blogId } = req.params;
     const userId = req.user.id;
 
-    const existingLike = await BlogLike.findOne({ blogId, userId });
+        const existingLike = await BlogLike.findOne({ blogid: blogId, user: userId });
 
     if (existingLike) {
       await BlogLike.findByIdAndDelete(existingLike._id);
       return res.json({ liked: false });
     }
 
-    const like = await BlogLike.create({ blogId, userId });
+        await BlogLike.create({ blogid: blogId, user: userId });
 
     const blog = await Blog.findById(blogId).populate("author");
     if (blog && String(blog.author._id) !== String(userId)) {
       await notifyLike({
         likerId: userId,
-        postId: blogId, 
+                blogId,
       });
     }
 

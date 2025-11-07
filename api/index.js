@@ -41,7 +41,14 @@ io.on('connection', (socket) => {
 
 app.use(cookieParser());
 app.use(express.json());
-app.use(cors());
+
+const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map((origin) => origin.trim().replace(/^'+|'+$/g, '')).filter(Boolean)
+app.use(
+    cors({
+        origin: allowedOrigins.length ? allowedOrigins : true,
+        credentials: true,
+    })
+)
 
 
 

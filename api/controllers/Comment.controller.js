@@ -28,6 +28,14 @@ export const addcomment = async (req, res, next) => {
     
         await newComment.populate('user', 'name avatar')
 
+        if (blogid) {
+            try {
+                await notifyComment({ commenterId: req.user._id, blogId: blogid })
+            } catch (notificationError) {
+                console.error('Failed to enqueue comment notification', notificationError)
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Comment submitted successfully.',

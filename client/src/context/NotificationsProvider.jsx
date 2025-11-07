@@ -11,6 +11,11 @@ export default function NotificationsProvider({ currentUser, children }) {
 
   // Initial fetch
   useEffect(() => {
+    if (!currentUser?._id) {
+      setItems([]);
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {
@@ -21,13 +26,22 @@ export default function NotificationsProvider({ currentUser, children }) {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [currentUser?._id]);
 
   // Socket.IO live updates
   useEffect(() => {
     if (!currentUser?._id) return;
-    
-    const socket = io(getEnv('VITE_API_BASE_URL'), { 
+
+    const apiBase = getEnv('VITE_API_BASE_URL');
+    let socketUrl = apiBase;
+    try {
+      const parsed = new URL(apiBase);
+      socketUrl = parsed.origin;
+    } catch (error) {
+      socketUrl = apiBase?.replace(/\/?api\/?$/, '') || window.location.origin;
+    }
+
+    const socket = io(socketUrl, {
       transports: ['websocket'],
       withCredentials: true
     });

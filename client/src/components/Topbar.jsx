@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import logo from "@/assets/images/logo-white.svg";
-import { NotificationBell } from './Notifications/NotificationBell.jsx';
+import NotificationBell from './Notifications/NotificationBell.jsx';
 import { Button } from "./ui/button";
 import { Link, useNavigate } from 'react-router-dom'
 import { MdLogin } from "react-icons/md";

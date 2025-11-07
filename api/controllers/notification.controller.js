@@ -2,10 +2,10 @@ import Notification from "../models/notification.model.js";
 
 export const getNotifications = async (req, res) => {
   try {
-    const docs = await Notification.find({ recipientId: req.user.id })
+    const docs = await Notification.find({ recipientId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(100);
-    res.json(docs);
+    res.json({ success: true, notifications: docs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -14,7 +14,7 @@ export const getNotifications = async (req, res) => {
 export const markAsRead = async (req, res) => {
   try {
     await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipientId: req.user.id },
+      { _id: req.params.id, recipientId: req.user._id },
       { isRead: true }
     );
     res.json({ success: true });
@@ -26,7 +26,7 @@ export const markAsRead = async (req, res) => {
 export const markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
-      { recipientId: req.user.id, isRead: false },
+      { recipientId: req.user._id, isRead: false },
       { $set: { isRead: true } }
     );
     res.json({ success: true });
@@ -37,7 +37,7 @@ export const markAllAsRead = async (req, res) => {
 
 export const deleteNotification = async (req, res) => {
   try {
-    await Notification.deleteOne({ _id: req.params.id, recipientId: req.user.id });
+    await Notification.deleteOne({ _id: req.params.id, recipientId: req.user._id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
