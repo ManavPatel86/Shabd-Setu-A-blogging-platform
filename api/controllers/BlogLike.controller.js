@@ -61,7 +61,7 @@ export const likeCount = async (req, res, next) => {
             likecount,
             isUserliked
         })
-    } catch (error) {999999999
+        } catch (error) {
         next(handleError(500, error.message))
     }
 }
@@ -69,7 +69,11 @@ export const likeCount = async (req, res, next) => {
 export const likeBlog = async (req, res) => {
   try {
     const { blogId } = req.params;
-    const userId = req.user.id;
+        const userId = req.user?._id;
+
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
 
         const existingLike = await BlogLike.findOne({ blogid: blogId, user: userId });
 

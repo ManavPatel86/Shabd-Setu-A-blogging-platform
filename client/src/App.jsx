@@ -19,6 +19,7 @@ import {
     RouteSaved,
     RouteCategoryFeed,
     RouteUser,
+    RouteLanding,
 } from "./helpers/RouteName";
 import AddBlog from "./pages/Blog/AddBlog";
 import EditBlog from "./pages/Blog/EditBlog";
@@ -41,6 +42,7 @@ import BlogDetails from "./pages/Blog/BlogDetails";
 import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
+import Landing from "./pages/Landing";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -53,34 +55,36 @@ function App() {
         <BrowserRouter>
             <NotificationsProvider currentUser={loggedInUser}>
                 <Routes>
-                    <Route path={RouteIndex} element={<Layout />}>
-                    <Route index element={<Index />} />
-                    <Route path={RouteProfile} element={<Profile />} />
-                    <Route path={RouteProfileView()} element={<ProfileView />} />
-                    <Route path={RouteFollowing} element={<Following />} />
-                    <Route path={RouteFollowers} element={<Followers />} />
-                    <Route path={RouteAddCategory} element={<AddCategory />} />
-                    <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
-                    <Route path={RouteEditCategory()} element={<EditCategory />} />
+                    <Route path={RouteLanding} element={<Landing />} />
 
-                    {/* Blog */}
-                    <Route path={RouteBlogAdd} element={<AddBlog />} />
-                    <Route path={RouteBlog} element={<BlogDetails />} />
-                    <Route path={RouteBlogEdit()} element={<EditBlog />} />
-                    <Route path={RouteSearch()} element={<SearchResult />} />
-                    <Route path={RouteCategoryFeed()} element={<CategoryFeed />} />
+                    <Route element={<Layout />}>
+                        <Route path={RouteIndex} element={<Index />} />
+                        <Route path={RouteProfile} element={<Profile />} />
+                        <Route path={RouteProfileView()} element={<ProfileView />} />
+                        <Route path={RouteFollowing} element={<Following />} />
+                        <Route path={RouteFollowers} element={<Followers />} />
+                        <Route path={RouteAddCategory} element={<AddCategory />} />
+                        <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
+                        <Route path={RouteEditCategory()} element={<EditCategory />} />
 
-                    {/* Comments */}
-                    <Route path={RouteCommentDetails} element={<Comments />} />
-                    <Route path={RouteSaved} element={<Saved />} />
-                    <Route path={RouteUser} element={<ManageUsers />} />
+                        {/* Blog */}
+                        <Route path={RouteBlogAdd} element={<AddBlog />} />
+                        <Route path={RouteBlog} element={<BlogDetails />} />
+                        <Route path={RouteBlogEdit()} element={<EditBlog />} />
+                        <Route path={RouteSearch()} element={<SearchResult />} />
+                        <Route path={RouteCategoryFeed()} element={<CategoryFeed />} />
 
-                    {/* This is the new public blog detail route */}
-                    <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
-                </Route>
+                        {/* Comments */}
+                        <Route path={RouteCommentDetails} element={<Comments />} />
+                        <Route path={RouteSaved} element={<Saved />} />
+                        <Route path={RouteUser} element={<ManageUsers />} />
 
-                <Route path={RouteSignIn} element={<SignIn />} />
-                <Route path={RouteSignUp} element={<SignUp />} />
+                        {/* This is the new public blog detail route */}
+                        <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
+                    </Route>
+
+                    <Route path={RouteSignIn} element={<SignIn />} />
+                    <Route path={RouteSignUp} element={<SignUp />} />
             </Routes>
             </NotificationsProvider>
         </BrowserRouter>

@@ -135,23 +135,27 @@ export const addComment = async (req, res) => {
   try {
     const { blogId } = req.params;
     const { text } = req.body;
-    const userId = req.user.id;
+        const userId = req.user?._id;
 
-    const comment = await Comment.create({
-      userId,
-      blogId,
-      text,
-    });
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-    const blog = await Blog.findById(blogId).populate("author");
-    if (blog && String(blog.author._id) !== String(userId)) {
-      await notifyComment({
-        commenterId: userId,
-        postId: blogId,
-      });
-    }
+        const comment = await Comment.create({
+            user: userId,
+            blogid: blogId,
+            comment: text,
+        });
 
-    res.status(201).json(comment);
+        const blog = await Blog.findById(blogId).populate('author');
+        if (blog && String(blog.author._id) !== String(userId)) {
+            await notifyComment({
+                commenterId: userId,
+                blogId,
+            });
+        }
+
+        res.status(201).json(comment);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to add comment" });
@@ -163,24 +167,24 @@ export const replyToComment = async (req, res) => {
   try {
     const { blogId, commentId } = req.params;
     const { text } = req.body;
-    const userId = req.user.id;
+        const userId = req.user?._id;
 
     const parentComment = await Comment.findById(commentId);
     if (!parentComment) return res.status(404).json({ error: "Comment not found" });
 
     const reply = await Comment.create({
-      userId,
-      blogId,
-      text,
+            user: userId,
+            blogid: blogId,
+            comment: text,
       parentId: commentId,
     });
 
 
-    if (String(parentComment.userId) !== String(userId)) {
+        if (String(parentComment.user) !== String(userId)) {
       await notifyReply({
         replierId: userId,
-        originalCommentUserId: parentComment.userId,
-        postId: blogId,
+                originalCommentUserId: parentComment.user,
+                blogId,
       });
     }
 

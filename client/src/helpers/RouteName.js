@@ -1,4 +1,5 @@
-export const RouteIndex = '/'
+export const RouteLanding = '/'
+export const RouteIndex = '/home'
 export const RouteSignIn = "/signin";
 export const RouteSignUp = "/signup";
 export const RouteProfile = "/profile";

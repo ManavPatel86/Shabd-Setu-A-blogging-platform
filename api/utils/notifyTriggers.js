@@ -7,17 +7,21 @@ const buildBlogLink = (blog) => {
   if (!blog) {
     return '#';
   }
-  const categorySlug = blog.category?.slug;
-  if (categorySlug) {
-    return `/blog/${categorySlug}/${blog.slug}`;
+
+  const categories = Array.isArray(blog.categories) ? blog.categories : [];
+  const primaryCategory = categories.find((category) => Boolean(category?.slug));
+
+  if (primaryCategory?.slug) {
+    return `/blog/${primaryCategory.slug}/${blog.slug}`;
   }
+
   return `/blog/${blog.slug}`;
 };
 
 export async function notifyLike({ likerId, blogId }) {
   const blog = await Blog.findById(blogId).populate([
     { path: 'author', select: 'name' },
-    { path: 'category', select: 'slug' },
+    { path: 'categories', select: 'slug' },
   ]);
   if (!blog) return;
   if (String(blog.author._id) === String(likerId)) return; 
@@ -35,7 +39,7 @@ export async function notifyLike({ likerId, blogId }) {
 export async function notifyComment({ commenterId, blogId }) {
   const blog = await Blog.findById(blogId).populate([
     { path: 'author', select: 'name' },
-    { path: 'category', select: 'slug' },
+    { path: 'categories', select: 'slug' },
   ]);
   if (!blog) return;
   if (String(blog.author._id) === String(commenterId)) return;
@@ -54,7 +58,7 @@ export async function notifyReply({ replierId, originalCommentUserId, blogId }) 
   if (String(originalCommentUserId) === String(replierId)) return;
   const sender = await User.findById(replierId);
   const blog = await Blog.findById(blogId).populate([
-    { path: 'category', select: 'slug' },
+    { path: 'categories', select: 'slug' },
   ]);
   await createNotification({
     recipientId: originalCommentUserId,
@@ -80,7 +84,7 @@ export async function notifyFollow({ followerId, targetUserId }) {
 export async function notifyFollowersNewPost({ authorId, blogId }) {
   const author = await User.findById(authorId);
   const blog = await Blog.findById(blogId).populate([
-    { path: 'category', select: 'slug' },
+    { path: 'categories', select: 'slug' },
   ]);
   if (!author || !blog) return;
 
