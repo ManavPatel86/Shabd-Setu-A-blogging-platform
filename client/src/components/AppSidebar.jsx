@@ -16,7 +16,6 @@ import { BiCategoryAlt } from "react-icons/bi";
 import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
-import { GoDot } from "react-icons/go";
 import {
     RouteIndex,
     RouteFollowing,
@@ -36,11 +35,29 @@ function AppSidebar({ className }) {
     const user = useSelector((state) => state.user); // <-- Add this line
     // Example categories array, replace with your actual categories data
     const categories = [
-        { id: 1, name: "Technology" },
-        { id: 2, name: "Health" },
-        { id: 3, name: "Travel" },
-        { id: 4, name: "Education" },
-        { id: 5, name: "Sports" },
+        { id: 1, name: "🖥️ Technology" },
+        { id: 2, name: "💪 Health & Fitness" },
+        { id: 3, name: "🌍 Travel" },
+        { id: 4, name: "🎓 Education & Career" },
+        { id: 5, name: "🏃🏻 Sports" },
+        { id: 6, name: "🍳 Food & Recipes" },
+        { id: 7, name: "🎨 Art & Design" },
+        { id: 8, name: "🎤 Music & Entertainment" },
+        { id: 9, name: "🎬 Movies & TV" },
+        { id: 10, name: "🏠 Lifestyle" },
+        { id: 11, name: "💰 Finance & Investing" },
+        { id: 12, name: "🎥 Photography & Videography" },
+        { id: 13, name: "💼 Business & Entrepreneurship" },
+        { id: 14, name: "🕹️ Gaming & Esports" },
+        { id: 15, name: "🧘 Self-Improvement" },
+        { id: 16, name: "🛠️ DIY & Home Improvement" },
+        { id: 17, name: "📰 News & Current Affairs" },
+        { id: 18, name: "🎙️ Social Media & Marketing" },
+        { id: 19, name: "🎧 Audiobooks & Podcasts" },
+        { id: 20, name: "🧴 Beauty & Fashion" },
+        { id: 21, name: "🐾 Pets & Animals" },
+        { id: 22, name: "🌐 Science" },
+        { id: 23, name: "🔍 History & Culture" },
     ];
 
     return (
@@ -150,7 +167,6 @@ function AppSidebar({ className }) {
                             <SidebarMenuItem key={category.id}>
                                 <SidebarMenuButton asChild>
                                     <Link to="" className="flex items-center gap-2">
-                                        <GoDot />
                                         {category.name}
                                     </Link>
                                 </SidebarMenuButton>
