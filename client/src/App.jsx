@@ -40,11 +40,18 @@ import BlogDetails from "./pages/Blog/BlogDetails";
 import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 
+import NotificationsProvider from './context/NotificationsProvider';
+import { useSelector } from 'react-redux';
+
 function App() {
+    const user = useSelector((state) => state.user);
+    const loggedInUser = user?.user;
+
     return (
         <BrowserRouter>
-            <Routes>
-                <Route path={RouteIndex} element={<Layout />}>
+            <NotificationsProvider currentUser={loggedInUser}>
+                <Routes>
+                    <Route path={RouteIndex} element={<Layout />}>
                     <Route index element={<Index />} />
                     <Route path={RouteProfile} element={<Profile />} />
                     <Route path={RouteProfileView()} element={<ProfileView />} />
@@ -72,6 +79,7 @@ function App() {
                 <Route path={RouteSignIn} element={<SignIn />} />
                 <Route path={RouteSignUp} element={<SignUp />} />
             </Routes>
+            </NotificationsProvider>
         </BrowserRouter>
     );
 }

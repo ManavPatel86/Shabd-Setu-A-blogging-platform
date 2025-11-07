@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import logo from "@/assets/images/logo-white.svg";
+import { NotificationBell } from './Notifications/NotificationBell';
 import { Button } from "./ui/button";
 import { Link, useNavigate } from 'react-router-dom'
 import { MdLogin } from "react-icons/md";
@@ -124,8 +125,9 @@ const Topbar = () => {
 
             </div>
 
-            {/* Sign In Button */}
-            <div className="flex items-center gap-2">
+            {/* Notification Bell and Sign In Button */}
+            <div className="flex items-center gap-4">
+                {user.isLoggedIn && <NotificationBell />}
                 {!user.isLoggedIn ?
                     <Button
                     asChild
