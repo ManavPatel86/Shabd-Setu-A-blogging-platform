@@ -11,6 +11,12 @@ export const RouteProfileView = (userId) => {
 export const RouteFollowing = "/following";
 export const RouteFollowers = "/followers";
 export const RouteSaved = "/saved";
+export const RouteCategoryFeed = (categorySlug) => {
+    if (categorySlug) {
+        return `/category/${categorySlug}`;
+    }
+    return "/category/:category";
+};
 
 // Admin Category Routes
 export const RouteCategoryDetails = "/categories";

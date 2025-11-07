@@ -82,9 +82,9 @@ export const getAllComments = async (req, res, next) => {
             comments = await Comment.find()
                 .populate({
                     path: 'blogid',
-                    select: 'title slug category',
+                    select: 'title slug categories',
                     populate: {
-                        path: 'category',
+                        path: 'categories',
                         select: 'name slug'
                     }
                 })
@@ -96,9 +96,9 @@ export const getAllComments = async (req, res, next) => {
             comments = await Comment.find({ user: user._id })
                 .populate({
                     path: 'blogid',
-                    select: 'title slug category',
+                    select: 'title slug categories',
                     populate: {
-                        path: 'category',
+                        path: 'categories',
                         select: 'name slug'
                     }
                 })

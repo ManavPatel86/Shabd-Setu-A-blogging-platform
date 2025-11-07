@@ -62,7 +62,7 @@ const BlogDetails = () => {
                             <TableRow>
                                 {isAdmin && <TableHead>Author</TableHead>}
                                 <TableHead className="whitespace-normal">Title</TableHead>
-                                <TableHead>Category</TableHead>
+                                <TableHead>Categories</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Action</TableHead>
                             </TableRow>
@@ -75,7 +75,14 @@ const BlogDetails = () => {
                                     <TableRow key={blog._id}>
                                         {isAdmin && <TableCell>{blog?.author?.name}</TableCell>}
                                         <TableCell className="max-w-[240px] whitespace-normal break-words text-sm">{blog?.title}</TableCell>
-                                        <TableCell>{blog?.category?.name}</TableCell>
+                                        <TableCell className="max-w-[200px] whitespace-normal break-words text-sm">
+                                            {Array.isArray(blog?.categories) && blog.categories.length > 0
+                                                ? blog.categories
+                                                    .map((category) => category?.name)
+                                                    .filter(Boolean)
+                                                    .join(', ')
+                                                : 'Uncategorized'}
+                                        </TableCell>
                                         <TableCell>{moment(blog?.createdAt).format('DD-MM-YYYY')}</TableCell>
                                         <TableCell className="flex gap-3">
                                             <Button variant="outline" className="hover:bg-violet-500 hover:text-white" asChild>

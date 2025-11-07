@@ -17,6 +17,7 @@ import {
     RouteFollowing,
     RouteFollowers,
     RouteSaved,
+    RouteCategoryFeed,
     RouteUser,
 } from "./helpers/RouteName";
 import AddBlog from "./pages/Blog/AddBlog";
@@ -39,6 +40,7 @@ import { RouteCategoryDetails, RouteEditCategory } from "./helpers/RouteName";
 import BlogDetails from "./pages/Blog/BlogDetails";
 import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
+import CategoryFeed from "./Pages/CategoryFeed";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -66,6 +68,7 @@ function App() {
                     <Route path={RouteBlog} element={<BlogDetails />} />
                     <Route path={RouteBlogEdit()} element={<EditBlog />} />
                     <Route path={RouteSearch()} element={<SearchResult />} />
+                    <Route path={RouteCategoryFeed()} element={<CategoryFeed />} />
 
                     {/* Comments */}
                     <Route path={RouteCommentDetails} element={<Comments />} />

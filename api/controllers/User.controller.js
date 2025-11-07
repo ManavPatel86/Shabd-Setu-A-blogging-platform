@@ -1,7 +1,11 @@
 import cloudinary from "../config/cloudinary.js"
 import { handleError } from "../helpers/handleError.js"
 import User from "../models/user.model.js"
+import Blog from "../models/blog.model.js"
+import BlogLike from "../models/bloglike.model.js"
+import Follow from "../models/follow.model.js"
 import bcryptjs from 'bcryptjs'
+import mongoose from "mongoose"
 
 export const getUser = async (req, res, next) => {
     try {
@@ -91,6 +95,269 @@ export const deleteUser = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Data deleted.'
+        })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
+export const getUserContributionActivity = async (req, res, next) => {
+    try {
+        const { userid } = req.params
+
+        if (!userid) {
+            return next(handleError(400, 'User id is required.'))
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(userid)) {
+            return next(handleError(400, 'Invalid user id.'))
+        }
+
+        const parsedDays = Number.parseInt(req.query.days, 10)
+        const days = Number.isFinite(parsedDays) && parsedDays > 0
+            ? Math.min(parsedDays, 365)
+            : 365
+
+        const timezone = 'UTC'
+
+        const endDate = new Date()
+        endDate.setUTCHours(23, 59, 59, 999)
+
+        const startDate = new Date(endDate)
+        startDate.setUTCDate(endDate.getUTCDate() - (days - 1))
+        startDate.setUTCHours(0, 0, 0, 0)
+
+        const rawActivity = await Blog.aggregate([
+            {
+                $match: {
+                    author: new mongoose.Types.ObjectId(userid),
+                    createdAt: {
+                        $gte: startDate,
+                        $lte: endDate
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: '%Y-%m-%d',
+                            date: '$createdAt',
+                            timezone
+                        }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    date: '$_id',
+                    count: 1
+                }
+            },
+            {
+                $sort: { date: 1 }
+            }
+        ])
+
+        const activityMap = rawActivity.reduce((acc, item) => {
+            acc[item.date] = item.count
+            return acc
+        }, {})
+
+        const filledActivity = []
+        const currentDate = new Date(startDate)
+
+        while (currentDate <= endDate) {
+            const isoDate = currentDate.toISOString().split('T')[0]
+            filledActivity.push({
+                date: isoDate,
+                count: activityMap[isoDate] || 0
+            })
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+        }
+
+        const totalBlogs = filledActivity.reduce((sum, entry) => sum + entry.count, 0)
+
+        res.status(200).json({
+            success: true,
+            message: 'Contribution data fetched successfully.',
+            range: {
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                days
+            },
+            totalBlogs,
+            contributions: filledActivity
+        })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
+export const getUserProfileOverview = async (req, res, next) => {
+    try {
+        const { userid } = req.params
+
+        if (!userid) {
+            return next(handleError(400, 'User id is required.'))
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(userid)) {
+            return next(handleError(400, 'Invalid user id.'))
+        }
+
+        const userObjectId = new mongoose.Types.ObjectId(userid)
+
+        const [userDoc, blogs] = await Promise.all([
+            User.findById(userObjectId)
+                .select('name email avatar bio createdAt role')
+                .lean()
+                .exec(),
+            Blog.find({ author: userObjectId })
+                .select('title slug createdAt views featuredImage summary category')
+                .populate('category', 'name slug')
+                .sort({ createdAt: -1 })
+                .lean()
+                .exec()
+        ])
+
+        if (!userDoc) {
+            return next(handleError(404, 'User not found.'))
+        }
+
+        const totalPosts = blogs.length
+        const totalViews = blogs.reduce((sum, blog) => sum + (blog?.views || 0), 0)
+        const averageViewsPerPost = totalPosts > 0 ? Math.round(totalViews / totalPosts) : 0
+
+        const blogIds = blogs.map((blog) => blog?._id).filter(Boolean)
+
+        let totalLikes = 0
+        const likeCountsByBlog = {}
+
+        if (blogIds.length) {
+            const likeCounts = await BlogLike.aggregate([
+                {
+                    $match: {
+                        blogid: { $in: blogIds }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$blogid',
+                        count: { $sum: 1 }
+                    }
+                }
+            ])
+
+            likeCounts.forEach((entry) => {
+                if (!entry?._id) {
+                    return
+                }
+                const key = entry._id.toString()
+                likeCountsByBlog[key] = entry.count || 0
+                totalLikes += entry.count || 0
+            })
+        }
+
+        const [followersCount, followingCount] = await Promise.all([
+            Follow.countDocuments({ following: userObjectId }),
+            Follow.countDocuments({ follower: userObjectId })
+        ])
+
+        const categoryStatsMap = new Map()
+
+        blogs.forEach((blog) => {
+            const category = blog?.category
+            if (!category) {
+                return
+            }
+
+            const key = (category?._id || category)?.toString()
+            if (!key) {
+                return
+            }
+
+            const existing = categoryStatsMap.get(key) || {
+                name: category?.name || 'Uncategorized',
+                slug: category?.slug || '',
+                count: 0
+            }
+
+            existing.count += 1
+            categoryStatsMap.set(key, existing)
+        })
+
+        const topCategories = Array.from(categoryStatsMap.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3)
+            .map((category) => ({
+                name: category.name,
+                slug: category.slug,
+                count: category.count,
+                percentage: totalPosts > 0 ? Math.round((category.count / totalPosts) * 100) : 0
+            }))
+
+        const recentPosts = blogs.slice(0, 5).map((blog) => {
+            const key = blog?._id?.toString() || ''
+
+            return {
+                id: blog?._id,
+                title: blog?.title,
+                slug: blog?.slug,
+                createdAt: blog?.createdAt,
+                views: blog?.views || 0,
+                likeCount: likeCountsByBlog[key] || 0,
+                featuredImage: blog?.featuredImage || '',
+                category: blog?.category ? {
+                    name: blog.category?.name,
+                    slug: blog.category?.slug
+                } : null,
+                summary: blog?.summary || ''
+            }
+        })
+
+        const topPostSource = blogs.slice().sort((a, b) => (b?.views || 0) - (a?.views || 0))[0]
+
+        const topPost = topPostSource ? {
+            id: topPostSource?._id,
+            title: topPostSource?.title,
+            slug: topPostSource?.slug,
+            views: topPostSource?.views || 0,
+            likeCount: likeCountsByBlog[topPostSource?._id?.toString()] || 0,
+            createdAt: topPostSource?.createdAt,
+            featuredImage: topPostSource?.featuredImage || '',
+            category: topPostSource?.category ? {
+                name: topPostSource.category?.name,
+                slug: topPostSource.category?.slug
+            } : null
+        } : null
+
+        res.status(200).json({
+            success: true,
+            user: {
+                _id: userDoc._id,
+                name: userDoc.name,
+                email: userDoc.email,
+                avatar: userDoc.avatar,
+                bio: userDoc.bio,
+                createdAt: userDoc.createdAt,
+                role: userDoc.role
+            },
+            stats: {
+                totalPosts,
+                totalViews,
+                totalLikes,
+                followersCount,
+                followingCount,
+                averageViewsPerPost
+            },
+            highlights: {
+                topPost,
+                topCategories
+            },
+            recentPosts
         })
     } catch (error) {
         next(handleError(500, error.message))

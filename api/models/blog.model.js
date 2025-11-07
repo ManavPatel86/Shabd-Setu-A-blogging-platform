@@ -6,10 +6,15 @@ const blogSchema = new mongoose.Schema({
         required: true,
         ref: 'User'
     },
-    category: {
-        type: mongoose.Schema.Types.ObjectId,
+    categories: {
+        type: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Category'
+            }
+        ],
         required: true,
-        ref: 'Category'
+        default: []
     },
     title: {
         type: String,

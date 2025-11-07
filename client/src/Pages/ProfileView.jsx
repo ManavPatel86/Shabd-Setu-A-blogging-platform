@@ -54,8 +54,15 @@ const ProfileView = () => {
     const labels = Array.from(
       new Set(
         blogs
-          .map((item) => item.category?.name)
-          .filter((label) => Boolean(label))
+          .flatMap((item) => {
+            if (Array.isArray(item.categories)) {
+              return item.categories
+                .map((category) => category?.name)
+                .filter(Boolean);
+            }
+            return item.category?.name ? [item.category.name] : [];
+          })
+          .filter(Boolean)
       )
     );
     return { totalViews: views, categoryLabels: labels };
