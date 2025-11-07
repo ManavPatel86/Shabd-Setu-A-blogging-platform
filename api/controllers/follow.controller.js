@@ -2,46 +2,54 @@ import { handleError } from "../helpers/handleError.js"
 import Follow from "../models/follow.model.js"
 import User from "../models/user.model.js"
 
+import { notifyFollow } from "../utils/notifyTriggers.js";
+
 export const followUser = async (req, res, next) => {
     try {
-        const { userId } = req.params
-        const followerId = req.user._id
+        const { userId } = req.params;
+        const followerId = req.user._id?.toString();
+
+        if (!followerId) {
+            return next(handleError(401, 'Authentication required'));
+        }
 
         // Prevent self-follow
-        if (followerId.toString() === userId) {
-            return next(handleError(400, 'You cannot follow yourself.'))
+        if (followerId === String(userId)) {
+            return next(handleError(400, 'You cannot follow yourself.'));
         }
 
-        // Check if user exists
-        const userToFollow = await User.findById(userId)
+        // Check if target user exists
+        const userToFollow = await User.findById(userId);
         if (!userToFollow) {
-            return next(handleError(404, 'User not found.'))
+            return next(handleError(404, 'User not found.'));
         }
 
-        // Check if already following
+        // Toggle follow: if exists, unfollow; otherwise follow
         const existingFollow = await Follow.findOne({
             follower: followerId,
             following: userId
-        })
+        });
 
         if (existingFollow) {
-            return next(handleError(400, 'You are already following this user.'))
+            // Unfollow
+            await Follow.findByIdAndDelete(existingFollow._id);
+            return res.status(200).json({ success: true, following: false, message: 'Unfollowed user.' });
         }
 
         // Create follow relationship
-        const follow = new Follow({
-            follower: followerId,
-            following: userId
-        })
+        const follow = await Follow.create({ follower: followerId, following: userId });
 
-        await follow.save()
+        // Notify the user being followed
+        try {
+            await notifyFollow({ followerId, targetUserId: userId });
+        } catch (notifyErr) {
+            // Log but do not fail the request
+            console.error('notifyFollow error:', notifyErr);
+        }
 
-        res.status(200).json({
-            success: true,
-            message: 'Successfully followed user.'
-        })
+        return res.status(201).json({ success: true, following: true, message: 'Successfully followed user.' });
     } catch (error) {
-        next(handleError(500, error.message))
+        next(handleError(500, error.message));
     }
 }
 
@@ -144,3 +152,4 @@ export const getFollowStats = async (req, res, next) => {
         next(handleError(500, error.message))
     }
 }
+

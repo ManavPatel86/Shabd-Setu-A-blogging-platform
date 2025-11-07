@@ -1,5 +1,9 @@
 import { handleError } from "../helpers/handleError.js"
+
 import Comment from "../models/comment.model.js"
+import Blog from "../models/blog.model.js";
+import { notifyComment, notifyReply } from "../utils/notifyTriggers.js";
+
 import mongoose from "mongoose"
 export const addcomment = async (req, res, next) => {
     try {
@@ -14,14 +18,14 @@ export const addcomment = async (req, res, next) => {
         }
 
         const newComment = new Comment({
-            user: req.user._id, // Get user from auth middleware
+            user: req.user._id, 
             blogid: blogid,
             comment: comment.trim()
         })
 
         await newComment.save()
 
-        // Populate the user details for immediate display
+    
         await newComment.populate('user', 'name avatar')
 
         res.status(200).json({
@@ -119,3 +123,62 @@ export const deleteComment = async (req, res, next) => {
     }
 }
 
+export const addComment = async (req, res) => {
+  try {
+    const { blogId } = req.params;
+    const { text } = req.body;
+    const userId = req.user.id;
+
+    const comment = await Comment.create({
+      userId,
+      blogId,
+      text,
+    });
+
+    const blog = await Blog.findById(blogId).populate("author");
+    if (blog && String(blog.author._id) !== String(userId)) {
+      await notifyComment({
+        commenterId: userId,
+        postId: blogId,
+      });
+    }
+
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to add comment" });
+  }
+};
+
+
+export const replyToComment = async (req, res) => {
+  try {
+    const { blogId, commentId } = req.params;
+    const { text } = req.body;
+    const userId = req.user.id;
+
+    const parentComment = await Comment.findById(commentId);
+    if (!parentComment) return res.status(404).json({ error: "Comment not found" });
+
+    const reply = await Comment.create({
+      userId,
+      blogId,
+      text,
+      parentId: commentId,
+    });
+
+
+    if (String(parentComment.userId) !== String(userId)) {
+      await notifyReply({
+        replierId: userId,
+        originalCommentUserId: parentComment.userId,
+        postId: blogId,
+      });
+    }
+
+    res.status(201).json(reply);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reply" });
+  }
+};
