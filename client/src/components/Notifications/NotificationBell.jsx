@@ -1,5 +1,5 @@
 import React, { useState, Suspense } from 'react';
-import { useNotifications } from '../../context/NotificationsProvider';
+import { useNotifications } from '../../context/NotificationsProvider.jsx';
 import { BellIcon } from 'lucide-react';
 import { Button } from "../ui/button";
 import {
