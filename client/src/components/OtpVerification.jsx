@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from "react";
-import axios from "axios";
 
 const RESEND_INTERVAL_MINUTES = Number(process.env.REACT_APP_OTP_RESEND_INTERVAL_MINUTES || 5);
 const OTP_EXPIRY_MINUTES = Number(process.env.REACT_APP_OTP_EXPIRY_MINUTES || 5);
@@ -56,18 +55,38 @@ export default function OtpVerification({ userId, email, onVerified }) {
     };
   }, [userId, email]);
 
+  const postJson = async (url, payload) => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const message = data?.message || "Request failed";
+      throw new Error(message);
+    }
+
+    return data;
+  };
+
   const handleVerify = async () => {
     setMessage(null);
     try {
-      const resp = await axios.post("/api/auth/verify-otp", { userId, email, code });
-      if (resp.data?.success) {
-        setMessage({ type: "success", text: resp.data.message || "Verified" });
+      const data = await postJson("/api/auth/verify-otp", { userId, email, code });
+      if (data?.success) {
+        setMessage({ type: "success", text: data.message || "Verified" });
         if (typeof onVerified === "function") onVerified();
       } else {
-        setMessage({ type: "error", text: resp.data?.message || "Verification failed" });
+        setMessage({ type: "error", text: data?.message || "Verification failed" });
       }
     } catch (err) {
-      const text = err?.response?.data?.message || err.message || "Error verifying OTP";
+      const text = err?.message || "Error verifying OTP";
       setMessage({ type: "error", text });
     }
   };
@@ -75,9 +94,9 @@ export default function OtpVerification({ userId, email, onVerified }) {
   const handleResend = async () => {
     setMessage(null);
     try {
-      const resp = await axios.post("/api/auth/resend-otp", { userId, email });
-      if (resp.data?.success) {
-        setMessage({ type: "success", text: resp.data.message || "OTP resent" });
+      const data = await postJson("/api/auth/resend-otp", { userId, email });
+      if (data?.success) {
+        setMessage({ type: "success", text: data.message || "OTP resent" });
 
         // restart timers
         setResendDisabled(true);
@@ -111,10 +130,10 @@ export default function OtpVerification({ userId, email, onVerified }) {
         }, 1000);
 
       } else {
-        setMessage({ type: "error", text: resp.data?.message || "Resend failed" });
+        setMessage({ type: "error", text: data?.message || "Resend failed" });
       }
     } catch (err) {
-      const text = err?.response?.data?.message || err.message || "Error resending OTP";
+      const text = err?.message || "Error resending OTP";
       setMessage({ type: "error", text });
     }
   };

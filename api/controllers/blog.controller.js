@@ -7,6 +7,8 @@ import User from "../models/user.model.js"
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { StringOutputParser } from "@langchain/core/output_parsers"
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
+import Follow from "../models/follow.model.js";
+import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const MAX_CONTENT_LENGTH = 12000;
@@ -51,6 +53,9 @@ export const addBlog = async (req, res, next) => {
         }
 
         const blog = new Blog({
+            // Use authenticated user as author to avoid trusting client data
+            author: req.user?._id || data.author,
+            category: data.category,
             author: data.author,
             categories,
             title: data.title,
@@ -60,6 +65,13 @@ export const addBlog = async (req, res, next) => {
         })
 
         await blog.save()
+
+        // Notify followers about the new post (fire-and-forget; don't fail the request)
+        try {
+            await notifyFollowersNewPost({ authorId: req.user?._id, blogId: blog._id });
+        } catch (notifyErr) {
+            console.error('notifyFollowersNewPost error:', notifyErr);
+        }
 
         res.status(200).json({
             success: true,
