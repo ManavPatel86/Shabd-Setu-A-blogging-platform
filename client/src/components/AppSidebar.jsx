@@ -58,6 +58,10 @@ function AppSidebar({ className }) {
         { id: 21, name: "🐾 Pets & Animals" },
         { id: 22, name: "🌐 Science" },
         { id: 23, name: "🔍 History & Culture" },
+        { id: 24, name: "🌱 Environment & Sustainability" },
+        { id: 25, name: "🏛️ Politics & Government" },
+        { id: 26, name: "💬 Growth & Inspiration" },
+        { id: 27, name: "🎭 Arts & Culture" },
     ];
 
     return (

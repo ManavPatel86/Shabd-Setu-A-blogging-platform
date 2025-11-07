@@ -13,8 +13,9 @@ import Comments from "@/components/Comments";
 import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
-import { RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
+import { RouteBlogDetails, RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 import SaveButton from "@/components/SaveButton";
+import { showToast } from "@/helpers/showToast";
 
 const SingleBlogDetails = () => {
   const { blog } = useParams();
@@ -158,6 +159,32 @@ const SingleBlogDetails = () => {
   };
   if (!b) return <div className="text-center py-10 text-gray-500">Blog not found</div>;
 
+  const handleShare = async () => {
+    const path = RouteBlogDetails(b?.category?.slug, b?.slug || b?._id)
+    const url = `${window.location.origin}${path}`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: b?.title || 'Read this blog',
+          text: decode(b?.blogContent || '').replace(/<[^>]*>/g, '').slice(0, 120) || undefined,
+          url
+        })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      showToast('success', 'Link copied to clipboard')
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(url)
+          showToast('success', 'Link copied to clipboard')
+        } catch (_) {
+          showToast('error', 'Unable to share.')
+        }
+      }
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-5 md:px-0 py-12 animate-fadeIn">
       
@@ -287,7 +314,7 @@ const SingleBlogDetails = () => {
           className="flex items-center gap-1 text-sm hover:text-black transition">
           <MessageCircle className="h-5 w-5" /> Comment
         </button>
-        <button className="flex items-center gap-1 text-sm hover:text-black transition">
+        <button onClick={handleShare} className="flex items-center gap-1 text-sm hover:text-black transition cursor-pointer">
           <Share2 className="h-5 w-5" /> Share
         </button>
         <SaveButton blogId={b._id} withLabel className="text-sm" />
