@@ -3,6 +3,7 @@ import { MessageCircle, Share2, Bot, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { RouteBlogDetails, RouteProfileView } from "@/helpers/RouteName";
+import { showToast } from "@/helpers/showToast";
 import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
 import SaveButton from "./SaveButton";
@@ -68,6 +69,37 @@ const BlogCard = ({ blog }) => {
     event.stopPropagation();
     if (author?._id) {
       navigate(RouteProfileView(author._id));
+    }
+  };
+
+  const handleShare = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const path = RouteBlogDetails(category?.slug, slug || _id);
+    const url = `${window.location.origin}${path}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: title || "Read this blog",
+          text: description ? description.replace(/<[^>]*>/g, '').slice(0, 120) : undefined,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast('success', 'Link copied to clipboard');
+      }
+    } catch (err) {
+      // If user cancels native share, do nothing; otherwise fallback to copy
+      if (err?.name !== 'AbortError') {
+        try {
+          await navigator.clipboard.writeText(url);
+          showToast('success', 'Link copied to clipboard');
+        } catch (_) {
+          showToast('error', 'Unable to share.');
+        }
+      }
     }
   };
 
@@ -302,7 +334,9 @@ const BlogCard = ({ blog }) => {
           }} className="flex items-center gap-1 text-gray-600 hover:text-black">
             <MessageCircle className="h-4 w-4" />
           </button>
-          <Share2 className="h-4 w-4 hover:text-black" />
+          <button onClick={handleShare} className="flex items-center gap-1 text-gray-600 hover:text-black cursor-pointer">
+            <Share2 className="h-4 w-4" />
+          </button>
           <SaveButton blogId={_id} size="sm" className="text-gray-600" />
         </div>
       </div>
