@@ -16,7 +16,6 @@ import { BiCategoryAlt } from "react-icons/bi";
 import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
-import { GoDot } from "react-icons/go";
 import {
     RouteIndex,
     RouteFollowing,
@@ -175,7 +174,6 @@ function AppSidebar({ className }) {
                                                 to={path}
                                                 className={`flex items-center gap-2 ${isActive ? "text-blue-600 font-semibold" : ""}`}
                                             >
-                                                <GoDot />
                                                 {category.name}
                                             </Link>
                                         </SidebarMenuButton>
