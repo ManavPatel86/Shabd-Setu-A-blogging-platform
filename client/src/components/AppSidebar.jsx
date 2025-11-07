@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
     Sidebar,
     SidebarContent,
@@ -9,7 +10,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/images/logo-white.svg";
 import { IoHomeOutline } from "react-icons/io5";
 import { BiCategoryAlt } from "react-icons/bi";
@@ -20,6 +21,7 @@ import {
     RouteIndex,
     RouteFollowing,
     RouteSaved,
+    RouteCategoryFeed,
     RouteCategoryDetails,
     RouteEditCategory,
     RouteBlog,
@@ -29,10 +31,28 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
 import { Bookmark } from "lucide-react";
+import { useFetch } from "@/hooks/useFetch";
+import { getEnv } from "@/helpers/getEnv";
 
 function AppSidebar({ className }) {
     const isMobile = useIsMobile();
     const user = useSelector((state) => state.user); // <-- Add this line
+    const location = useLocation();
+
+    const baseUrl = getEnv("VITE_API_BASE_URL");
+    const categoryUrl = baseUrl ? `${baseUrl}/category/all-category` : null;
+    const { data: categoryData, loading: categoriesLoading } = useFetch(
+        categoryUrl,
+        { method: "get", credentials: "include" },
+        [categoryUrl]
+    );
+
+    const categories = useMemo(() => {
+        if (!Array.isArray(categoryData?.category)) {
+            return [];
+        }
+        return categoryData.category.filter(Boolean);
+    }, [categoryData]);
     // Example categories array, replace with your actual categories data
     const categories = [
         { id: 1, name: "🖥️ Technology" },
@@ -163,6 +183,38 @@ function AppSidebar({ className }) {
                         Popular Categories
                     </SidebarGroupLabel>
                     <SidebarMenu>
+                        {categoriesLoading ? (
+                            <SidebarMenuItem>
+                                <div className="text-sm text-gray-400 px-2 py-2">
+                                    Loading categories...
+                                </div>
+                            </SidebarMenuItem>
+                        ) : categories.length > 0 ? (
+                            categories.map((category) => {
+                                const path = category?.slug ? RouteCategoryFeed(category.slug) : null;
+                                if (!path) {
+                                    return null;
+                                }
+                                const isActive = location.pathname === path;
+                                return (
+                                    <SidebarMenuItem key={category._id || category.slug}>
+                                        <SidebarMenuButton asChild>
+                                            <Link
+                                                to={path}
+                                                className={`flex items-center gap-2 ${isActive ? "text-blue-600 font-semibold" : ""}`}
+                                            >
+                                                <GoDot />
+                                                {category.name}
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })
+                        ) : (
+                            <SidebarMenuItem>
+                                <div className="text-sm text-gray-400 px-2 py-2">
+                                    No categories available
+                                </div>
                         {categories.map(category => (
                             <SidebarMenuItem key={category.id}>
                                 <SidebarMenuButton asChild>
@@ -171,7 +223,7 @@ function AppSidebar({ className }) {
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
-                        ))}
+                        )}
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>

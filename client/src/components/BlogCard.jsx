@@ -18,7 +18,8 @@ const BlogCard = ({ blog }) => {
     title,
     description,
     author,
-    category,
+  categories: categoriesFromApi,
+  category, // legacy fallback
     createdAt,
     slug
   } = blog;
@@ -39,8 +40,20 @@ const BlogCard = ({ blog }) => {
     };
   }, []);
 
+  const categories = Array.isArray(categoriesFromApi)
+    ? categoriesFromApi.filter(Boolean)
+    : category
+      ? [category]
+      : [];
+
+  const primaryCategory = categories[0];
+
   const navigateToBlog = (showComments = false) => {
-    navigate(RouteBlogDetails(category?.slug, slug || _id) + (showComments ? '?comments=true' : ''));
+    const categorySlug = primaryCategory?.slug || 'category';
+    navigate(
+      RouteBlogDetails(categorySlug, slug || _id) +
+        (showComments ? '?comments=true' : '')
+    );
   };
 
   const handleCardClick = (e) => {
@@ -143,10 +156,23 @@ const BlogCard = ({ blog }) => {
       onClick={handleCardClick}
       className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all cursor-pointer flex flex-col p-5"
     >
-      {/* Top Category */}
-      <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium w-fit mb-3">
-        {category?.name || "Uncategorized"}
-      </span>
+      {/* Top Categories */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {categories.length > 0 ? (
+          categories.map((item) => (
+            <span
+              key={item?._id || item?.slug || item?.name}
+              className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium"
+            >
+              {item?.name || "Uncategorized"}
+            </span>
+          ))
+        ) : (
+          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
+            Uncategorized
+          </span>
+        )}
+      </div>
 
       {/* Main Row */}
       <div className="flex flex-col md:flex-row justify-between gap-5">

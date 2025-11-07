@@ -17,20 +17,31 @@ const Following = () => {
   const [unfollowingId, setUnfollowingId] = useState(null);
   const [followingList, setFollowingList] = useState([]);
 
+  const requestUrl = currentUser?._id
+    ? `${getEnv("VITE_API_BASE_URL")}/follow/following/${currentUser._id}`
+    : null;
+
   const { data, loading, error } = useFetch(
-    `${getEnv("VITE_API_BASE_URL")}/follow/following/${currentUser?._id}`,
+    requestUrl,
     {
       method: "get",
       credentials: "include",
     },
-    [currentUser?._id]
+    [requestUrl]
   );
 
   React.useEffect(() => {
-    if (data?.following) {
-      setFollowingList(data.following);
+    if (!requestUrl) {
+      setFollowingList([]);
+      return;
     }
-  }, [data]);
+
+    if (Array.isArray(data?.following)) {
+      setFollowingList(data.following.filter(Boolean));
+    } else {
+      setFollowingList([]);
+    }
+  }, [data, requestUrl]);
 
   const handleUnfollow = async (userId) => {
     setUnfollowingId(userId);
@@ -61,6 +72,14 @@ const Following = () => {
   const handleProfileClick = (userId) => {
     navigate(RouteProfileView(userId));
   };
+
+  if (!currentUser?._id) {
+    return (
+      <div className="text-center py-10 text-gray-500">
+        Please sign in to view who you're following.
+      </div>
+    );
+  }
 
   if (loading) {
     return <Loading />;
@@ -95,25 +114,25 @@ const Following = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {followingList.map((user) => (
+          {followingList.map((user, idx) => (
             <div
-              key={user._id}
+              key={user?._id || idx}
               className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
             >
               <div className="flex items-center justify-between">
                 <div
                   className="flex items-center gap-4 flex-1 cursor-pointer"
-                  onClick={() => handleProfileClick(user._id)}
+                  onClick={() => user?._id && handleProfileClick(user._id)}
                 >
                   <Avatar className="h-16 w-16 border-2 border-gray-200">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user?.avatar ?? undefined} alt={user?.name ?? 'User'} />
                   </Avatar>
                   
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {user.name}
+                      {user?.name || 'Unknown'}
                     </h3>
-                    {user.email && (
+                    {user?.email && (
                       <p className="text-sm text-gray-500 truncate">{user.email}</p>
                     )}
                   </div>
@@ -121,11 +140,11 @@ const Following = () => {
 
                 <Button
                   variant="outline"
-                  onClick={() => handleUnfollow(user._id)}
-                  disabled={unfollowingId === user._id}
+                  onClick={() => user?._id && handleUnfollow(user._id)}
+                  disabled={unfollowingId === user?._id || !user?._id}
                   className="ml-4"
                 >
-                  {unfollowingId === user._id ? "Unfollowing..." : "Unfollow"}
+                  {unfollowingId === user?._id ? "Unfollowing..." : "Unfollow"}
                 </Button>
               </div>
             </div>

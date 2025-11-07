@@ -52,6 +52,17 @@ const SingleBlogDetails = () => {
   );
 
   const b = data?.blog;
+  const categories = Array.isArray(b?.categories)
+    ? b.categories.filter(Boolean)
+    : b?.category
+      ? [b.category]
+      : [];
+  const categoryNames = categories
+    .map((category) => category?.name)
+    .filter(Boolean);
+  const subtitleCategory = categoryNames.length
+    ? categoryNames.join(", ")
+    : "this topic";
 
   const fetchSummary = useCallback(
     async (refresh = false) => {
@@ -161,10 +172,23 @@ const SingleBlogDetails = () => {
   return (
     <div className="max-w-3xl mx-auto px-5 md:px-0 py-12 animate-fadeIn">
       
-      {/* Tag */}
-      <span className="px-4 py-1 text-sm font-medium rounded-full bg-gradient-to-r from-blue-100 via-blue-50 to-purple-100 text-blue-700 border border-blue-200 shadow-sm">
-        {b?.category?.name}
-      </span>
+      {/* Tags */}
+      <div className="flex flex-wrap gap-2">
+        {categories.length > 0 ? (
+          categories.map((categoryItem, index) => (
+            <span
+              key={categoryItem?._id || categoryItem?.slug || index}
+              className="px-4 py-1 text-sm font-medium rounded-full bg-gradient-to-r from-blue-100 via-blue-50 to-purple-100 text-blue-700 border border-blue-200 shadow-sm"
+            >
+              {categoryItem?.name || "Uncategorized"}
+            </span>
+          ))
+        ) : (
+          <span className="px-4 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-600 border border-gray-200 shadow-sm">
+            Uncategorized
+          </span>
+        )}
+      </div>
 
       {/* Title */}
       <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-gray-900 mt-5 leading-tight font-serif">
@@ -173,7 +197,7 @@ const SingleBlogDetails = () => {
 
       {/* Subtitle tone */}
       <p className="text-gray-600 text-lg mt-3 italic">
-        a thoughtful read on {b?.category?.name?.toLowerCase()}
+        a thoughtful read on {subtitleCategory.toLowerCase()}
       </p>
 
       {/* Author */}

@@ -60,7 +60,7 @@ export const getSavedBlogs = async (req, res, next) => {
                 path: "savedBlogs",
                 populate: [
                     { path: "author", select: "name avatar role" },
-                    { path: "category", select: "name slug" },
+                    { path: "categories", select: "name slug" },
                 ],
                 options: { sort: { createdAt: -1 } },
             })
