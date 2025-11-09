@@ -19,4 +19,5 @@ const viewSchema = new mongoose.Schema(
 // Ensure that a user can only view a blog once
 viewSchema.index({ blogId: 1, userId: 1 }, { unique: true });
 
-export const View = mongoose.model("View", viewSchema);
+const View = mongoose.model("View", viewSchema);
+export default View;
