@@ -34,6 +34,7 @@ export const RouteEditCategory = (category_id)=>{
 // Admin Blog Routes
 export const RouteBlog = '/blog'
 export const RouteBlogAdd = '/blog/add'
+export const RouteAnalytics = '/blog/analytics';
 export const RouteBlogEdit = (blogid) => {
     if (blogid) {
         return `/blog/edit/${blogid}`

@@ -20,6 +20,7 @@ import {
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
+    RouteAnalytics,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";
 import EditBlog from "./Pages/Blog/EditBlog";
@@ -43,6 +44,7 @@ import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
 import Landing from "./Pages/Landing";
+import AnalyticsPage from "./Pages/Blog/AnalyticsPage";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -56,6 +58,7 @@ function App() {
             <NotificationsProvider currentUser={loggedInUser}>
                 <Routes>
                     <Route path={RouteLanding} element={<Landing />} />
+                      <Route path={RouteAnalytics} element={<AnalyticsPage />} />
 
                     <Route element={<Layout />}>
                         <Route path={RouteIndex} element={<Index />} />
