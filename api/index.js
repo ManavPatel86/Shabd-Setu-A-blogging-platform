@@ -14,6 +14,8 @@ import ViewRoute from './routes/view.route.js'
 import FollowRoute from './routes/follow.route.js'
 import SaveRoute from './routes/save.route.js'
 import NotificationRoute from './routes/notification.route.js'
+import analyticsRoutes from "./routes/Analytics.route.js";
+
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
@@ -62,7 +64,7 @@ app.use('/api/view', ViewRoute)
 app.use('/api/follow', FollowRoute)
 app.use('/api/save', SaveRoute)
 app.use('/api/notifications', NotificationRoute)
-
+app.use("/api/analytics", analyticsRoutes);
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
     .then(()=>console.log('Database connected.'))
