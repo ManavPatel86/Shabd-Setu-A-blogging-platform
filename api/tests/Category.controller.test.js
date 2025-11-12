@@ -77,11 +77,9 @@ describe('Category Controller Tests', () => {
 
       await addCategory(req, res, next);
 
-      // Should get error through next()
       expect(res._error).toBeDefined();
-      expect(res._error.statusCode).toBe(500);
-      // The error message should contain duplicate key error info
-      expect(res._error.message).toMatch(/duplicate|E11000|dup key/i);
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Category slug already exists.');
     });
   });
 

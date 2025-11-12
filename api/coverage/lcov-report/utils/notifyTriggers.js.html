@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.63% </span>
+                <span class="strong">29.26% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/41</span>
+                <span class='fraction'>12/41</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.25% </span>
+                <span class="strong">18.75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/32</span>
+                <span class='fraction'>6/32</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">18.75% </span>
+                <span class="strong">31.25% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/32</span>
+                <span class='fraction'>10/32</span>
             </div>
         
             
@@ -166,7 +166,9 @@
 <a name='L101'></a><a href='#L101'>101</a>
 <a name='L102'></a><a href='#L102'>102</a>
 <a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -191,8 +193,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -209,8 +211,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -273,6 +275,7 @@
 import User from '../models/user.model.js';
 import Blog from '../models/blog.model.js';
 import Follow from '../models/follow.model.js';
+import Category from '../models/category.model.js';
 &nbsp;
 const buildBlogLink = <span class="fstat-no" title="function not covered" >(b</span>log) =&gt; {
 <span class="cstat-no" title="statement not covered" >  if (!blog) {</span>
@@ -294,8 +297,8 @@ export async function notifyLike({ likerId, blogId }) {
     { path: 'author', select: 'name' },
     { path: 'categories', select: 'slug' },
   ]);
-<span class="cstat-no" title="statement not covered" >  if (!blog) <span class="cstat-no" title="statement not covered" >return;</span></span>
-<span class="cstat-no" title="statement not covered" >  if (String(blog.author._id) === String(likerId)) <span class="cstat-no" title="statement not covered" >return; </span></span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!blog) <span class="cstat-no" title="statement not covered" >return;</span>
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (String(blog.author._id) === String(likerId)) return; 
 &nbsp;
   const sender = <span class="cstat-no" title="statement not covered" >await User.findById(likerId);</span>
 <span class="cstat-no" title="statement not covered" >  await createNotification({</span>
@@ -312,8 +315,8 @@ export async function notifyComment({ commenterId, blogId }) {
     { path: 'author', select: 'name' },
     { path: 'categories', select: 'slug' },
   ]);
-<span class="cstat-no" title="statement not covered" >  if (!blog) <span class="cstat-no" title="statement not covered" >return;</span></span>
-<span class="cstat-no" title="statement not covered" >  if (String(blog.author._id) === String(commenterId)) <span class="cstat-no" title="statement not covered" >return;</span></span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!blog) <span class="cstat-no" title="statement not covered" >return;</span>
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (String(blog.author._id) === String(commenterId)) return;
 &nbsp;
   const sender = <span class="cstat-no" title="statement not covered" >await User.findById(commenterId);</span>
 <span class="cstat-no" title="statement not covered" >  await createNotification({</span>
@@ -379,7 +382,7 @@ export async function <span class="fstat-no" title="function not covered" >notif
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-12T06:54:12.956Z
+                at 2025-11-12T11:37:06.029Z
             </div>
         <script src="../prettify.js"></script>
         <script>

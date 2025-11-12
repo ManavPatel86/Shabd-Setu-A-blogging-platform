@@ -3,6 +3,9 @@ import { handleError } from "../helpers/handleError.js";
 import Blog from "../models/blog.model.js";
 import User from "../models/user.model.js";
 
+export const normalizeSavedBlogs = (savedBlogs) =>
+    Array.isArray(savedBlogs) ? savedBlogs : [];
+
 export const toggleSaveBlog = async (req, res, next) => {
     try {
         const { blogId } = req.params;
@@ -21,9 +24,7 @@ export const toggleSaveBlog = async (req, res, next) => {
             return next(handleError(404, "User not found."));
         }
 
-        if (!Array.isArray(user.savedBlogs)) {
-            user.savedBlogs = [];
-        }
+    user.savedBlogs = normalizeSavedBlogs(user.savedBlogs);
 
         const existingIndex = user.savedBlogs.findIndex(
             (savedId) => savedId.toString() === blogId
@@ -70,11 +71,9 @@ export const getSavedBlogs = async (req, res, next) => {
             return next(handleError(404, "User not found."));
         }
 
-        if (!Array.isArray(user.savedBlogs)) {
-            user.savedBlogs = [];
-        }
+    user.savedBlogs = normalizeSavedBlogs(user.savedBlogs);
 
-        const savedBlogs = (user.savedBlogs || []).filter(Boolean);
+    const savedBlogs = user.savedBlogs.filter(Boolean);
 
         res.status(200).json({
             success: true,
@@ -98,9 +97,7 @@ export const getSaveStatus = async (req, res, next) => {
             return next(handleError(404, "User not found."));
         }
 
-        if (!Array.isArray(user.savedBlogs)) {
-            user.savedBlogs = [];
-        }
+    user.savedBlogs = normalizeSavedBlogs(user.savedBlogs);
 
         const isSaved = user.savedBlogs.some(
             (savedId) => savedId.toString() === blogId
