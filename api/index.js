@@ -42,10 +42,13 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'https://shabdsetu.vercel.app')
+const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
+const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
-  .filter(Boolean);
+  .filter(Boolean)
+  .concat(defaultOrigins)
+  .filter((value, index, array) => value && array.indexOf(value) === index);
 
 app.use(
   cors({
