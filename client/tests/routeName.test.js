@@ -3,6 +3,7 @@ import {
   RouteProfileView,
   RouteCategoryFeed,
   RouteBlogDetails,
+  RouteBlogEdit,
   RouteSearch,
 } from "@/helpers/RouteName";
 
@@ -38,7 +39,21 @@ describe("Route helpers", () => {
       );
     });
 
-    it.todo("should handle categories or slugs with spaces");
+    it("encodes and trims category and blog segments with spaces", () => {
+      expect(RouteBlogDetails(" Dev Tools ", " Hooks & Tips ")).toBe(
+        "/blog/Dev%20Tools/Hooks%20%26%20Tips"
+      );
+    });
+  });
+
+  describe("RouteBlogEdit", () => {
+    it("returns template path when blog id missing", () => {
+      expect(RouteBlogEdit()).toBe("/blog/edit/:blogid");
+    });
+
+    it("injects blog id into edit path", () => {
+      expect(RouteBlogEdit("1234abcd")).toBe("/blog/edit/1234abcd");
+    });
   });
 
   describe("RouteSearch", () => {

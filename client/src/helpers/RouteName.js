@@ -49,7 +49,9 @@ export const RouteBlogDetails = (category, blog) => {
         return '/blog/:category/:blog'
     } else {
         // This version is for the <Link> 'to' prop in BlogCard.jsx
-        return `/blog/${category}/${blog}`
+        const safeCategory = encodeURIComponent(category.trim())
+        const safeBlog = encodeURIComponent(blog.trim())
+        return `/blog/${safeCategory}/${safeBlog}`
     }
 }
 
