@@ -42,13 +42,27 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
-const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map((origin) => origin.trim().replace(/^'+|'+$/g, '')).filter(Boolean)
+const allowedOrigins = (process.env.FRONTEND_URL || 'https://shabdsetu.vercel.app')
+  .split(',')
+  .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
+  .filter(Boolean);
+
 app.use(
-    cors({
-        origin: allowedOrigins.length ? allowedOrigins : true,
-        credentials: true,
-    })
-)
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        console.log("❌ Blocked by CORS:", origin);
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
 
 
 
