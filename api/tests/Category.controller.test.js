@@ -81,6 +81,51 @@ describe('Category Controller Tests', () => {
       expect(res._error.statusCode).toBe(400);
       expect(res._error.message).toBe('Category slug already exists.');
     });
+
+    it('should handle database error with duplicate code 11000', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const saveError = new Error('Duplicate key');
+      saveError.code = 11000;
+      
+      const saveSpy = jest.spyOn(Category.prototype, 'save').mockRejectedValueOnce(saveError);
+
+      req.body = {
+        name: 'Technology',
+        slug: 'technology',
+      };
+
+      await addCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Category slug already exists.');
+
+      saveSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle generic database errors', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const saveError = new Error('Database connection failed');
+      
+      const saveSpy = jest.spyOn(Category.prototype, 'save').mockRejectedValueOnce(saveError);
+
+      req.body = {
+        name: 'Technology',
+        slug: 'technology',
+      };
+
+      await addCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Database connection failed');
+
+      saveSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('showCategory', () => {
@@ -109,6 +154,24 @@ describe('Category Controller Tests', () => {
       expect(res._error.statusCode).toBe(404);
       expect(res._error.message).toBe('Data not found.');
     });
+
+    it('should handle database errors in showCategory', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const findError = new Error('Database query failed');
+      
+      const findSpy = jest.spyOn(Category, 'findById').mockRejectedValueOnce(findError);
+
+      req.params.categoryid = '507f1f77bcf86cd799439011';
+
+      await showCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      findSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('updateCategory', () => {
@@ -132,6 +195,28 @@ describe('Category Controller Tests', () => {
       expect(res._jsonData.category.name).toBe('New Name');
       expect(res._jsonData.category.slug).toBe('new-slug');
     });
+
+    it('should handle database errors in updateCategory', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const updateError = new Error('Update failed');
+      
+      const updateSpy = jest.spyOn(Category, 'findByIdAndUpdate').mockRejectedValueOnce(updateError);
+
+      req.params.categoryid = '507f1f77bcf86cd799439011';
+      req.body = {
+        name: 'New Name',
+        slug: 'new-slug',
+      };
+
+      await updateCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      updateSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('deleteCategory', () => {
@@ -152,6 +237,24 @@ describe('Category Controller Tests', () => {
       // Verify deletion
       const deleted = await Category.findById(category._id);
       expect(deleted).toBeNull();
+    });
+
+    it('should handle database errors in deleteCategory', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const deleteError = new Error('Delete failed');
+      
+      const deleteSpy = jest.spyOn(Category, 'findByIdAndDelete').mockRejectedValueOnce(deleteError);
+
+      req.params.categoryid = '507f1f77bcf86cd799439011';
+
+      await deleteCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      deleteSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -174,6 +277,41 @@ describe('Category Controller Tests', () => {
 
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.category).toHaveLength(0);
+    });
+
+    it('should return categories sorted by name', async () => {
+      await Category.create([
+        { name: 'Zebra', slug: 'zebra' },
+        { name: 'Apple', slug: 'apple' },
+        { name: 'Mango', slug: 'mango' },
+      ]);
+
+      await getAllCategory(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.category[0].name).toBe('Apple');
+      expect(res._jsonData.category[1].name).toBe('Mango');
+      expect(res._jsonData.category[2].name).toBe('Zebra');
+    });
+
+    it('should handle database errors in getAllCategory', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const findError = new Error('Query failed');
+      
+      const findSpy = jest.spyOn(Category, 'find').mockReturnValueOnce({
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockRejectedValueOnce(findError)
+      });
+
+      await getAllCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      findSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 });

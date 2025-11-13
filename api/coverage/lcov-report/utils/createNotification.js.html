@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">38.88% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/18</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.27% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/11</span>
+                <span class='fraction'>0/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">38.88% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/18</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
@@ -118,9 +118,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -131,29 +131,29 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import Notification from "../models/notification.model.js";
 &nbsp;
@@ -163,30 +163,30 @@ export function <span class="fstat-no" title="function not covered" >initNotific
 <span class="cstat-no" title="statement not covered" >  io = ioInstance;</span>
 }
 &nbsp;
-export async function createNotification({ recipientId, senderId, type, link, extra = <span class="branch-0 cbranch-no" title="branch not covered" >{} </span>}) {
-  let message = "";
+export async function <span class="fstat-no" title="function not covered" >createNotification(</span>{ recipientId, senderId, type, link, extra = <span class="branch-0 cbranch-no" title="branch not covered" >{} </span>}) {
+  let message = <span class="cstat-no" title="statement not covered" >"";</span>
 &nbsp;
-  switch (type) {
-<span class="branch-0 cbranch-no" title="branch not covered" >    case "like":</span>
+<span class="cstat-no" title="statement not covered" >  switch (type) {</span>
+    case "like":
 <span class="cstat-no" title="statement not covered" >      message = `${extra.senderName} liked your blog "${extra.blogTitle}"`;</span>
 <span class="cstat-no" title="statement not covered" >      break;</span>
-<span class="branch-1 cbranch-no" title="branch not covered" >    case "comment":</span>
+    case "comment":
 <span class="cstat-no" title="statement not covered" >      message = `${extra.senderName} commented on your blog "${extra.blogTitle}"`;</span>
 <span class="cstat-no" title="statement not covered" >      break;</span>
-<span class="branch-2 cbranch-no" title="branch not covered" >    case "reply":</span>
+    case "reply":
 <span class="cstat-no" title="statement not covered" >      message = `${extra.senderName} replied to your comment`;</span>
 <span class="cstat-no" title="statement not covered" >      break;</span>
     case "follow":
-      message = `${extra.senderName} started following you`;
-      break;
-<span class="branch-4 cbranch-no" title="branch not covered" >    case "newPost":</span>
+<span class="cstat-no" title="statement not covered" >      message = `${extra.senderName} started following you`;</span>
+<span class="cstat-no" title="statement not covered" >      break;</span>
+    case "newPost":
 <span class="cstat-no" title="statement not covered" >      message = `${extra.senderName} posted a new blog: "${extra.blogTitle}"`;</span>
 <span class="cstat-no" title="statement not covered" >      break;</span>
-<span class="branch-5 cbranch-no" title="branch not covered" >    default:</span>
+    default:
 <span class="cstat-no" title="statement not covered" >      message = "You have a new notification";</span>
   }
 &nbsp;
-  const doc = await Notification.create({
+  const doc = <span class="cstat-no" title="statement not covered" >await Notification.create({</span>
     recipientId,
     senderId,
     type,
@@ -195,11 +195,11 @@ export async function createNotification({ recipientId, senderId, type, link, ex
   });
 &nbsp;
 &nbsp;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (io &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >recipientId)</span> {
+<span class="cstat-no" title="statement not covered" >  if (io &amp;&amp; recipientId) {</span>
 <span class="cstat-no" title="statement not covered" >    io.to(String(recipientId)).emit("notification:new", doc);</span>
   }
 &nbsp;
-  return doc;
+<span class="cstat-no" title="statement not covered" >  return doc;</span>
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -208,7 +208,7 @@ export async function createNotification({ recipientId, senderId, type, link, ex
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-12T11:37:06.029Z
+                at 2025-11-13T10:17:41.319Z
             </div>
         <script src="../prettify.js"></script>
         <script>

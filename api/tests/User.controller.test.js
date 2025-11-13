@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import User from '../models/user.model.js';
 import Blog from '../models/blog.model.js';
 import BlogLike from '../models/bloglike.model.js';
@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
 import { 
   getUser, 
+  updateUser,
   getAllUser, 
   deleteUser, 
   updateUserBlacklistStatus,
@@ -30,12 +31,14 @@ describe('User Controller Tests', () => {
 
   beforeEach(async () => {
     await clearTestDB();
+    jest.clearAllMocks();
 
     req = {
       body: {},
       params: {},
       user: null,
       query: {},
+      file: null,
     };
 
     const jsonMock = function(data) {
@@ -93,6 +96,99 @@ describe('User Controller Tests', () => {
       req.params.userid = 'invalid-id';
 
       await getUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+    });
+  });
+
+  describe('updateUser', () => {
+    it('should update user name, email, and bio successfully', async () => {
+      const user = await User.create({
+        name: 'Old Name',
+        email: 'old@example.com',
+        password: bcryptjs.hashSync('password123'),
+        bio: 'Old bio',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'New Name',
+        email: 'new@example.com',
+        bio: 'New bio',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Data updated.');
+      expect(res._jsonData.user.name).toBe('New Name');
+      expect(res._jsonData.user.email).toBe('new@example.com');
+      expect(res._jsonData.user.bio).toBe('New bio');
+      expect(res._jsonData.user.password).toBeUndefined();
+    });
+
+    it('should update password when valid password provided (8+ chars)', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: bcryptjs.hashSync('oldpassword'),
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'User',
+        email: 'user@example.com',
+        bio: '',
+        password: 'newpassword123',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+
+      // Verify password was updated
+      const updatedUser = await User.findById(user._id);
+      const passwordMatches = bcryptjs.compareSync('newpassword123', updatedUser.password);
+      expect(passwordMatches).toBe(true);
+    });
+
+    it('should not update password when password is too short', async () => {
+      const oldHash = bcryptjs.hashSync('oldpassword');
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: oldHash,
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'User',
+        email: 'user@example.com',
+        bio: '',
+        password: 'short',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+
+      // Password should remain unchanged
+      const updatedUser = await User.findById(user._id);
+      expect(updatedUser.password).toBe(oldHash);
+    });
+
+    it('should handle database errors in updateUser', async () => {
+      req.params.userid = 'invalid-id';
+      req.body.data = JSON.stringify({
+        name: 'User',
+        email: 'user@example.com',
+        bio: '',
+      });
+
+      await updateUser(req, res, next);
 
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(500);
@@ -414,6 +510,69 @@ describe('User Controller Tests', () => {
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.range.days).toBe(365);
     });
+
+    it('should cap days at 365 when requesting more', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: 'pass123',
+      });
+
+      req.params.userid = user._id.toString();
+      req.query.days = '500';
+
+      await getUserContributionActivity(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.range.days).toBe(365);
+    });
+
+    it('should handle invalid days query parameter', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: 'pass123',
+      });
+
+      req.params.userid = user._id.toString();
+      req.query.days = 'invalid';
+
+      await getUserContributionActivity(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.range.days).toBe(365); // Should default to 365
+    });
+
+    it('should handle negative days query parameter', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: 'pass123',
+      });
+
+      req.params.userid = user._id.toString();
+      req.query.days = '-10';
+
+      await getUserContributionActivity(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.range.days).toBe(365); // Should default to 365
+    });
+
+    it('should handle errors in getUserContributionActivity', async () => {
+      // Invalid ObjectId that passes validation but will cause aggregate error
+      req.params.userid = new mongoose.Types.ObjectId().toString();
+      
+      // Force an error by breaking the query
+      jest.spyOn(Blog, 'aggregate').mockRejectedValueOnce(new Error('Aggregate error'));
+
+      await getUserContributionActivity(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      jest.restoreAllMocks();
+    });
   });
 
   describe('getUserProfileOverview', () => {
@@ -425,7 +584,12 @@ describe('User Controller Tests', () => {
         bio: 'Test bio',
       });
 
-      // Create blogs (categories is optional, so we omit it)
+      const category = await Category.create({
+        name: 'Tech',
+        slug: 'tech',
+      });
+
+      // Create blogs with categories
       await Blog.create({
         title: 'Test Blog',
         slug: 'test-blog',
@@ -433,17 +597,12 @@ describe('User Controller Tests', () => {
         featuredImage: 'image.jpg',
         author: user._id,
         views: 100,
-        categories: [], // Empty array to avoid populate issues
+        categories: [category._id],
       });
 
       req.params.userid = user._id.toString();
 
       await getUserProfileOverview(req, res, next);
-
-      // Log error for debugging if present
-      if (res._error) {
-        console.error('getUserProfileOverview error:', res._error.message, res._error.statusCode);
-      }
 
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.success).toBe(true);
@@ -451,6 +610,7 @@ describe('User Controller Tests', () => {
       expect(res._jsonData.stats).toBeDefined();
       expect(res._jsonData.stats.totalPosts).toBe(1);
       expect(res._jsonData.stats.totalViews).toBe(100);
+      expect(res._jsonData.highlights.topCategories).toBeDefined();
     });
 
     it('should return error for non-existent user', async () => {
@@ -478,6 +638,299 @@ describe('User Controller Tests', () => {
       expect(res._jsonData.stats.totalPosts).toBe(0);
       expect(res._jsonData.stats.totalViews).toBe(0);
       expect(res._jsonData.stats.totalLikes).toBe(0);
+      expect(res._jsonData.highlights.topPost).toBeNull();
+    });
+
+    it('should include likes in profile overview', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      const blog = await Blog.create({
+        title: 'Popular Blog',
+        slug: 'popular-blog',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        views: 200,
+        categories: [],
+      });
+
+      // Create likes (BlogLike uses 'user' field, not 'userid')
+      await BlogLike.create([
+        { blogid: blog._id, user: new mongoose.Types.ObjectId() },
+        { blogid: blog._id, user: new mongoose.Types.ObjectId() },
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.stats.totalLikes).toBe(2);
+      expect(res._jsonData.recentPosts[0].likeCount).toBe(2);
+    });
+
+    it('should include followers and following counts', async () => {
+      const user = await User.create({
+        name: 'Social User',
+        email: 'social@example.com',
+        password: 'pass123',
+      });
+
+      const follower1 = await User.create({
+        name: 'Follower 1',
+        email: 'follower1@example.com',
+        password: 'pass123',
+      });
+
+      const following1 = await User.create({
+        name: 'Following 1',
+        email: 'following1@example.com',
+        password: 'pass123',
+      });
+
+      await Follow.create([
+        { follower: follower1._id, following: user._id },
+        { follower: user._id, following: following1._id },
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.stats.followersCount).toBe(1);
+      expect(res._jsonData.stats.followingCount).toBe(1);
+    });
+
+    it('should calculate top categories correctly', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      const cat1 = await Category.create({ name: 'Tech', slug: 'tech' });
+      const cat2 = await Category.create({ name: 'Design', slug: 'design' });
+
+      await Blog.create([
+        {
+          title: 'Tech Blog 1',
+          slug: 'tech-blog-1',
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          categories: [cat1._id],
+        },
+        {
+          title: 'Tech Blog 2',
+          slug: 'tech-blog-2',
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          categories: [cat1._id],
+        },
+        {
+          title: 'Design Blog',
+          slug: 'design-blog',
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          categories: [cat2._id],
+        },
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topCategories).toHaveLength(2);
+      expect(res._jsonData.highlights.topCategories[0].name).toBe('Tech');
+      expect(res._jsonData.highlights.topCategories[0].count).toBe(2);
+    });
+
+    it('should limit top categories to 3', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      const categories = await Category.create([
+        { name: 'Cat1', slug: 'cat1' },
+        { name: 'Cat2', slug: 'cat2' },
+        { name: 'Cat3', slug: 'cat3' },
+        { name: 'Cat4', slug: 'cat4' },
+      ]);
+
+      for (let i = 0; i < categories.length; i++) {
+        await Blog.create({
+          title: `Blog ${i}`,
+          slug: `blog-${i}`,
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          categories: [categories[i]._id],
+        });
+      }
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topCategories.length).toBeLessThanOrEqual(3);
+    });
+
+    it('should identify top post by views', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create([
+        {
+          title: 'Low Views Blog',
+          slug: 'low-views',
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          views: 50,
+          categories: [],
+        },
+        {
+          title: 'High Views Blog',
+          slug: 'high-views',
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          views: 500,
+          categories: [],
+        },
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topPost.title).toBe('High Views Blog');
+      expect(res._jsonData.highlights.topPost.views).toBe(500);
+    });
+
+    it('should limit recent posts to 5', async () => {
+      const user = await User.create({
+        name: 'Prolific Blogger',
+        email: 'prolific@example.com',
+        password: 'pass123',
+      });
+
+      for (let i = 0; i < 10; i++) {
+        await Blog.create({
+          title: `Blog ${i}`,
+          slug: `blog-${i}`,
+          blogContent: 'Content',
+          featuredImage: 'image.jpg',
+          author: user._id,
+          categories: [],
+        });
+      }
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.recentPosts).toHaveLength(5);
+    });
+
+    it('should handle blogs with no categories gracefully', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Uncategorized Blog',
+        slug: 'uncategorized',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topCategories).toHaveLength(0);
+    });
+
+    it('should handle blogs with null/undefined views', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'No Views Blog',
+        slug: 'no-views',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+        views: null,
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.stats.totalViews).toBe(0);
+    });
+
+    it('should require user id parameter', async () => {
+      req.params.userid = '';
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('User id is required.');
+    });
+
+    it('should validate user id format', async () => {
+      req.params.userid = 'invalid-id';
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Invalid user id.');
+    });
+
+    it('should handle errors in getUserProfileOverview', async () => {
+      req.params.userid = new mongoose.Types.ObjectId().toString();
+
+      jest.spyOn(Blog, 'find').mockImplementationOnce(() => {
+        throw new Error('Database error');
+      });
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      jest.restoreAllMocks();
     });
   });
 });

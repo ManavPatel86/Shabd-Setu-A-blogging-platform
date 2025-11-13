@@ -22,15 +22,17 @@ export const connectTestDB = async () => {
 
 export const closeTestDB = async () => {
   try {
-    await mongoose.connection.dropDatabase();
-    await mongoose.connection.close();
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.dropDatabase();
+      await mongoose.connection.close();
+    }
     if (mongoServer) {
       await mongoServer.stop();
     }
     console.log('Test database closed');
   } catch (error) {
-    console.error('Test DB close error:', error);
-    throw error;
+    // Silently ignore connection close errors in parallel test execution
+    // This can happen when multiple test suites try to close the same connection
   }
 };
 
