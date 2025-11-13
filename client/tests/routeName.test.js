@@ -5,9 +5,29 @@ import {
   RouteBlogDetails,
   RouteBlogEdit,
   RouteSearch,
+  RouteEditCategory,
+  RouteAddCategory,
+  RouteCategoryDetails,
+  RouteLanding,
+  RouteIndex,
+  RouteBlog,
+  RouteBlogAdd,
+  RouteCommentDetails,
+  RouteUser,
 } from "@/helpers/RouteName";
 
 describe("Route helpers", () => {
+  it("exposes static route constants", () => {
+    expect(RouteLanding).toBe("/");
+    expect(RouteIndex).toBe("/home");
+    expect(RouteCategoryDetails).toBe("/categories");
+    expect(RouteAddCategory).toBe("/category/add");
+    expect(RouteBlog).toBe("/blog");
+    expect(RouteBlogAdd).toBe("/blog/add");
+    expect(RouteCommentDetails).toBe("/comments");
+    expect(RouteUser).toBe("/users");
+  });
+
   describe("RouteProfileView", () => {
     it("returns dynamic path when user id is missing", () => {
       expect(RouteProfileView()).toBe("/profile/view/:userId");
@@ -56,6 +76,16 @@ describe("Route helpers", () => {
     });
   });
 
+  describe("RouteEditCategory", () => {
+    it("returns template path when identifier missing", () => {
+      expect(RouteEditCategory()).toBe("/category/edit/:category_id");
+    });
+
+    it("injects category id into edit path", () => {
+      expect(RouteEditCategory("cat-42")).toBe("/category/edit/cat-42");
+    });
+  });
+
   describe("RouteSearch", () => {
     it("falls back to /search when query empty after trim", () => {
       expect(RouteSearch("   ")).toBe("/search");
@@ -63,6 +93,10 @@ describe("Route helpers", () => {
 
     it("returns encoded query string when value provided", () => {
       expect(RouteSearch("hooks & tips")).toBe("/search?q=hooks%20%26%20tips");
+    });
+
+    it("defaults to /search when query not provided", () => {
+      expect(RouteSearch()).toBe("/search");
     });
   });
 });
