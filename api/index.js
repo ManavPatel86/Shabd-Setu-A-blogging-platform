@@ -8,6 +8,7 @@ import AuthRoute from './routes/Auth.route.js'
 import UserRoute from './routes/User.route.js'
 import CategoryRoute from './routes/Category.route.js'
 import BlogRoute from './routes/Blog.route.js'
+import BlogAIRoute from './routes/blogAI.route.js'
 import CommentRoute from './routes/Comment.route.js'
 import BlogLikeRoute from './routes/Bloglike.route.js'
 import ViewRoute from './routes/view.route.js'
@@ -73,6 +74,7 @@ app.use('/api/auth', AuthRoute)
 app.use('/api/user', UserRoute)
 app.use('/api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
+app.use('/api/blog',BlogAIRoute)
 app.use('/api/comment',CommentRoute)
 app.use('/api/bloglike',BlogLikeRoute)
 app.use('/api/view', ViewRoute)
