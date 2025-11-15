@@ -5,7 +5,7 @@ import LikeCount from '@/components/LikeCount'
 import Loading from '@/components/Loading'
 import RelatedBlog from '@/components/RelatedBlog'
 import { Avatar } from '@/components/ui/avatar'
-import { getEvn } from '@/helpers/getEnv'
+import { getEnv } from '@/helpers/getEnv'
 import { useFetch } from '@/hooks/useFetch'
 import { AvatarImage } from '@radix-ui/react-avatar'
 import { decode } from 'entities'
@@ -16,7 +16,7 @@ import { useParams } from 'react-router-dom'
 const SingleBlogDetails = () => {
     const { blog, category } = useParams()
 
-    const { data, loading } = useFetch(`${getEvn('VITE_API_BASE_URL')}/blog/${blog}`, {
+    const { data, loading } = useFetch(`${getEnv('VITE_API_BASE_URL')}/blog/get-blog/${blog}`, {
         method: 'get',
         credentials: 'include',
     }, [blog, category])
@@ -61,7 +61,7 @@ const SingleBlogDetails = () => {
 
             }
             <div className='border rounded md:w-[30%] w-full p-5'>
-                <RelatedBlog props={{ category: category, currentBlog: blog }} />
+                <RelatedBlog category={category} currentBlog={blog} />
             </div>
         </div>
     )

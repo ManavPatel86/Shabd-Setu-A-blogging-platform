@@ -216,8 +216,8 @@ export const getUserProfileOverview = async (req, res, next) => {
                 .lean()
                 .exec(),
             Blog.find({ author: userObjectId })
-                .select('title slug createdAt views featuredImage summary category')
-                .populate('category', 'name slug')
+                .select('title slug createdAt views featuredImage summary categories')
+                .populate('categories', 'name slug')
                 .sort({ createdAt: -1 })
                 .lean()
                 .exec()
@@ -269,24 +269,26 @@ export const getUserProfileOverview = async (req, res, next) => {
         const categoryStatsMap = new Map()
 
         blogs.forEach((blog) => {
-            const category = blog?.category
-            if (!category) {
+            const categories = blog?.categories || []
+            if (!Array.isArray(categories) || categories.length === 0) {
                 return
             }
 
-            const key = (category?._id || category)?.toString()
-            if (!key) {
-                return
-            }
+            categories.forEach((category) => {
+                const key = (category?._id || category)?.toString()
+                if (!key) {
+                    return
+                }
 
-            const existing = categoryStatsMap.get(key) || {
-                name: category?.name || 'Uncategorized',
-                slug: category?.slug || '',
-                count: 0
-            }
+                const existing = categoryStatsMap.get(key) || {
+                    name: category?.name || 'Uncategorized',
+                    slug: category?.slug || '',
+                    count: 0
+                }
 
-            existing.count += 1
-            categoryStatsMap.set(key, existing)
+                existing.count += 1
+                categoryStatsMap.set(key, existing)
+            })
         })
 
         const topCategories = Array.from(categoryStatsMap.values())
@@ -301,6 +303,8 @@ export const getUserProfileOverview = async (req, res, next) => {
 
         const recentPosts = blogs.slice(0, 5).map((blog) => {
             const key = blog?._id?.toString() || ''
+            const categories = blog?.categories || []
+            const primaryCategory = categories.length > 0 ? categories[0] : null
 
             return {
                 id: blog?._id,
@@ -310,9 +314,9 @@ export const getUserProfileOverview = async (req, res, next) => {
                 views: blog?.views || 0,
                 likeCount: likeCountsByBlog[key] || 0,
                 featuredImage: blog?.featuredImage || '',
-                category: blog?.category ? {
-                    name: blog.category?.name,
-                    slug: blog.category?.slug
+                category: primaryCategory ? {
+                    name: primaryCategory?.name,
+                    slug: primaryCategory?.slug
                 } : null,
                 summary: blog?.summary || ''
             }
@@ -328,9 +332,9 @@ export const getUserProfileOverview = async (req, res, next) => {
             likeCount: likeCountsByBlog[topPostSource?._id?.toString()] || 0,
             createdAt: topPostSource?.createdAt,
             featuredImage: topPostSource?.featuredImage || '',
-            category: topPostSource?.category ? {
-                name: topPostSource.category?.name,
-                slug: topPostSource.category?.slug
+            category: topPostSource?.categories && topPostSource.categories.length > 0 ? {
+                name: topPostSource.categories[0]?.name,
+                slug: topPostSource.categories[0]?.slug
             } : null
         } : null
 
