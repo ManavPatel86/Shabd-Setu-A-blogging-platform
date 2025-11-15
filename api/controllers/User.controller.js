@@ -269,11 +269,12 @@ export const getUserProfileOverview = async (req, res, next) => {
         const categoryStatsMap = new Map()
 
         blogs.forEach((blog) => {
-            const categories = blog?.categories || []
-            if (!Array.isArray(categories) || categories.length === 0) {
+            const categories = blog?.categories
+            if (!categories || !Array.isArray(categories) || categories.length === 0) {
                 return
             }
 
+            // For each category in the blog's categories array
             categories.forEach((category) => {
                 const key = (category?._id || category)?.toString()
                 if (!key) {
@@ -314,10 +315,10 @@ export const getUserProfileOverview = async (req, res, next) => {
                 views: blog?.views || 0,
                 likeCount: likeCountsByBlog[key] || 0,
                 featuredImage: blog?.featuredImage || '',
-                category: primaryCategory ? {
-                    name: primaryCategory?.name,
-                    slug: primaryCategory?.slug
-                } : null,
+                categories: blog?.categories ? blog.categories.map(cat => ({
+                    name: cat?.name,
+                    slug: cat?.slug
+                })) : [],
                 summary: blog?.summary || ''
             }
         })
@@ -332,10 +333,10 @@ export const getUserProfileOverview = async (req, res, next) => {
             likeCount: likeCountsByBlog[topPostSource?._id?.toString()] || 0,
             createdAt: topPostSource?.createdAt,
             featuredImage: topPostSource?.featuredImage || '',
-            category: topPostSource?.categories && topPostSource.categories.length > 0 ? {
-                name: topPostSource.categories[0]?.name,
-                slug: topPostSource.categories[0]?.slug
-            } : null
+            categories: topPostSource?.categories ? topPostSource.categories.map(cat => ({
+                name: cat?.name,
+                slug: cat?.slug
+            })) : []
         } : null
 
         res.status(200).json({

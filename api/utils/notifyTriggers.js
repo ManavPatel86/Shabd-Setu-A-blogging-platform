@@ -2,6 +2,7 @@ import { createNotification } from './createNotification.js';
 import User from '../models/user.model.js';
 import Blog from '../models/blog.model.js';
 import Follow from '../models/follow.model.js';
+import Category from '../models/category.model.js';
 
 const buildBlogLink = (blog) => {
   if (!blog) {
