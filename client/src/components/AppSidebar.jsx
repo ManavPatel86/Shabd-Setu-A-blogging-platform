@@ -16,6 +16,8 @@ import { BiCategoryAlt } from "react-icons/bi";
 import { GrBlog } from "react-icons/gr";
 import { FaRegComments } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
+import { RouteHelp } from "@/helpers/RouteName";
+import { FaQuestionCircle } from "react-icons/fa";
 import {
     RouteIndex,
     RouteFollowing,
@@ -115,6 +117,17 @@ function AppSidebar({ className }) {
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
+                                
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to={RouteHelp} className="flex items-center gap-2">
+                                        <FaQuestionCircle />
+                                        Help
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+
+
 
 
                             </>
