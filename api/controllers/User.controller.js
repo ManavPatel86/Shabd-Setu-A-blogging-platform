@@ -304,6 +304,8 @@ export const getUserProfileOverview = async (req, res, next) => {
 
         const recentPosts = blogs.slice(0, 5).map((blog) => {
             const key = blog?._id?.toString() || ''
+            const categories = blog?.categories || []
+            const primaryCategory = categories.length > 0 ? categories[0] : null
 
             return {
                 id: blog?._id,

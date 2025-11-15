@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Loading from "@/components/Loading";
+import RelatedBlog from '@/components/RelatedBlog'
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarImage } from "@radix-ui/react-avatar";
 import { getEnv } from "@/helpers/getEnv";
@@ -39,6 +40,9 @@ const SingleBlogDetails = () => {
   }, [searchParams]);
   const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
   const navigate = useNavigate();
+
+  const [showSidebar, setShowSidebar] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -197,7 +201,9 @@ const SingleBlogDetails = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-5 md:px-0 py-12 animate-fadeIn">
+    <div className="max-w-6xl mx-auto px-5 md:px-0 py-12 animate-fadeIn">
+      <div className="md:flex md:items-start md:gap-8">
+        <div className={`md:flex-1 ${isExpanded ? 'md:max-w-full' : 'md:max-w-[66%]'}`}>
       
       {/* Tags */}
       <div className="flex flex-wrap gap-2">
@@ -253,7 +259,7 @@ const SingleBlogDetails = () => {
         <img src={b.featuredImage} alt={b.title} className="w-full object-cover rounded-2xl" />
       </div>
 
-      <div className="mt-8 flex justify-end">
+      <div className="mt-8 flex justify-end gap-2">
         <button
           type="button"
           onClick={handleSummaryToggle}
@@ -261,6 +267,21 @@ const SingleBlogDetails = () => {
         >
           {showSummary ? "Hide AI Summary" : "Generate AI Summary"}
         </button>
+
+        {/* If sidebar is removed, show a small control to restore it */}
+        {!showSidebar && (
+          <div className="mt-4 md:mt-0 md:ml-1 flex justify-end">
+            <button
+              onClick={() => {
+                setShowSidebar(true)
+                setIsExpanded(false)
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+            >
+              Show recommendations
+            </button>
+          </div>
+        )}
       </div>
 
       {showSummary ? (
@@ -322,6 +343,42 @@ const SingleBlogDetails = () => {
         "
         dangerouslySetInnerHTML={{ __html: decode(b.blogContent) }}
       />
+
+        </div>
+
+        {/* Sidebar: render only when shown */}
+        {showSidebar && (
+          <aside className="md:w-[32%] mt-8 md:mt-0">
+            <div className="sticky top-24 space-y-6">
+              <div className="bg-white border rounded-xl p-4 shadow-sm">
+                <h3 className="text-xl font-semibold mb-3">Recommended for you</h3>
+                <RelatedBlog
+                  category={categories}
+                  currentBlog={b?.slug || b?._id}
+                  onClose={() => {
+                    setShowSidebar(false)
+                    setIsExpanded(true)
+                  }}
+                />
+              </div>
+            </div>
+          </aside>
+        )}
+      </div>
+      {/* If sidebar is removed, show a small control to restore it */}
+        {!showSidebar && (
+          <div className="mt-4 md:mt-0 md:ml-1 flex justify-end">
+            <button
+              onClick={() => {
+                setShowSidebar(true)
+                setIsExpanded(false)
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+            >
+              Show recommendations
+            </button>
+          </div>
+        )}
 
       {/* Divider */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-10"></div>
