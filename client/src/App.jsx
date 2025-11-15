@@ -11,6 +11,7 @@ import {
     RouteProfileView,
     RouteSignIn,
     RouteSignUp,
+    RouteForgotPassword,
     RouteBlogDetails,
     RouteSearch,
     RouteCommentDetails,
@@ -45,6 +46,7 @@ import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
 import Landing from "./Pages/Landing";
+import ForgotPassword from "./Pages/ForgotPassword";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -88,6 +90,7 @@ function App() {
 
                     <Route path={RouteSignIn} element={<SignIn />} />
                     <Route path={RouteSignUp} element={<SignUp />} />
+                        <Route path={RouteForgotPassword} element={<ForgotPassword />} />
             </Routes>
             </NotificationsProvider>
         </BrowserRouter>
