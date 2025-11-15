@@ -1,5 +1,5 @@
 import express from 'express'
-import { doLike, likeCount } from '../controllers/bloglike.controller.js'
+import { doLike, likeCount } from '../controllers/BlogLike.controller.js'
 import { authenticate } from '../middleware/authenticate.js'
 
 const BlogLikeRoute = express.Router()
