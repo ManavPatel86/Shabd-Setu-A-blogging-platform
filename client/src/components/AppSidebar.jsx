@@ -27,10 +27,11 @@ import {
     RouteBlog,
     RouteCommentDetails,
     RouteUser,
+    RouteAdminReports,
 } from "@/helpers/RouteName";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSelector } from "react-redux";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Flag } from "lucide-react";
 import { useFetch } from "@/hooks/useFetch";
 import { getEnv } from "@/helpers/getEnv";
 
@@ -151,6 +152,15 @@ function AppSidebar({ className }) {
                                         <Link to={RouteUser} className="flex items-center gap-2">
                                             <LuUsers />
                                                 Manage Users
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild>
+                                        <Link to={RouteAdminReports} className="flex items-center gap-2">
+                                            <Flag />
+                                                Manage Reports
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>

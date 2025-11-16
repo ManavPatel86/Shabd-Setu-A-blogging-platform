@@ -19,14 +19,21 @@ export async function createNotification({ recipientId, senderId, type, link, ex
     case "reply":
       message = `${extra.senderName} replied to your comment`;
       break;
+    case "report":
+      // Use custom message if provided, otherwise default
+      message = extra.message || `${extra.senderName} reported your blog "${extra.blogTitle || ''}"`;
+      break;
     case "follow":
       message = `${extra.senderName} started following you`;
       break;
     case "newPost":
       message = `${extra.senderName} posted a new blog: "${extra.blogTitle}"`;
       break;
+    case "warning":
+      message = extra.message || "You have received a warning from an admin";
+      break;
     default:
-      message = "You have a new notification";
+      message = extra.message || "You have a new notification";
   }
 
   const doc = await Notification.create({
@@ -39,7 +46,12 @@ export async function createNotification({ recipientId, senderId, type, link, ex
 
 
   if (io && recipientId) {
-    io.to(String(recipientId)).emit("notification:new", doc);
+    try {
+      io.to(String(recipientId)).emit("notification:new", doc);
+      console.log(`Notification emitted to ${String(recipientId)} type=${type}`);
+    } catch (emitErr) {
+      console.error('Failed to emit notification via socket:', emitErr);
+    }
   }
 
   return doc;

@@ -18,6 +18,7 @@ import slugify from 'slugify'
 import { decode } from 'entities'
 import { RouteBlog } from '@/helpers/RouteName'
 import { Loader2, Save, Send, Image as ImageIcon, X, FileText, Sparkles, Type, MessageSquare } from 'lucide-react'
+import ModerationErrorDisplay from '@/components/ModerationErrorDisplay'
 
 const formSchema = z.object({
   categories: z.array(z.string().min(1)).optional().default([]),
@@ -35,6 +36,7 @@ const EditBlog = () => {
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [editorData, setEditorData] = useState('')
   const [categorizing, setCategorizing] = useState(false)
+  const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '' })
   const [generatingDescription, setGeneratingDescription] = useState(false)
   const [blogStatus, setBlogStatus] = useState('published')
   const [contentLength, setContentLength] = useState(0)
@@ -293,6 +295,7 @@ const EditBlog = () => {
 
     try {
       setIsSubmitting(true)
+      setModerationErrors({ badLines: [], suggestions: [], message: '' })
 
       // Validate required fields for published blogs
       if (!isDraft) {
@@ -336,6 +339,13 @@ const EditBlog = () => {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.badLines || data.suggestions) {
+          setModerationErrors({
+            badLines: data.badLines || [],
+            suggestions: data.suggestions || [],
+            message: data.message || 'Blog content failed moderation.'
+          });
+        }
         showToast('error', data?.message || 'Failed to update blog.')
         return
       }
@@ -391,6 +401,100 @@ const EditBlog = () => {
   const isDraft = blogStatus === 'draft'
 
   return (
+    <div className="mt-9">
+      <Card className="pt-5">
+        <CardContent>
+          {moderationErrors.badLines?.length > 0 && (
+            <ModerationErrorDisplay
+              errors={moderationErrors.badLines}
+              suggestions={moderationErrors.suggestions}
+              onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '' })}
+              onFixLine={(lineNum) => {
+                if (lineNum === 1) {
+                  const titleInput = document.querySelector('input[name="title"]');
+                  if (titleInput) {
+                    titleInput.focus();
+                    titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                  }
+                }
+                if (lineNum === 2) {
+                  const slugInput = document.querySelector('input[name="slug"]');
+                  if (slugInput) {
+                    slugInput.focus();
+                    slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                  }
+                }
+                const editorFrame = document.querySelector('iframe[role="application"]');
+                if (editorFrame) {
+                  editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  try { editorFrame.contentWindow?.focus(); } catch (e) {}
+                }
+                showToast('info', `Please fix line ${lineNum} in the editor`);
+              }}
+            />
+          )}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <div className="mb-3">
+                <FormField
+                  control={form.control}
+                  name="categories"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center justify-between gap-3">
+                        <span>Categories</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCategorizeWithAI}
+                          disabled={categorizing}
+                        >
+                          {categorizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Categorize with AI
+                        </Button>
+                      </FormLabel>
+                      <FormControl>
+                        <div className="flex flex-wrap gap-2">
+                          {availableCategories.length ? (
+                            availableCategories.map((category) => {
+                              const selected = Array.isArray(field.value) ? field.value : []
+                              const isChecked = selected.includes(category._id)
+                              return (
+                                <label
+                                  key={category._id}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border cursor-pointer transition-colors ${
+                                    isChecked ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(event) => {
+                                      const checked = event.target.checked
+                                      const current = Array.isArray(field.value) ? field.value : []
+                                      const next = checked
+                                        ? [...current, category._id]
+                                        : current.filter((id) => id !== category._id)
+                                      field.onChange(next)
+                                    }}
+                                    className="accent-blue-500 h-4 w-4"
+                                  />
+                                  <span className="text-sm font-medium">{category.name}</span>
+                                </label>
+                              )
+                            })
+                          ) : (
+                            <span className="text-sm text-gray-500">No categories available</span>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
     <div className='mt-6 max-w-6xl mx-auto px-4'>
       {/* Header Section */}
       <div className="mb-8">

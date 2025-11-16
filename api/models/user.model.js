@@ -8,6 +8,16 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    status: {
+        type: String,
+        enum: ['active', 'banned', 'blocked'],
+        default: 'active',
+        trim: true
+    },
+    isBlacklisted: {
+        type: Boolean,
+        default: false
+    },
     name: {
         type: String,
         required: true,

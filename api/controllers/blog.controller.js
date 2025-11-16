@@ -7,6 +7,7 @@ import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
 import slugify from "slugify";
 import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
+import { moderateBlog } from "../utils/moderation.js";
 import Follow from "../models/follow.model.js";
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -114,6 +115,18 @@ export const addBlog = async (req, res, next) => {
                 })
                 .catch((error) => {
                     next(handleError(500, error.message))
+                });
+            featuredImage = uploadResult.secure_url
+        }
+
+        const incomingCategories = Array.isArray(data.categories)
+            ? data.categories
+            : data.category
+                ? [data.category]
+                : []
+        const categories = [...new Set(incomingCategories.filter(Boolean))]
+        if (!categories.length) {
+            return next(handleError(400, 'At least one category is required.'))
                 })
 
             if (!uploadResult) {
@@ -145,7 +158,23 @@ export const addBlog = async (req, res, next) => {
             slug = await ensureUniquePublishedSlug(slug)
         }
 
+        // AI Moderation: block unsafe blogs, show errors
+        // Combine title and slug with content so single-line fields are also checked
+        const combinedForModeration = `TITLE: ${data.title || ''}\nSLUG: ${data.slug || ''}\n${toPlainText(data.blogContent || '')}`;
+        const moderationResult = await moderateBlog(combinedForModeration);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Blog content failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions
+            });
+        }
+
         const blog = new Blog({
+            author: req.user?._id || data.author,
+            category: data.category,
+            author: data.author,
             author: authorId,
             categories,
             title,
@@ -173,7 +202,6 @@ export const addBlog = async (req, res, next) => {
             message: isPublished ? 'Blog published successfully.' : 'Draft saved successfully.',
             blog: buildBlogResponse(blog),
         })
-
     } catch (error) {
         if (error?.code === 11000) {
             return next(handleError(409, 'Slug is already in use by another published blog.'))
@@ -213,6 +241,24 @@ export const updateBlog = async (req, res, next) => {
         if (isPublishing && !categories.length) {
             return next(handleError(400, 'At least one category is required to publish a blog.'))
         }
+
+        // AI Moderation: block unsafe blogs, show errors
+        // Combine title and slug with content so single-line fields are also checked
+        const combinedForModeration = `TITLE: ${data.title || ''}\nSLUG: ${data.slug || ''}\n${toPlainText(data.blogContent || '')}`;
+        const moderationResult = await moderateBlog(combinedForModeration);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Blog content failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions
+            });
+        }
+
+        blog.categories = categories
+        blog.title = data.title
+        blog.slug = data.slug
+        blog.blogContent = encode(data.blogContent)
 
         let featuredImage = blog.featuredImage
         if (req.file) {
