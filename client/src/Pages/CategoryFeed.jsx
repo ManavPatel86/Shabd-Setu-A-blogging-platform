@@ -42,19 +42,19 @@ const CategoryFeed = () => {
 
     return (
         <div className="w-full">
-            <div className="pb-3 border-b mb-6">
-                <h2 className="text-2xl md:text-3xl font-bold">Latest Blogs</h2>
+            <div className="pb-4 border-b mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Latest Blogs</h2>
                 <p className="text-sm text-gray-500 mt-1">
                     Showing posts in {categoryData?.name || "this category"}.
                 </p>
             </div>
 
-            <div className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {blogs.length > 0 ? (
                     blogs.map((blog) => <BlogCard key={blog._id} blog={blog} />)
                 ) : (
-                    <div className="text-center py-10 text-gray-500">
-                        No blogs found in this category yet.
+                    <div className="text-center py-16 text-gray-500 col-span-full">
+                        <p className="text-lg">No blogs found in this category yet.</p>
                     </div>
                 )}
             </div>

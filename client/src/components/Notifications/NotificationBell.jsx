@@ -20,7 +20,7 @@ export default function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm hover:text-[#6C5CE7] hover:shadow-md"
           aria-label="Notifications"
         >
           <BellIcon className="h-5 w-5" />

@@ -44,23 +44,28 @@ const Saved = () => {
     const savedBlogs = data?.savedBlogs || [];
 
     return (
-        <div className="w-full">
-            <div className="pb-3 border-b mb-6">
-                <h2 className="text-2xl md:text-3xl font-bold">Saved Blogs</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                    Access posts you've bookmarked for later.
+        <div className="w-full pt-4">
+            {/* Header Section */}
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Saved Blogs</h1>
+                <p className="text-gray-600">
+                    {savedBlogs.length} posts saved
                 </p>
             </div>
 
-            <div className="space-y-5">
-                {savedBlogs.length > 0 ? (
-                    savedBlogs.map((blog) => <BlogCard key={blog._id} blog={blog} />)
-                ) : (
-                    <div className="text-center py-10 text-gray-500">
-                        You haven't saved any blogs yet.
-                    </div>
-                )}
-            </div>
+            {/* Blog Grid */}
+            {savedBlogs.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {savedBlogs.map((blog) => (
+                        <BlogCard key={blog._id} blog={blog} />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-16 text-gray-500">
+                    <p className="text-lg">You haven't saved any blogs yet.</p>
+                    <p className="text-sm mt-2">Save blogs to read them later.</p>
+                </div>
+            )}
         </div>
     );
 };

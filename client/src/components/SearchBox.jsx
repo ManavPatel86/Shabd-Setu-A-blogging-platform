@@ -23,21 +23,24 @@ const SearchBox = () => {
     };
 
     return (
-        <form className="relative w-full" onSubmit={handleSubmit}>
+        <form className="relative w-full group" onSubmit={handleSubmit}>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#6C5CE7] transition-colors">
+                <IoSearch className="h-5 w-5" />
+            </span>
             <Input
                 type="search"
                 name="q"
                 value={query}
                 onChange={handleChange}
-                placeholder="Search blogs, authors..."
-                className="h-9 w-full rounded-full bg-gray-50 pl-10 pr-10 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Search topic, writer, or category..."
+                className="h-12 w-full rounded-full border-none bg-gray-50 pl-12 pr-16 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/30"
             />
             <button
                 type="submit"
                 aria-label="Search"
-                className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-blue-500 text-white transition hover:bg-blue-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full bg-[#6C5CE7] px-4 py-1.5 text-xs font-semibold text-white shadow-md transition hover:bg-[#5b4bcc]"
             >
-                <IoSearch className="h-4 w-4" />
+                Go
             </button>
         </form>
     );
