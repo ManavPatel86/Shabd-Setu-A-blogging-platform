@@ -6,6 +6,7 @@ import { encode } from 'entities'
 import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
 import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
+import Follow from "../models/follow.model.js";
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const addBlog = async (req, res, next) => {
@@ -292,6 +293,32 @@ export const getAllBlogs = async (req, res, next) => {
     }
 }
 
+export const getFollowingFeed = async (req, res, next) => {
+    try {
+        const userId = req.user?._id;
+        if (!userId) {
+            return next(handleError(401, 'Unauthorized.'));
+        }
+
+        const followingIds = await Follow.find({ follower: userId }).distinct('following');
+
+        if (!followingIds.length) {
+            return res.status(200).json({ blog: [] });
+        }
+
+        const blog = await Blog.find({ author: { $in: followingIds } })
+            .populate('author', 'name avatar role')
+            .populate('categories', 'name slug')
+            .sort({ createdAt: -1 })
+            .lean()
+            .exec();
+
+        res.status(200).json({ blog });
+    } catch (error) {
+        next(handleError(500, error.message));
+    }
+}
+
 export const getPersonalizedRelated = async (req, res, next) => {
     try {
         const { blog } = req.params
@@ -374,62 +401,203 @@ export const getPersonalizedRelated = async (req, res, next) => {
 
 export const getPersonalizedHome = async (req, res, next) => {
     try {
-        const userId = req.user?._id
-        if (!userId) return res.status(200).json({ relatedBlog: [] })
-
-        const likedBlogIds = await BlogLike.find({ user: userId }).distinct('blogid')
-        const userDoc = await User.findById(userId).select('savedBlogs').lean().exec()
-        const savedBlogIds = (userDoc && Array.isArray(userDoc.savedBlogs)) ? userDoc.savedBlogs : []
-
-        const sourceIds = Array.from(new Set([...(likedBlogIds || []), ...(savedBlogIds || [])]))
-
-        if (!sourceIds.length) {
-            // fallback: return most liked blogs
-            const popular = await Blog.aggregate([
-                { $match: {} },
-                { $sample: { size: 12 } }
-            ])
-            const populated = await Blog.find({ _id: { $in: popular.map(p => p._id) } }).populate('author', 'name avatar role').populate('categories', 'name slug').lean().exec()
-            return res.status(200).json({ relatedBlog: populated.slice(0, 6) })
+        const userId = req.user?._id;
+        if (!userId) {
+            return next(handleError(401, 'Unauthorized.'));
         }
 
-        const sourceBlogs = await Blog.find({ _id: { $in: sourceIds } }).select('categories').lean().exec()
-        const categoryCount = new Map()
-        sourceBlogs.forEach(sb => {
-            const categories = sb?.categories || []
-            categories.forEach(c => {
-                const key = (c?._id || c)?.toString()
-                if (!key) return
-                categoryCount.set(key, (categoryCount.get(key) || 0) + 1)
-            })
+        const fetchPopularFallback = async ({ fallback = 'popular', message }) => {
+            const popular = await BlogLike.aggregate([
+                { $group: { _id: '$blogid', likes: { $sum: 1 } } },
+                { $sort: { likes: -1 } },
+                { $limit: 12 }
+            ]);
+
+            const popularIds = popular.map((entry) => entry._id).filter(Boolean);
+            if (!popularIds.length) {
+                const recent = await Blog.find({})
+                    .populate('author', 'name avatar role')
+                    .populate('categories', 'name slug')
+                    .sort({ createdAt: -1 })
+                    .limit(12)
+                    .lean()
+                    .exec();
+
+                return {
+                    blog: recent,
+                    meta: {
+                        fallback: 'recent',
+                        message: message || 'Check out the latest posts while we learn your preferences.',
+                    }
+                };
+            }
+
+            const fallbackBlogs = await Blog.find({ _id: { $in: popularIds } })
+                .populate('author', 'name avatar role')
+                .populate('categories', 'name slug')
+                .lean()
+                .exec();
+
+            const order = new Map(popularIds.map((id, index) => [id.toString(), index]));
+            fallbackBlogs.sort((a, b) => (order.get(a._id.toString()) ?? 0) - (order.get(b._id.toString()) ?? 0));
+
+            return {
+                blog: fallbackBlogs,
+                meta: {
+                    fallback,
+                    message: message || 'Explore popular posts to kick-start your personalized feed.',
+                },
+            };
+        };
+
+        const [likes, userDoc] = await Promise.all([
+            BlogLike.find({ user: userId }).select('blogid createdAt').lean().exec(),
+            User.findById(userId).select('savedBlogs').lean().exec()
+        ]);
+
+        const savedBlogIds = Array.isArray(userDoc?.savedBlogs) ? userDoc.savedBlogs : [];
+
+        const interactionWeights = new Map();
+
+        const now = Date.now();
+        likes.forEach(({ blogid, createdAt }) => {
+            if (!blogid) return;
+            const id = blogid.toString();
+            const ageInDays = Math.max(0, (now - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            const recencyBoost = 1 + Math.max(0, 30 - ageInDays) / 30; // boost recent likes within last month
+            const weight = 2 * recencyBoost;
+            interactionWeights.set(id, (interactionWeights.get(id) || 0) + weight);
+        });
+
+        savedBlogIds.forEach((blogId) => {
+            const id = blogId?.toString();
+            if (!id) return;
+            interactionWeights.set(id, (interactionWeights.get(id) || 0) + 3);
+        });
+
+        const interactionIds = Array.from(interactionWeights.keys());
+
+        if (!interactionIds.length) {
+            const payload = await fetchPopularFallback({ fallback: 'popular' });
+            return res.status(200).json(payload);
+        }
+
+        const seedBlogs = await Blog.find({ _id: { $in: interactionIds } })
+            .select('categories author createdAt')
+            .lean()
+            .exec();
+
+        const categoryScores = new Map();
+        const authorScores = new Map();
+
+        seedBlogs.forEach((blog) => {
+            const weight = interactionWeights.get(blog._id.toString()) || 1;
+            const categories = blog?.categories || [];
+
+            categories.forEach((category) => {
+                const key = (category?._id || category)?.toString();
+                if (!key) return;
+                categoryScores.set(key, (categoryScores.get(key) || 0) + weight);
+            });
+
+            const authorKey = blog?.author?._id ? blog.author._id.toString() : blog?.author?.toString();
+            if (authorKey) {
+                authorScores.set(authorKey, (authorScores.get(authorKey) || 0) + weight * 0.5);
+            }
+        });
+
+        const sortedCategories = Array.from(categoryScores.entries()).sort((a, b) => b[1] - a[1]);
+        const sortedAuthors = Array.from(authorScores.entries()).sort((a, b) => b[1] - a[1]);
+
+        const topCategoryIds = sortedCategories.slice(0, 5).map(([id]) => id);
+        const topAuthorIds = sortedAuthors.slice(0, 5).map(([id]) => id);
+
+        const candidateFilter = [];
+        if (topCategoryIds.length) {
+            candidateFilter.push({ categories: { $in: topCategoryIds } });
+        }
+        if (topAuthorIds.length) {
+            candidateFilter.push({ author: { $in: topAuthorIds } });
+        }
+
+        if (!candidateFilter.length) {
+            const payload = await fetchPopularFallback({
+                fallback: 'insufficient-data',
+                message: 'Interact with a few posts to unlock personalized recommendations.',
+            });
+            return res.status(200).json(payload);
+        }
+
+        const candidates = await Blog.find({
+            _id: { $nin: interactionIds },
+            $or: candidateFilter,
         })
-
-        const topCategoryIds = Array.from(categoryCount.entries()).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k)
-        if (!topCategoryIds.length) return res.status(200).json({ relatedBlog: [] })
-
-        const candidates = await Blog.find({ categories: { $in: topCategoryIds } })
             .populate('author', 'name avatar role')
             .populate('categories', 'name slug')
+            .sort({ createdAt: -1 })
+            .limit(60)
             .lean()
-            .exec()
+            .exec();
 
-        const candidateIds = candidates.map(c => c._id).filter(Boolean)
-        let likeCounts = {}
+        if (!candidates.length) {
+            const payload = await fetchPopularFallback({
+                fallback: 'no-candidates',
+                message: 'No fresh matches yet. Check back soon!',
+            });
+            return res.status(200).json(payload);
+        }
+
+        const candidateIds = candidates.map((candidate) => candidate._id).filter(Boolean);
+        let likeCounts = {};
         if (candidateIds.length) {
             const counts = await BlogLike.aggregate([
                 { $match: { blogid: { $in: candidateIds } } },
                 { $group: { _id: '$blogid', count: { $sum: 1 } } }
-            ])
-            counts.forEach(entry => {
-                if (entry && entry._id) likeCounts[entry._id.toString()] = entry.count || 0
-            })
+            ]);
+            counts.forEach((entry) => {
+                if (entry && entry._id) likeCounts[entry._id.toString()] = entry.count || 0;
+            });
         }
 
-        const enriched = candidates.map(c => ({ ...c, likeCount: likeCounts[c._id?.toString()] || 0 }))
-        enriched.sort((a,b)=>b.likeCount - a.likeCount)
+        const scoredCandidates = candidates.map((candidate) => {
+            const categoryList = candidate?.categories || [];
+            const baseCategoryScore = categoryList.reduce((sum, category) => {
+                const key = (category?._id || category)?.toString();
+                return sum + (categoryScores.get(key) || 0);
+            }, 0);
 
-        res.status(200).json({ relatedBlog: enriched.slice(0, 8) })
+            const authorKey = candidate?.author?._id ? candidate.author._id.toString() : candidate?.author?.toString();
+            const authorAffinity = authorKey ? authorScores.get(authorKey) || 0 : 0;
+
+            const popularity = likeCounts[candidate._id.toString()] || 0;
+            const daysSincePublished = Math.max(0, (now - new Date(candidate.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            const recencyBoost = 1 + Math.max(0, 30 - daysSincePublished) / 60; // gentle decay over ~2 months
+
+            const score = baseCategoryScore + authorAffinity + popularity * 0.2 + recencyBoost;
+
+            return { ...candidate, _score: score };
+        });
+
+        scoredCandidates.sort((a, b) => b._score - a._score);
+
+        const personalized = scoredCandidates.slice(0, 12).map(({ _score, ...rest }) => rest);
+
+        if (!personalized.length) {
+            const payload = await fetchPopularFallback({
+                fallback: 'empty',
+                message: 'No personalized matches just yet.',
+            });
+            return res.status(200).json(payload);
+        }
+
+        res.status(200).json({
+            blog: personalized,
+            meta: {
+                fallback: 'personalized',
+                message: 'Curated from the posts you like and save.',
+            },
+        });
     } catch (error) {
-        next(handleError(500, error.message))
+        next(handleError(500, error.message));
     }
 }
