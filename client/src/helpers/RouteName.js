@@ -2,6 +2,7 @@ export const RouteLanding = '/'
 export const RouteIndex = '/home'
 export const RouteSignIn = "/signin";
 export const RouteSignUp = "/signup";
+export const RouteForgotPassword = "/forgot-password";
 export const RouteProfile = "/profile";
 export const RouteProfileView = (userId) => {
     if (userId) {
