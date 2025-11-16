@@ -16,6 +16,7 @@ import { getEnv } from '@/helpers/getEnv'
 import { deleteData } from '@/helpers/handleDelete'
 import { showToast } from '@/helpers/showToast'
 import Loading from '@/components/Loading'
+import DraftsList from '@/components/DraftsList'
 import { useState } from 'react'
 import { FiEdit } from "react-icons/fi";
 import { FaRegTrashAlt } from "react-icons/fa";
@@ -44,7 +45,11 @@ const BlogDetails = () => {
     if (loading) return <Loading />
     if (error) return <div className="text-red-500">Error loading blogs: {error.message}</div>
     return (
-        <div>
+        <div className="space-y-8">
+            {/* Drafts Section */}
+            <DraftsList refreshTrigger={refreshData} />
+
+            {/* Published Blogs Section */}
             <Card>
                 <CardHeader>
                     <div>
