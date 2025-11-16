@@ -17,6 +17,7 @@ import slugify from 'slugify'
 import { decode } from 'entities'
 import { RouteBlog } from '@/helpers/RouteName'
 import { Loader2 } from 'lucide-react'
+import ModerationErrorDisplay from '@/components/ModerationErrorDisplay'
 
 const formSchema = z.object({
   categories: z.array(z.string().min(1)).min(1, 'Select at least one category.'),
@@ -33,6 +34,7 @@ const EditBlog = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editorData, setEditorData] = useState('')
   const [categorizing, setCategorizing] = useState(false)
+  const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '' })
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -190,6 +192,7 @@ const EditBlog = () => {
 
     try {
       setIsSubmitting(true)
+      setModerationErrors({ badLines: [], suggestions: [], message: '' })
 
       const formData = new FormData()
       formData.append('data', JSON.stringify(values))
@@ -206,6 +209,13 @@ const EditBlog = () => {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.badLines || data.suggestions) {
+          setModerationErrors({
+            badLines: data.badLines || [],
+            suggestions: data.suggestions || [],
+            message: data.message || 'Blog content failed moderation.'
+          });
+        }
         showToast('error', data?.message || 'Failed to update blog.')
         return
       }
@@ -243,6 +253,37 @@ const EditBlog = () => {
     <div className="mt-9">
       <Card className="pt-5">
         <CardContent>
+          {moderationErrors.badLines?.length > 0 && (
+            <ModerationErrorDisplay
+              errors={moderationErrors.badLines}
+              suggestions={moderationErrors.suggestions}
+              onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '' })}
+              onFixLine={(lineNum) => {
+                if (lineNum === 1) {
+                  const titleInput = document.querySelector('input[name="title"]');
+                  if (titleInput) {
+                    titleInput.focus();
+                    titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                  }
+                }
+                if (lineNum === 2) {
+                  const slugInput = document.querySelector('input[name="slug"]');
+                  if (slugInput) {
+                    slugInput.focus();
+                    slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                  }
+                }
+                const editorFrame = document.querySelector('iframe[role="application"]');
+                if (editorFrame) {
+                  editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  try { editorFrame.contentWindow?.focus(); } catch (e) {}
+                }
+                showToast('info', `Please fix line ${lineNum} in the editor`);
+              }}
+            />
+          )}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <div className="mb-3">

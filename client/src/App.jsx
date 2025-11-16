@@ -21,6 +21,7 @@ import {
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
+    RouteAdminReports,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";
 import EditBlog from "./Pages/Blog/EditBlog";
@@ -35,6 +36,7 @@ import Help from "./Pages/Help";
 import Followers from "./Pages/Followers";
 import Saved from "./Pages/Saved";
 import ManageUsers from "./Pages/ManageUsers";
+import AdminReports from "./Pages/AdminReports";
 import AddCategory from './Pages/Category/AddCategory'
 import CategoryDetails from './Pages/Category/CategoryDetails'
 import EditCategory from './Pages/Category/EditCategory'
@@ -81,6 +83,7 @@ function App() {
                         <Route path={RouteCommentDetails} element={<Comments />} />
                         <Route path={RouteSaved} element={<Saved />} />
                         <Route path={RouteUser} element={<ManageUsers />} />
+                        <Route path={RouteAdminReports} element={<AdminReports />} />
 
                         {/* This is the new public blog detail route */}
                         <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { z } from 'zod'
@@ -10,13 +10,14 @@ import slugify from 'slugify'
 import { showToast } from '@/helpers/showToast'
 import { getEnv } from '@/helpers/getEnv' 
 import { useFetch } from '@/hooks/useFetch'
-import { useState } from 'react'
 import Dropzone from 'react-dropzone'
 import Editor from '@/components/Editor'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { RouteBlog } from '@/helpers/RouteName'
 import { Loader2 } from 'lucide-react'
+import ModerationErrorList from '@/components/ModerationErrorList'
+import ModerationErrorDisplay from '@/components/ModerationErrorDisplay'
 
 
 const AddBlog = () => {
@@ -25,6 +26,7 @@ const AddBlog = () => {
         const [filePreview, setFilePreview] = useState(null)
             const [file, setFile] = useState(null)
         const [categorizing, setCategorizing] = useState(false)
+        const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '' })
 
 
   const { data: categoryData, loading, error } = useFetch(`${getEnv('VITE_API_BASE_URL')}/category/all-category`, {
@@ -68,6 +70,7 @@ const AddBlog = () => {
      async function onSubmit(values) {
 
         try {
+            setModerationErrors({ badLines: [], suggestions: [], message: '' });
             const newValues = { ...values, author: user?.user?._id }
             if (!file) {
                 showToast('error', 'Feature image required.')
@@ -85,6 +88,13 @@ const AddBlog = () => {
             })
             const data = await response.json()
             if (!response.ok) {
+                if (data.badLines || data.suggestions) {
+                    setModerationErrors({
+                        badLines: data.badLines || [],
+                        suggestions: data.suggestions || [],
+                        message: data.message || 'Blog content failed moderation.'
+                    });
+                }
                 return showToast('error', data.message)
             }
             form.reset()
@@ -181,6 +191,41 @@ const AddBlog = () => {
         <div className='mt-9'>
             <Card className="pt-5 ">
                 <CardContent>
+                    <ModerationErrorList badLines={moderationErrors.badLines} suggestions={moderationErrors.suggestions} />
+                        {moderationErrors.badLines?.length > 0 && (
+                        <ModerationErrorDisplay
+                            errors={moderationErrors.badLines}
+                            suggestions={moderationErrors.suggestions}
+                            onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '' })}
+                            onFixLine={(lineNum) => {
+                                // If line 1 -> focus title, line 2 -> focus slug, otherwise scroll to editor
+                                if (lineNum === 1) {
+                                    const titleInput = document.querySelector('input[name="title"]');
+                                    if (titleInput) {
+                                        titleInput.focus();
+                                        titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        return;
+                                    }
+                                }
+                                if (lineNum === 2) {
+                                    const slugInput = document.querySelector('input[name="slug"]');
+                                    if (slugInput) {
+                                        slugInput.focus();
+                                        slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        return;
+                                    }
+                                }
+                                // Otherwise jump to editor area
+                                const editorFrame = document.querySelector('iframe[role="application"]');
+                                if (editorFrame) {
+                                    editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    // try to focus if possible
+                                    try { editorFrame.contentWindow?.focus(); } catch (e) {}
+                                }
+                                showToast('info', `Please fix line ${lineNum} in the editor`);
+                            }}
+                        />
+                    )}
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)}  >
                             <div className='mb-3'>

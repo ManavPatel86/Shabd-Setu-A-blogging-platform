@@ -15,6 +15,8 @@ import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
 import { RouteBlogDetails, RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 import SaveButton from "@/components/SaveButton";
+import ReportModal from '@/components/ReportModal';
+import { Flag } from 'lucide-react';
 import { showToast } from "@/helpers/showToast";
 
 const SingleBlogDetails = () => {
@@ -39,6 +41,7 @@ const SingleBlogDetails = () => {
   }, [searchParams]);
   const isLoggedIn = useSelector((state) => state.user?.isLoggedIn);
   const navigate = useNavigate();
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -342,7 +345,21 @@ const SingleBlogDetails = () => {
           <Share2 className="h-5 w-5" /> Share
         </button>
         <SaveButton blogId={b._id} withLabel className="text-sm" />
+        {isLoggedIn && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              setReportOpen(true);
+            }}
+            className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-semibold cursor-pointer transition-colors"
+            title="Report this blog"
+          >
+            <Flag className="h-4 w-4" /> Report
+          </button>
+        )}
       </div>
+
+      <ReportModal blogId={b._id} open={reportOpen} onClose={() => setReportOpen(false)} />
 
       {/* Comments Section */}
       {showComments && (

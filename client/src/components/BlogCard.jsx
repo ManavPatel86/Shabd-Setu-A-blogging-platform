@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MessageCircle, Share2, Bot, Loader2 } from "lucide-react";
+import { MessageCircle, Share2, Bot, Loader2, Flag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { RouteBlogDetails, RouteProfileView } from "@/helpers/RouteName";
@@ -8,6 +8,8 @@ import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
 import SaveButton from "./SaveButton";
 import { getEnv } from "@/helpers/getEnv";
+import ReportModal from './ReportModal';
+import { useSelector } from 'react-redux';
 
 const BlogCard = ({ blog }) => {
   // Defensive check to prevent crash if blog is undefined
@@ -31,7 +33,9 @@ const BlogCard = ({ blog }) => {
   const [summaryError, setSummaryError] = useState("");
   const [summary, setSummary] = useState("");
   const [cachedSummary, setCachedSummary] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
   const abortControllerRef = useRef(null);
+  const user = useSelector((state) => state.user);
 
   useEffect(() => {
     return () => {
@@ -338,8 +342,22 @@ const BlogCard = ({ blog }) => {
             <Share2 className="h-4 w-4" />
           </button>
           <SaveButton blogId={_id} size="sm" className="text-gray-600" />
+          {user && user.isLoggedIn && (
+            <button
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                setReportOpen(true);
+              }}
+              className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-semibold cursor-pointer transition-colors"
+              title="Report this blog"
+            >
+              <Flag className="h-4 w-4" /> Report
+            </button>
+          )}
         </div>
       </div>
+      <ReportModal blogId={_id} open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   );
 };

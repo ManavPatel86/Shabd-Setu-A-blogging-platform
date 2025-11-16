@@ -9,6 +9,7 @@ import { StringOutputParser } from "@langchain/core/output_parsers"
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import Follow from "../models/follow.model.js";
 import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
+import { moderateBlog } from "../utils/moderation.js";
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const MAX_CONTENT_LENGTH = 12000;
@@ -36,24 +37,33 @@ export const addBlog = async (req, res, next) => {
                 .catch((error) => {
                     next(handleError(500, error.message))
                 });
-
             featuredImage = uploadResult.secure_url
         }
-        
+
         const incomingCategories = Array.isArray(data.categories)
             ? data.categories
             : data.category
                 ? [data.category]
                 : []
-
         const categories = [...new Set(incomingCategories.filter(Boolean))]
-
         if (!categories.length) {
             return next(handleError(400, 'At least one category is required.'))
         }
 
+        // AI Moderation: block unsafe blogs, show errors
+        // Combine title and slug with content so single-line fields are also checked
+        const combinedForModeration = `TITLE: ${data.title || ''}\nSLUG: ${data.slug || ''}\n${toPlainText(data.blogContent || '')}`;
+        const moderationResult = await moderateBlog(combinedForModeration);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Blog content failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions
+            });
+        }
+
         const blog = new Blog({
-            // Use authenticated user as author to avoid trusting client data
             author: req.user?._id || data.author,
             category: data.category,
             author: data.author,
@@ -77,7 +87,6 @@ export const addBlog = async (req, res, next) => {
             success: true,
             message: 'Blog added successfully.'
         })
-
     } catch (error) {
         next(handleError(500, error.message))
     }
@@ -115,7 +124,20 @@ export const updateBlog = async (req, res, next) => {
             return next(handleError(400, 'At least one category is required.'))
         }
 
-            blog.categories = categories
+        // AI Moderation: block unsafe blogs, show errors
+        // Combine title and slug with content so single-line fields are also checked
+        const combinedForModeration = `TITLE: ${data.title || ''}\nSLUG: ${data.slug || ''}\n${toPlainText(data.blogContent || '')}`;
+        const moderationResult = await moderateBlog(combinedForModeration);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Blog content failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions
+            });
+        }
+
+        blog.categories = categories
         blog.title = data.title
         blog.slug = data.slug
         blog.blogContent = encode(data.blogContent)
