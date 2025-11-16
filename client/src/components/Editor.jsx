@@ -54,7 +54,6 @@ import {
 	TodoList,
 	PlainTableOutput,
 	TextPartLanguage,
-	Title,
 	ShowBlocks,
 	SourceEditing,
 	GeneralHtmlSupport,
@@ -188,7 +187,6 @@ export default function Editor({props}) {
 					TableToolbar,
 					TextPartLanguage,
 					TextTransformation,
-					Title,
 					TodoList,
 					Underline
 				],
@@ -360,7 +358,7 @@ export default function Editor({props}) {
 				}
 			}
 		};
-	}, [isLayoutReady]);
+	}, [isLayoutReady, props?.initialData]);
 
 	return (
 		<div className="main-container">

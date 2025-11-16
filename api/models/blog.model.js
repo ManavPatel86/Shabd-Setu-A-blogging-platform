@@ -13,33 +13,52 @@ const blogSchema = new mongoose.Schema({
                 ref: 'Category'
             }
         ],
-        required: true,
+        required: function () {
+            return this.status === 'published'
+        },
         default: []
     },
     title: {
         type: String,
-        required: true,
-        trim: true
+        required: function () {
+            return this.status === 'published'
+        },
+        trim: true,
+        default: ''
     },
     slug: {
         type: String,
-        required: true,
-        unique: true,
-        trim: true
+        required: function () {
+            return this.status === 'published'
+        },
+        trim: true,
+        default: ''
     },
     blogContent: {
         type: String,
-        required: true,
-        trim: true
+        required: function () {
+            return this.status === 'published'
+        },
+        trim: true,
+        default: ''
     },
     featuredImage: {
         type: String,
-        required: true,
-        trim: true
+        required: function () {
+            return this.status === 'published'
+        },
+        trim: true,
+        default: ''
     },
     summary: {
         type: String,
         trim: true,
+        default: ''
+    },
+    description: {
+        type: String,
+        trim: true,
+        maxlength: 300,
         default: ''
     },
     summaryRefreshCounts: [
@@ -55,6 +74,16 @@ const blogSchema = new mongoose.Schema({
             }
         }
     ],
+    status: {
+        type: String,
+        enum: ['draft', 'published'],
+        default: 'published',
+        index: true
+    },
+    publishedAt: {
+        type: Date,
+        default: null
+    },
     views: {
         type: Number,
         default: 0
@@ -71,6 +100,8 @@ const blogSchema = new mongoose.Schema({
         ref: 'User'
     }
 }, { timestamps: true })
+
+blogSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { status: 'published' } })
 
 const Blog = mongoose.model('Blog', blogSchema, 'blogs')
 export default Blog 
