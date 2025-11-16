@@ -24,7 +24,8 @@ import Blog from './models/blog.model.js';
 dotenv.config()
 
 const PORT = process.env.PORT
-const app = express()
+const app = express();
+app.set('trust proxy', 1); // trust Render/other reverse proxies for secure cookies
 const server = createServer(app)
 
 const io = new SocketServer(server, { cors: { origin: "*" } });

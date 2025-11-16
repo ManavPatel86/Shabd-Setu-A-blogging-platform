@@ -1,78 +1,117 @@
-export const Verification_Email_Template = `
+const baseStyles = `
+  body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+  }
+  .container {
+      max-width: 600px;
+      margin: 30px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      border: 1px solid #ddd;
+  }
+  .header {
+      background-color: #1920d8ff;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 26px;
+      font-weight: bold;
+  }
+  .content {
+      padding: 25px;
+      color: #333;
+      line-height: 1.8;
+  }
+  .verification-code {
+      display: block;
+      margin: 20px 0;
+      font-size: 22px;
+      color: #1920d8ff;
+      background: #e8f5e9;
+      border: 1px dashed #1920d8ff;
+      padding: 10px;
+      text-align: center;
+      border-radius: 5px;
+      font-weight: bold;
+      letter-spacing: 2px;
+  }
+  .footer {
+      background-color: #f4f4f4;
+      padding: 15px;
+      text-align: center;
+      color: #777;
+      font-size: 12px;
+      border-top: 1px solid #ddd;
+  }
+  p {
+      margin: 0 0 15px;
+  }
+`;
+
+const wrapTemplate = (title, body) => `
   <!DOCTYPE html>
   <html lang="en">
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Verify Your Email</title>
-      <style>
-          body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 0;
-              background-color: #f4f4f4;
-          }
-          .container {
-              max-width: 600px;
-              margin: 30px auto;
-              background: #ffffff;
-              border-radius: 8px;
-              box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-              overflow: hidden;
-              border: 1px solid #ddd;
-          }
-          .header {
-              background-color: #1920d8ff;
-              color: white;
-              padding: 20px;
-              text-align: center;
-              font-size: 26px;
-              font-weight: bold;
-          }
-          .content {
-              padding: 25px;
-              color: #333;
-              line-height: 1.8;
-          }
-          .verification-code {
-              display: block;
-              margin: 20px 0;
-              font-size: 22px;
-              color: #1920d8ff;
-              background: #e8f5e9;
-              border: 1px dashed #1920d8ff;
-              padding: 10px;
-              text-align: center;
-              border-radius: 5px;
-              font-weight: bold;
-              letter-spacing: 2px;
-          }
-          .footer {
-              background-color: #f4f4f4;
-              padding: 15px;
-              text-align: center;
-              color: #777;
-              font-size: 12px;
-              border-top: 1px solid #ddd;
-          }
-          p {
-              margin: 0 0 15px;
-          }
-      </style>
+      <title>${title}</title>
+      <style>${baseStyles}</style>
   </head>
   <body>
       <div class="container">
-          <div class="header">Verify Your Email</div>
+          <div class="header">${title}</div>
           <div class="content">
-              <p>Hello,</p>
-              <p>Thank you for signing up! Please confirm your email address by entering the code below:</p>
-              <span class="verification-code">{verificationCode}</span>
-              <p>If you did not create an account, no further action is required. If you have any questions, feel free to contact our support team.</p>
+              ${body}
           </div>
           <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Your Company. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} ShabdSetu. All rights reserved.</p>
           </div>
       </div>
   </body>
   </html>
 `;
+
+export const Verification_Email_Template = wrapTemplate(
+  "Verify Your Email",
+  `
+      <p>Hello,</p>
+      <p>Thank you for signing up! Please confirm your email address by entering the code below:</p>
+      <span class="verification-code">{verificationCode}</span>
+      <p>If you did not create an account, no further action is required. If you have any questions, feel free to contact our support team.</p>
+  `
+);
+
+export const TwoFactor_Email_Template = wrapTemplate(
+  "Your Login Verification Code",
+  `
+      <p>Hello,</p>
+      <p>We detected a sign-in attempt to your ShabdSetu account. Use the code below to finish signing in:</p>
+      <span class="verification-code">{verificationCode}</span>
+      <p>This code expires in a few minutes. If you did not attempt to sign in, please reset your password immediately.</p>
+  `
+);
+
+export const Password_Reset_Email_Template = wrapTemplate(
+  "Reset Your Password",
+  `
+      <p>Hello,</p>
+      <p>We received a request to reset the password for your ShabdSetu account. Enter the verification code below in the app to set a new password:</p>
+      <span class="verification-code">{verificationCode}</span>
+      <p>If you did not request a password reset, you can safely ignore this email.</p>
+  `
+);
+
+export const TwoFactor_Setup_Email_Template = wrapTemplate(
+    "Confirm Your Security Change",
+    `
+            <p>Hello,</p>
+            <p>Someone requested to {actionDescription} two-step verification on your ShabdSetu account. Enter the code below in the app to confirm this change:</p>
+            <span class="verification-code">{verificationCode}</span>
+            <p>If this wasn&apos;t you, secure your account immediately and reset your password.</p>
+    `
+);
