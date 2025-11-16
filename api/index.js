@@ -8,6 +8,7 @@ import AuthRoute from './routes/Auth.route.js'
 import UserRoute from './routes/User.route.js'
 import CategoryRoute from './routes/Category.route.js'
 import BlogRoute from './routes/Blog.route.js'
+import BlogAIRoute from './routes/blogAI.route.js'
 import CommentRoute from './routes/Comment.route.js'
 import BlogLikeRoute from './routes/Bloglike.route.js'
 import ViewRoute from './routes/view.route.js'
@@ -44,13 +45,30 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
-const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map((origin) => origin.trim().replace(/^'+|'+$/g, '')).filter(Boolean)
+const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
+  .filter(Boolean)
+  .concat(defaultOrigins)
+  .filter((value, index, array) => value && array.indexOf(value) === index);
+
 app.use(
-    cors({
-        origin: allowedOrigins.length ? allowedOrigins : true,
-        credentials: true,
-    })
-)
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        console.log("❌ Blocked by CORS:", origin);
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
 
 
 
@@ -58,6 +76,7 @@ app.use('/api/auth', AuthRoute)
 app.use('/api/user', UserRoute)
 app.use('/api/category', CategoryRoute)
 app.use('/api/blog',BlogRoute)
+app.use('/api/blog',BlogAIRoute)
 app.use('/api/comment',CommentRoute)
 app.use('/api/bloglike',BlogLikeRoute)
 app.use('/api/view', ViewRoute)

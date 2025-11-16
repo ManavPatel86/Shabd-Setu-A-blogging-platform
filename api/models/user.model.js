@@ -47,6 +47,10 @@ const userSchema = new mongoose.Schema({
             ref: 'Blog'
         }],
         default: []
+    },
+    isBlacklisted: {
+        type: Boolean,
+        default: false
     }
 })
 

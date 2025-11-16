@@ -94,30 +94,21 @@ const ActivityHeatmap = ({
     }, [normalized, resolveBucket])
 
     const monthLabels = useMemo(() => {
-        const labels = []
         let lastRenderedMonth = ''
 
-        weeks.forEach((week) => {
-            const firstActiveDay = week.find((day) => !day.isPadding)
+        return weeks.map((week) => {
+            const activeDate = week.find((day) => !day.isPadding)?.date
+            const monthLabel = activeDate
+                ? activeDate.toLocaleString(undefined, { month: 'short' })
+                : ''
 
-            if (!firstActiveDay || !firstActiveDay.date) {
-                labels.push('')
-                return
-            }
-
-            const monthLabel = firstActiveDay.date.toLocaleString(undefined, {
-                month: 'short',
-            })
-
-            if (monthLabel === lastRenderedMonth) {
-                labels.push('')
-            } else {
-                labels.push(monthLabel)
+            if (monthLabel && monthLabel !== lastRenderedMonth) {
                 lastRenderedMonth = monthLabel
+                return monthLabel
             }
-        })
 
-        return labels
+            return ''
+        })
     }, [weeks])
 
     const rangeLabel = (() => {
@@ -128,10 +119,6 @@ const ActivityHeatmap = ({
         try {
             const startDate = new Date(range.start)
             const endDate = new Date(range.end)
-
-            if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-                return ''
-            }
 
             const formatterOptions = { month: 'short', day: 'numeric' }
             const startLabel = startDate.toLocaleDateString(undefined, formatterOptions)
