@@ -1,5 +1,5 @@
 import express from 'express'
-import { addBlog, deleteBlog, editBlog, getAllBlogs, getBlog, getBlogByCategory, getBlogsByAuthor, getRelatedBlog, search, showAllBlog, updateBlog, getPersonalizedRelated, getPersonalizedHome } from '../controllers/blog.controller.js'
+import { addBlog, deleteBlog, editBlog, getAllBlogs, getBlog, getBlogByCategory, getBlogsByAuthor, getRelatedBlog, search, showAllBlog, updateBlog, getPersonalizedRelated, getPersonalizedHome, getDrafts } from '../controllers/blog.controller.js'
 import upload from '../config/multer.js'
 import { authenticate } from '../middleware/authenticate.js'
 
@@ -10,6 +10,7 @@ BlogRoute.get('/edit/:blogid', authenticate, editBlog)
 BlogRoute.put('/update/:blogid', authenticate, upload.single('file'), updateBlog)
 BlogRoute.delete('/delete/:blogid', authenticate, deleteBlog)
 BlogRoute.get('/get-all', authenticate, showAllBlog)
+BlogRoute.get('/drafts', authenticate, getDrafts)
 
 BlogRoute.get('/get-blog/:slug', getBlog)
 BlogRoute.get('/get-related-blog/:category/:blog', getRelatedBlog)
