@@ -10,6 +10,7 @@ import { AvatarImage } from "@radix-ui/react-avatar";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/helpers/showToast";
 import { UserMinus } from "lucide-react";
+import { getDisplayName } from '@/utils/functions'
 
 const Following = () => {
   const currentUser = useSelector((state) => state.user?.user);
@@ -114,7 +115,10 @@ const Following = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {followingList.map((user, idx) => (
+          {followingList.map((user, idx) => {
+            const displayName = getDisplayName(user)
+            const usernameHandle = user?.username ? `@${user.username}` : ''
+            return (
             <div
               key={user?._id || idx}
               className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
@@ -125,13 +129,16 @@ const Following = () => {
                   onClick={() => user?._id && handleProfileClick(user._id)}
                 >
                   <Avatar className="h-16 w-16 border-2 border-gray-200">
-                    <AvatarImage src={user?.avatar ?? undefined} alt={user?.name ?? 'User'} />
+                    <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
                   </Avatar>
                   
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {user?.name || 'Unknown'}
+                      {displayName}
                     </h3>
+                    {usernameHandle && (
+                      <p className="text-sm text-gray-500 truncate">{usernameHandle}</p>
+                    )}
                     {user?.email && (
                       <p className="text-sm text-gray-500 truncate">{user.email}</p>
                     )}
@@ -148,7 +155,8 @@ const Following = () => {
                 </Button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

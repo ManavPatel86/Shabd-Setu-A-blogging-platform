@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Link } from 'react-router-dom'
 import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView } from '@/helpers/RouteName'
 import { BookOpen, Eye, Heart, UserPlus, Users } from 'lucide-react'
+import { getDisplayName } from '@/utils/functions'
 
 
 const Profile = () => {
@@ -35,6 +36,7 @@ const Profile = () => {
     const [twoFactorRequestLoading, setTwoFactorRequestLoading] = useState(false)
     const [twoFactorConfirmLoading, setTwoFactorConfirmLoading] = useState(false)
     const [twoFactorEmailMask, setTwoFactorEmailMask] = useState("")
+    const [copiedUsername, setCopiedUsername] = useState(false)
     const user = useSelector((state) => state.user)
     const apiBaseUrl = useMemo(() => getEnv('VITE_API_BASE_URL'), [])
 
@@ -72,11 +74,19 @@ const Profile = () => {
     const dispath = useDispatch()
 
     const formSchema = z.object({
-        name: z.string().min(3, 'Name must be at least 3 character long.'),
+        name: z.string()
+            .max(60, 'Name can be at most 60 characters long.')
+            .refine((value) => value.trim().length === 0 || value.trim().length >= 3, {
+                message: 'Enter at least 3 characters for your name or leave it blank.',
+            }),
         email: z.string().email(),
-        bio: z.string().min(3, 'Bio must be at least 3 character long.'),
+        bio: z.string()
+            .max(500, 'Bio can be at most 500 characters long.')
+            .refine((value) => value.trim().length === 0 || value.trim().length >= 3, {
+                message: 'Enter at least 3 characters for your bio or leave it blank.',
+            }),
         password: z.string().refine((val) => val === '' || val.length >= 8, {
-            message: 'Password must be at least 6 characters long or leave empty'
+            message: 'Password must be at least 8 characters long or leave empty'
         })
 
     })
@@ -94,14 +104,14 @@ const Profile = () => {
     useEffect(() => {
         if (userData && userData.success) {
             form.reset({
-                name: userData.user.name,
-                email: userData.user.email,
-                bio: userData.user.bio,
+                name: userData.user.name || '',
+                email: userData.user.email || '',
+                bio: userData.user.bio || '',
                 password: '',
 
             })
         }
-    }, [userData])
+    }, [userData, form])
 
     useEffect(() => {
         if (!userId) return
@@ -205,8 +215,18 @@ const Profile = () => {
     async function onSubmit(values) {
         try {
             const formData = new FormData()
-            formData.append('file', file)
-            formData.append('data', JSON.stringify(values))
+            if (file) {
+                formData.append('file', file)
+            }
+
+            const sanitizedData = {
+                name: values.name.trim(),
+                email: values.email.trim().toLowerCase(),
+                bio: values.bio.trim(),
+                password: values.password,
+            }
+
+            formData.append('data', JSON.stringify(sanitizedData))
 
             const targetUserId = userData?.user?._id || userId
             if (!targetUserId) {
@@ -230,10 +250,44 @@ const Profile = () => {
     }
 
     const handleFileSelection = (files) => {
-        const file = files[0]
-        const preview = URL.createObjectURL(file)
-        setFile(file)
+        if (!files || files.length === 0) {
+            return
+        }
+        const [incomingFile] = files
+        if (!incomingFile) {
+            return
+        }
+        if (filePreview) {
+            URL.revokeObjectURL(filePreview)
+        }
+        const preview = URL.createObjectURL(incomingFile)
+        setFile(incomingFile)
         setPreview(preview)
+    }
+
+    useEffect(() => {
+        return () => {
+            if (filePreview) {
+                URL.revokeObjectURL(filePreview)
+            }
+        }
+    }, [filePreview])
+
+    const handleCopyUsername = async (username) => {
+        if (!username) {
+            return showToast('error', 'No username available to copy yet.')
+        }
+        try {
+            if (!navigator?.clipboard) {
+                throw new Error('Clipboard access is unavailable')
+            }
+            await navigator.clipboard.writeText(`@${username}`)
+            setCopiedUsername(true)
+            showToast('success', 'Username copied to clipboard')
+            setTimeout(() => setCopiedUsername(false), 1500)
+        } catch (error) {
+            showToast('error', error.message || 'Unable to copy username right now.')
+        }
     }
 
     if (userLoading) return <Loading />
@@ -254,6 +308,9 @@ const Profile = () => {
     const highlights = overviewData?.highlights || {}
     const recentPosts = overviewData?.recentPosts || []
     const profileUser = overviewData?.user || userData?.user || {}
+    const hasCustomName = Boolean(profileUser?.name?.trim())
+    const displayHeading = hasCustomName ? profileUser.name : getDisplayName(profileUser)
+    const usernameHandle = profileUser?.username ? `@${profileUser.username}` : ''
 
     const joinedDate = profileUser?.createdAt ? new Date(profileUser.createdAt) : null
 
@@ -282,9 +339,16 @@ const Profile = () => {
                             <AvatarImage src={profileUser?.avatar || defaultAvatar} />
                         </Avatar>
                         <div className="space-y-2">
-                            <h1 className="text-2xl font-semibold">
-                                {profileUser?.name || 'Your profile'}
-                            </h1>
+                            <div className="space-y-1">
+                                <h1 className="text-2xl font-semibold">
+                                    {displayHeading || 'Your profile'}
+                                </h1>
+                                {usernameHandle && (
+                                    <p className="text-sm font-mono text-muted-foreground break-all">
+                                        {usernameHandle}
+                                    </p>
+                                )}
+                            </div>
                             <p className="text-sm text-muted-foreground">
                                 {profileUser?.bio || 'Add a short bio to let readers know what you write about.'}
                             </p>
@@ -435,7 +499,21 @@ const Profile = () => {
 
 
                     </div>
-                    <div>
+                    <div className="space-y-6">
+                        {usernameHandle && (
+                            <div className="rounded-2xl border border-dashed border-muted-foreground/40 bg-muted/20 p-4 text-sm">
+                                <p className="text-xs uppercase text-muted-foreground tracking-wide">Username</p>
+                                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <code className="text-lg font-semibold">{usernameHandle}</code>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => handleCopyUsername(profileUser?.username)}>
+                                        {copiedUsername ? 'Copied' : 'Copy handle'}
+                                    </Button>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Usernames are unique identifiers and cannot be changed at the moment.
+                                </p>
+                            </div>
+                        )}
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
                                 <FormField
@@ -443,10 +521,18 @@ const Profile = () => {
                                     name="name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Name</FormLabel>
+                                            <FormLabel className="flex items-center gap-2">
+                                                Display name
+                                                <span className="text-xs font-normal text-muted-foreground">optional</span>
+                                            </FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Enter your name" {...field} />
+                                                <Input
+                                                    placeholder="Add a name readers will see"
+                                                    maxLength={60}
+                                                    {...field}
+                                                />
                                             </FormControl>
+                                            <p className="text-xs text-muted-foreground">If left blank we&apos;ll show your username instead.</p>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -469,11 +555,22 @@ const Profile = () => {
                                     name="bio"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Bio</FormLabel>
+                                            <FormLabel className="flex items-center gap-2">
+                                                Bio
+                                                <span className="text-xs font-normal text-muted-foreground">optional</span>
+                                            </FormLabel>
                                             <FormControl>
-
-                                                <Textarea placeholder="Tell readers a little about yourself" {...field} />
+                                                <Textarea
+                                                    placeholder="Tell readers a little about yourself"
+                                                    rows={4}
+                                                    maxLength={500}
+                                                    {...field}
+                                                />
                                             </FormControl>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>Share what you love to write about.</span>
+                                                <span>{(field.value?.length ?? 0)}/500</span>
+                                            </div>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -483,7 +580,10 @@ const Profile = () => {
                                     name="password"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>New password</FormLabel>
+                                            <FormLabel className="flex items-center gap-2">
+                                                New password
+                                                <span className="text-xs font-normal text-muted-foreground">optional</span>
+                                            </FormLabel>
                                             <FormControl>
                                                 <Input type="password" placeholder="Leave blank to keep your current password" {...field} />
                                             </FormControl>

@@ -9,6 +9,7 @@ const OtpCodeSchema = new mongoose.Schema({
   resendCount: { type: Number, default: 0 },
   attempts: { type: Number, default: 0 },
   pendingUser: {
+    username: { type: String },
     name: { type: String },
     passwordHash: { type: String },
     role: { type: String, default: 'user' },

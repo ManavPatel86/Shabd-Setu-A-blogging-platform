@@ -8,6 +8,7 @@ import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
 import SaveButton from "./SaveButton";
 import { getEnv } from "@/helpers/getEnv";
+import { getDisplayName } from "@/utils/functions";
 import ReportModal from './ReportModal';
 import { useSelector } from 'react-redux';
 
@@ -52,6 +53,8 @@ const BlogCard = ({ blog }) => {
       : [];
 
   const primaryCategory = categories[0];
+  const authorDisplayName = getDisplayName(author);
+  const authorAvatar = author?.avatar || "/default-avatar.png";
 
   const navigateToBlog = (showComments = false) => {
     const categorySlug = primaryCategory?.slug || 'category';
@@ -234,13 +237,13 @@ const BlogCard = ({ blog }) => {
             className="flex items-center gap-3 text-left focus:outline-none"
           >
             <img
-              src={author?.avatar || "/default-avatar.png"}
-              alt={author?.name || "Author"}
+              src={authorAvatar}
+              alt={authorDisplayName}
               className="w-9 h-9 rounded-full border"
             />
             <div>
               <p className="font-medium text-sm text-gray-900">
-                {author?.name || "Anonymous"}
+                {authorDisplayName}
               </p>
               <p className="text-xs text-gray-500">
                 {createdAt

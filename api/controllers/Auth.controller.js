@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { sendOtpEmail, sendPasswordResetEmail, sendTwoFactorCodeEmail, sendTwoFactorSetupEmail } from "../utils/mailer.js";
 import { createAndSendOtp, resendOtp as resendOtpUtil, verifyOtp as verifyOtpUtil } from "../utils/Otp.js";
 import { createVerificationCode, verifyCodeForPurpose, VERIFICATION_PURPOSES } from "../utils/verificationToken.js";
+import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, generateUniqueUsername, ensureUserHasUsername } from "../utils/username.js";
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES || 5);
@@ -14,6 +15,31 @@ const TWO_FACTOR_TOGGLE_EXPIRY_MINUTES = Number(process.env.TWO_FACTOR_TOGGLE_EX
 
 // Helper: minutes -> ms
 const minutesToMs = (mins) => mins * 60 * 1000;
+
+export const checkUsernameAvailability = async (req, res, next) => {
+    try {
+        const username = normalizeUsername(req.query?.username || req.body?.username || "");
+
+        if (!username) {
+            return next(handleError(400, "Username is required."));
+        }
+
+        if (!isValidUsername(username)) {
+            return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
+        }
+
+        const exists = await User.exists({ username });
+        return res.status(200).json({
+            success: true,
+            data: {
+                available: !exists,
+                username,
+            },
+        });
+    } catch (error) {
+        return next(handleError(500, error.message));
+    }
+};
 
 const sanitizeUser = (userDoc) => {
     if (!userDoc) return null;
@@ -34,6 +60,7 @@ const issueAuthCookie = (res, user) => {
         {
             _id: user._id,
             name: user.name,
+            username: user.username,
             email: user.email,
             avatar: user.avatar,
         },
@@ -80,25 +107,40 @@ const createTwoFactorChallenge = async (user) => {
 
 export const Register = async (req, res, next) => {
     try {
-        const { name, email, password } = req.body;
+        const { username, email, password, name } = req.body;
 
-        if (!name || !email || !password) {
-            return next(handleError(400, "Name, email and password are required."));
+        if (!username || !email || !password) {
+            return next(handleError(400, "Username, email and password are required."));
         }
 
         const normalizedEmail = email.trim().toLowerCase();
+        const normalizedUsername = normalizeUsername(username);
 
-        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (!isValidUsername(normalizedUsername)) {
+            return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
+        }
+
+        const [existingUser, usernameTaken] = await Promise.all([
+            User.findOne({ email: normalizedEmail }),
+            User.findOne({ username: normalizedUsername })
+        ]);
+
         if (existingUser) {
             return next(handleError(409, "User already registered."));
         }
 
+        if (usernameTaken) {
+            return next(handleError(409, "Username is already taken. Please choose another."));
+        }
+
         const hashedPassword = bcryptjs.hashSync(password);
+        const pendingDisplayName = typeof name === "string" && name.trim() ? name.trim() : normalizedUsername;
 
         await createAndSendOtp({
             email: normalizedEmail,
             pendingUser: {
-                name: name.trim(),
+                username: normalizedUsername,
+                name: pendingDisplayName,
                 passwordHash: hashedPassword,
                 role: "user"
             },
@@ -142,12 +184,24 @@ export const verifyOtp = async (req, res, next) => {
             return res.status(200).json({ success: true, message: "Email already verified. Please sign in." });
         }
 
-        if (!pendingUser.passwordHash || !pendingUser.name) {
+        if (!pendingUser.passwordHash || !pendingUser.username) {
             return next(handleError(400, "Pending registration data is incomplete. Please register again."));
         }
 
+        const normalizedUsername = normalizeUsername(pendingUser.username);
+
+        if (!isValidUsername(normalizedUsername)) {
+            return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
+        }
+
+        const usernameTaken = await User.findOne({ username: normalizedUsername });
+        if (usernameTaken) {
+            return next(handleError(409, "This username was taken while you were verifying. Please register again with a different username."));
+        }
+
         const newUser = new User({
-            name: pendingUser.name,
+            username: normalizedUsername,
+            name: pendingUser.name || normalizedUsername,
             email: normalizedEmail,
             password: pendingUser.passwordHash,
             role: pendingUser.role || "user",
@@ -237,6 +291,8 @@ export const Login = async (req, res, next) => {
 
         const requiresTwoFactor = user.twoFactorEnabled === true;
 
+        await ensureUserHasUsername(user, user.name || normalizedEmail);
+
         if (!requiresTwoFactor) {
             const safeUser = issueAuthCookie(res, user);
             return res.status(200).json({
@@ -289,6 +345,7 @@ export const verifyTwoFactor = async (req, res, next) => {
             return next(handleError(404, "Account not found."));
         }
 
+        await ensureUserHasUsername(user);
         const safeUser = issueAuthCookie(res, user);
 
         return res.status(200).json({
@@ -480,7 +537,9 @@ export const GoogleLogin = async (req, res, next) => {
             //  create new user 
             const password = Math.random().toString()
             const hashedPassword = bcryptjs.hashSync(password)
+            const fallbackUsername = await generateUniqueUsername(name || normalizedEmail);
             const newUser = new User({
+                username: fallbackUsername,
                 name,
                 email: normalizedEmail,
                 password: hashedPassword,
@@ -489,12 +548,15 @@ export const GoogleLogin = async (req, res, next) => {
 
             user = await newUser.save()
 
+        } else {
+            await ensureUserHasUsername(user, name || normalizedEmail);
         }
 
 
         const token = jwt.sign({
             _id: user._id,
             name: user.name,
+            username: user.username,
             email: user.email,
             avatar: user.avatar
         }, process.env.JWT_SECRET)

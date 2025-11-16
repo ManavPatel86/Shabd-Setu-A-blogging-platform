@@ -1,14 +1,23 @@
 // /api/utils/moderation.js
-// Multi-layer moderation: keyword detection + AI analysis
-// Returns { safe, badLines, suggestions }
+// Multi-layer moderation: keyword heuristics + Gemini summary
 
 import axios from 'axios';
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 
-/**
- * Keyword-based detection for severe content violations
- * Fast, strict detection for prohibited content
- */
+const GOOGLE_MODEL_NAME = process.env.GOOGLE_MODERATION_MODEL || 'gemini-1.5-flash';
+const DEFAULT_SUGGESTION = 'Please revise or remove the flagged content before resubmitting.';
+
+const CATEGORY_SUGGESTIONS = {
+  child_abuse: 'Remove any references to harming or exploiting minors immediately.',
+  violence_threats: 'Remove threats or encouragement of violence and rewrite using non-violent language.',
+  hate_speech: 'Eliminate discriminatory language and ensure the message respects protected groups.',
+  extreme_adult: 'Delete explicit or exploitative sexual references and keep the content PG-13.',
+  harassment_bullying: 'Avoid personal attacks; focus on constructive feedback stated respectfully.',
+  sexual_content: 'Strip out explicit sexual descriptions or innuendo from the submission.',
+  profanity_vulgar: 'Replace profanity with neutral wording that suits a public audience.',
+  spam_scam: 'Remove promotional or deceptive wording and add genuine, verifiable information.'
+};
+
 const SEVERITY_KEYWORDS = {
   violence_threats: [
     'kill', 'murder', 'harm', 'injure', 'beat', 'stab', 'shoot', 'hang', 'poison', 'die', 'death', 'destroy',
@@ -17,242 +26,299 @@ const SEVERITY_KEYWORDS = {
   ],
   child_abuse: [
     'child abuse', 'harm child', 'hurt kid', 'abuse child', 'sexual abuse', 'minor', 'pedophile', 'exploitation',
-    'child endangerment', 'kid danger', 'toddler harm', 'infant abuse', 'child', 'kid', 'toddler', 'infant', 'baby', 'year old'
+    'child endangerment', 'kid danger', 'toddler harm', 'infant abuse', 'baby', 'toddler', 'infant', 'teen', 'underage'
   ],
   hate_speech: [
     'nigger', 'faggot', 'retard', 'tranny', 'kike', 'chink', 'wetback', 'camel jockey', 'sand nigger',
-    'should die', 'subhuman', 'vermin', 'cockroach', 'deserve death', 'hate', 'racist', 'discrimination'
+    'should die', 'subhuman', 'vermin', 'cockroach', 'deserve death', 'inferior race', 'white power', 'ethnic cleansing'
   ],
   extreme_adult: [
-    'scat', 'bestiality', 'zoophilia', 'necrophilia', 'incest', 'child pornography', 'cp', 'lolicon'
+    'scat', 'bestiality', 'zoophilia', 'necrophilia', 'incest', 'child pornography', 'cp', 'lolicon', 'rape fantasy'
   ],
   harassment_bullying: [
-    'loser', 'stupid', 'dumb', 'idiot', 'moron', 'bitch', 'asshole', 'jerk', 'bully', 'harass', 'cyberbully',
-    'shame', 'humiliate', 'mock', 'ridicule', 'insult', 'degrade'
-  ],
-  sexual_content: [
-    'porn', 'sex', 'xxx', 'nsfw', 'explicit', 'nude', 'naked', 'cock', 'pussy', 'dick', 'vagina',
-    'horny', 'cum', 'fuck', 'blowjob', 'masturbate', 'orgasm'
+    'loser', 'stupid', 'dumb', 'idiot', 'moron', 'bitch', 'asshole', 'jerk', 'bully', 'harass', 'worthless', 'ugly', 'freak'
   ],
   profanity_vulgar: [
-    'motherfucker', 'mother fucker', 'damn', 'damned', 'hell', 'shit', 'shitty', 'crap', 'crappy', 'ass',
-    'bastard', 'bitch', 'bitches', 'cunt', 'dickhead', 'douchebag', 'fag', 'fags', 'faggot', 'faggots',
-    'goddamn', 'goddamned', 'horseshit', 'jackass', 'piss', 'pissed', 'pisser', 'pissing', 'suck', 'sucks',
-    'sucked', 'sucks', 'tits', 'titties', 'whore', 'whores', 'slut', 'sluts', 'twat', 'twats', 'whorish',
-    'arse', 'arsehole', 'shag', 'shagged', 'bollocks', 'git', 'bloody', 'blimey', 'sod', 'sodding'
+    'fuck', 'shit', 'bastard', 'dick', 'cunt', 'motherfucker', 'bullshit', 'prick', 'slut', 'whore'
+  ],
+  sexual_content: [
+    'naked', 'nude', 'porn', 'sex', 'xxx', 'nsfw', 'erotic', 'fetish', 'seduce', 'horny', 'aroused'
   ],
   spam_scam: [
-    'click here', 'buy now', 'limited offer', 'act now', 'cryptocurrency', 'bitcoin', 'earn money fast',
-    'guaranteed income', 'work from home', 'click link'
+    'buy now', 'click here', 'limited offer', 'wire money', 'crypto giveaway', 'investment scheme', 'guaranteed returns',
+    'work from home', 'free gift', 'visit my channel', 'make $', 'bit.ly', 'tinyurl'
   ]
 };
 
-/**
- * Check for prohibited content using keyword detection
- * @param {string} line - Single line of text
- * @returns {Object} - { issues: Array<string>, category: string, isSevere: boolean }
- */
-function detectProhibitedContent(line) {
-  // Normalize: remove punctuation, convert to lowercase, trim extra spaces
-  const normalizedLine = line
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
-    .replace(/\s+/g, ' ') // Collapse multiple spaces
-    .trim();
-  
-  const issues = [];
-  let category = null;
-  let isSevere = false;
+const SEVERE_CATEGORIES = new Set([
+  'child_abuse',
+  'violence_threats',
+  'hate_speech',
+  'extreme_adult'
+]);
 
-  // Helper function to check if keyword exists as complete word(s) or phrase
-  const checkKeyword = (text, keyword) => {
-    // Split keyword into words
-    const keywordWords = keyword.split(/\s+/);
-    
-    if (keywordWords.length === 1) {
-      // Single word - check with word boundaries
-      const regex = new RegExp(`\\b${keywordWords[0]}\\b`, 'i');
-      return regex.test(text);
-    } else {
-      // Multiple words - check as phrase with flexible spacing
-      const pattern = keywordWords.join('\\s+');
-      const regex = new RegExp(`\\b${pattern}\\b`, 'i');
-      return regex.test(text);
-    }
-  };
+const moderationModel = initializeModel();
 
-  // Check violence/threats - especially around children
-  const violenceKeywords = SEVERITY_KEYWORDS.violence_threats;
-  const childKeywords = SEVERITY_KEYWORDS.child_abuse;
-  
-  const hasViolence = violenceKeywords.some(keyword => checkKeyword(normalizedLine, keyword));
-  const mentionsChild = childKeywords.some(keyword => checkKeyword(normalizedLine, keyword))
-    || /\b\d{1,2}\s*(?:years?)\b/.test(normalizedLine);
-  
-  if (hasViolence && mentionsChild) {
-    issues.push('Violence against children');
-    category = 'child_abuse';
-    isSevere = true;
-  } else if (hasViolence) {
-    issues.push('Violence or threats detected');
-    category = 'violence_threats';
-    isSevere = true;
+function initializeModel() {
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+  if (!apiKey) {
+    return null;
   }
 
-  // Check for hate speech
-  if (SEVERITY_KEYWORDS.hate_speech.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'hate_speech';
-    issues.push('Hate speech or discriminatory content');
-    isSevere = true;
+  try {
+    return new ChatGoogleGenerativeAI({
+      apiKey,
+      modelName: GOOGLE_MODEL_NAME,
+      temperature: 0.2,
+      maxOutputTokens: 512
+    });
+  } catch (err) {
+    console.warn('Failed to initialize moderation model:', err.message);
+    return null;
   }
-
-  // Check for extreme adult content
-  if (SEVERITY_KEYWORDS.extreme_adult.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'extreme_adult';
-    issues.push('Prohibited adult content');
-    isSevere = true;
-  }
-
-  // Check for harassment/bullying
-  if (SEVERITY_KEYWORDS.harassment_bullying.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'harassment_bullying';
-    issues.push('Harassment, bullying, or insulting content');
-  }
-
-  // Check for profanity and vulgar language
-  if (SEVERITY_KEYWORDS.profanity_vulgar.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'profanity_vulgar';
-    issues.push('Offensive language or profanity');
-  }
-
-  // Check for sexual content
-  if (SEVERITY_KEYWORDS.sexual_content.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'sexual_content';
-    issues.push('NSFW or explicit sexual content');
-  }
-
-  // Check for spam/scam
-  if (SEVERITY_KEYWORDS.spam_scam.some(keyword => checkKeyword(normalizedLine, keyword))) {
-    if (!category) category = 'spam_scam';
-    issues.push('Spam, scam, or misleading content');
-  }
-
-  return { issues, category, isSevere };
 }
 
-/**
- * Analyze content with both keyword detection and AI
- */
-async function analyzeContentWithAI(content) {
-  try {
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    const badLines = [];
-    const suggestions = [];
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-    // First pass: keyword-based detection (fast, strict)
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line || line.length < 3) continue;
+function normalizeText(input) {
+  return input
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function checkKeyword(text, keyword) {
+  const normalizedKeyword = keyword.toLowerCase();
+  if (normalizedKeyword.includes(' ')) {
+    return text.includes(normalizedKeyword);
+  }
+  const pattern = new RegExp(`\\b${escapeRegExp(normalizedKeyword)}\\b`, 'i');
+  return pattern.test(text);
+}
+
+function detectProhibitedContent(line) {
+  const normalizedLine = normalizeText(line);
+
+  if (!normalizedLine) {
+    return { issues: [], category: null, isSevere: false, suggestion: DEFAULT_SUGGESTION };
+  }
+
+  const matchedCategories = [];
+  const issues = new Set();
+
+  const hasViolence = SEVERITY_KEYWORDS.violence_threats.some(keyword => checkKeyword(normalizedLine, keyword));
+  const mentionsChild = SEVERITY_KEYWORDS.child_abuse.some(keyword => checkKeyword(normalizedLine, keyword))
+    || /\b\d{1,2}\s*(?:year|years|yr|yrs|y\/o)\b/.test(normalizedLine);
+
+  if (hasViolence && mentionsChild) {
+    matchedCategories.push('child_abuse');
+    issues.add('Violence against minors');
+  } else if (hasViolence) {
+    matchedCategories.push('violence_threats');
+    issues.add('Violence or threats of harm');
+  }
+
+  if (mentionsChild && !matchedCategories.includes('child_abuse')) {
+    matchedCategories.push('child_abuse');
+    issues.add('References to minors in unsafe context');
+  }
+
+  Object.entries(SEVERITY_KEYWORDS).forEach(([category, keywords]) => {
+    if (matchedCategories.includes(category)) {
+      return;
+    }
+    if (keywords.some(keyword => checkKeyword(normalizedLine, keyword))) {
+      matchedCategories.push(category);
+      switch (category) {
+        case 'hate_speech':
+          issues.add('Hate speech or discriminatory language');
+          break;
+        case 'extreme_adult':
+          issues.add('Illegal or extreme sexual content');
+          break;
+        case 'harassment_bullying':
+          issues.add('Harassment, bullying, or targeted insults');
+          break;
+        case 'sexual_content':
+          issues.add('Explicit or graphic sexual content');
+          break;
+        case 'profanity_vulgar':
+          issues.add('Profanity or vulgar language');
+          break;
+        case 'spam_scam':
+          issues.add('Spam, scam, or deceptive solicitation');
+          break;
+        default:
+          issues.add('Policy violation detected');
+          break;
+      }
+    }
+  });
+
+  const category = matchedCategories[0] || null;
+  const isSevere = matchedCategories.some(cat => SEVERE_CATEGORIES.has(cat));
+  const suggestion = category ? (CATEGORY_SUGGESTIONS[category] || DEFAULT_SUGGESTION) : DEFAULT_SUGGESTION;
+
+  return {
+    issues: Array.from(issues),
+    category,
+    isSevere,
+    suggestion
+  };
+}
+
+const SUMMARY_FEW_SHOT = `You are the compliance assistant for a blogging platform.
+Respond with three bullet points labelled Summary, Impact, and Next steps.
+Keep the tone professional, avoid judgemental wording, and stay under 80 words total.
+
+Example:
+Summary:
+- The comment includes a direct threat to harm another user.
+Impact:
+- Threats of violence violate the community safety policy and create a hostile environment.
+Next steps:
+- Remove the violent language and restate the concern without threats.`;
+
+function buildIssuesBlock(badLines) {
+  return badLines
+    .map(line => `Line ${line.line} (${line.category || 'general'}): ${line.issues.join('; ')}\nOriginal: ${line.text}`)
+    .join('\n\n');
+}
+
+function buildFallbackSummary({ badLines, type }) {
+  const intro = `The ${type === 'comment' ? 'comment' : 'blog post'} cannot be published because we detected:`;
+  const bulletPoints = badLines
+    .map(line => `- Line ${line.line}: ${line.issues.join(', ')}`)
+    .join('\n');
+  const next = 'Please remove the flagged excerpts and rewrite them so they comply with the community guidelines.';
+  return `${intro}\n${bulletPoints}\n\n${next}`.trim();
+}
+
+async function generateModerationSummary({ badLines, type }) {
+  if (!badLines.length) {
+    return '';
+  }
+
+  if (!moderationModel) {
+    return buildFallbackSummary({ badLines, type });
+  }
+
+  const prompt = `${SUMMARY_FEW_SHOT}\n\nContent type: ${type}.\nFlagged excerpts:\n${buildIssuesBlock(badLines)}\n\nProduce the structured summary now.`;
+
+  try {
+    const result = await moderationModel.invoke(prompt);
+    const rawContent = Array.isArray(result?.content)
+      ? result.content.map(part => typeof part === 'string' ? part : part?.text || '').join(' ')
+      : (result?.content ?? result?.text ?? '');
+
+    const cleaned = String(rawContent)
+      .replace(/```json\n?/gi, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    if (cleaned) {
+      return cleaned;
+    }
+  } catch (err) {
+    console.warn('Failed to generate moderation summary with Gemini:', err.message);
+  }
+
+  return buildFallbackSummary({ badLines, type });
+}
+
+async function analyzeContentWithAI(content, options = {}) {
+  const { type = 'blog' } = options;
+
+  try {
+    const lines = content.split('\n').map(l => l.trim());
+    const badLines = [];
+    const suggestions = new Set();
+
+    lines.forEach((line, index) => {
+      if (!line || line.length < 3) {
+        return;
+      }
 
       const detection = detectProhibitedContent(line);
-      
       if (detection.issues.length > 0) {
         badLines.push({
-          line: i + 1,
+          line: index + 1,
           text: line,
           issues: detection.issues,
           category: detection.category,
-          suggestions: 'This content violates our community guidelines and cannot be published. Please revise or remove this content.',
+          suggestions: detection.suggestion,
           severity: detection.isSevere ? 'CRITICAL' : 'MODERATE'
         });
-        suggestions.push(`Line ${i + 1} [${detection.category}]: ${detection.issues.join(', ')}`);
-        continue; // Skip AI check for already-flagged content
+        suggestions.add(`Line ${index + 1}: ${detection.suggestion}`);
       }
-    }
+    });
 
-    // If AI API is available, do secondary check on remaining lines
-    if (process.env.GOOGLE_API_KEY && badLines.length === 0) {
-      const model = new ChatGoogleGenerativeAI({
-        modelName: 'gemini-pro',
-        apiKey: process.env.GOOGLE_API_KEY,
-        temperature: 0,
-      });
+    const flaggedIndices = new Set(badLines.map(item => item.line));
 
-      for (let i = 0; i < lines.length; i++) {
+    if (moderationModel) {
+      for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i];
-        if (!line || line.length < 3) continue;
+        if (!line || flaggedIndices.has(i + 1) || line.length < 3) {
+          continue;
+        }
 
-        const prompt = `You are a strict content moderator for a community platform. Analyze this line and flag ANY inappropriate, harmful, or unsuitable content.
-
-Text: "${line}"
-
-Respond ONLY with valid JSON (no markdown, no code blocks):
-{
-  "safe": boolean,
-  "issues": ["issue1", "issue2"] or [],
-  "category": "category_name or null",
-  "suggestion": "how to fix" or ""
-}
-
-Flag content for ANY of these reasons:
-- Hate speech, discrimination, racism, sexism
-- Harassment, bullying, threats, intimidation
-- Violence, injury threats, harm wishes
-- NSFW/explicit sexual content
-- Exploitation, abuse (any kind)
-- Spam, scams, misleading information
-- Illegal activities or content
-- Self-harm, suicide references
-- Misinformation or dangerous advice
-- Any other harmful or inappropriate content
-
-Be strict and flag when uncertain. Community safety is priority.`;
+        const prompt = `You are a strict content moderator. Analyse the following line and respond in JSON.\n\nText: "${line}"\n\nRespond with:\n{"safe": boolean, "issues": ["..."], "category": "category or null", "suggestion": "actionable fix"}`;
 
         try {
-          const result = await model.invoke(prompt);
-          let responseText = typeof result.content === 'string' 
-            ? result.content 
-            : result.content?.[0]?.text || result.text || '';
-          
-          // Clean up response if it contains markdown code blocks
-          responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-          
-          const parsed = JSON.parse(responseText);
-          
-          if (!parsed.safe && parsed.issues?.length > 0) {
+          const result = await moderationModel.invoke(prompt);
+          const rawContent = Array.isArray(result?.content)
+            ? result.content.map(part => typeof part === 'string' ? part : part?.text || '').join(' ')
+            : (result?.content ?? result?.text ?? '');
+
+          const cleaned = String(rawContent)
+            .replace(/```json\n?/gi, '')
+            .replace(/```\n?/g, '')
+            .trim();
+
+          if (!cleaned) {
+            continue;
+          }
+
+          const parsed = JSON.parse(cleaned);
+          if (!parsed.safe && Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+            const category = parsed.category || 'general';
+            const suggestion = parsed.suggestion || CATEGORY_SUGGESTIONS[category] || DEFAULT_SUGGESTION;
+
             badLines.push({
               line: i + 1,
               text: line,
               issues: parsed.issues,
-              category: parsed.category,
-              suggestions: parsed.suggestion || 'Please revise this content to comply with community guidelines.',
-              severity: 'MODERATE'
+              category,
+              suggestions: suggestion,
+              severity: SEVERE_CATEGORIES.has(category) ? 'CRITICAL' : 'MODERATE'
             });
-            if (parsed.suggestion) {
-              suggestions.push(`Line ${i + 1}: ${parsed.suggestion}`);
-            }
+            suggestions.add(`Line ${i + 1}: ${suggestion}`);
+            flaggedIndices.add(i + 1);
           }
-        } catch (parseErr) {
-          console.warn(`Failed to parse AI response for line ${i + 1}:`, parseErr.message);
+        } catch (err) {
+          console.warn(`Gemini moderation check failed for line ${i + 1}:`, err.message);
         }
       }
     }
 
+    const safe = badLines.length === 0;
+    const summary = safe ? '' : await generateModerationSummary({ badLines, type });
+
     return {
-      safe: badLines.length === 0,
+      safe,
       badLines,
-      suggestions: [...new Set(suggestions)],
+      suggestions: Array.from(suggestions),
+      summary
     };
   } catch (err) {
     console.error('Moderation error:', err.message);
-    // Fail open if AI fails (but keyword detection still worked)
-    return { safe: true, badLines: [], suggestions: [] };
+    return { safe: true, badLines: [], suggestions: [], summary: '' };
   }
 }
 
-/**
- * Legacy API moderation fallback
- */
 async function moderateContentViaAPI(content, type = 'blog') {
   const API_URL = process.env.AI_MODERATION_API_URL;
   const API_KEY = process.env.AI_MODERATION_API_KEY;
@@ -265,7 +331,7 @@ async function moderateContentViaAPI(content, type = 'blog') {
     const response = await axios.post(
       API_URL,
       { content, type },
-      { headers: { 'Authorization': `Bearer ${API_KEY}` } }
+      { headers: { Authorization: `Bearer ${API_KEY}` } }
     );
     return response.data;
   } catch (err) {
@@ -274,16 +340,32 @@ async function moderateContentViaAPI(content, type = 'blog') {
   }
 }
 
-/**
- * Moderate a blog post
- */
 export async function moderateBlog(content) {
-  return await analyzeContentWithAI(content);
+  const result = await analyzeContentWithAI(content, { type: 'blog' });
+
+  if (result.safe === undefined) {
+    const fallback = await moderateContentViaAPI(content, 'blog');
+    return fallback || { safe: true, badLines: [], suggestions: [], summary: '' };
+  }
+
+  if (!result.safe && !result.summary) {
+    result.summary = buildFallbackSummary({ badLines: result.badLines, type: 'blog' });
+  }
+
+  return result;
 }
 
-/**
- * Moderate a comment
- */
 export async function moderateComment(text) {
-  return await analyzeContentWithAI(text);
+  const result = await analyzeContentWithAI(text, { type: 'comment' });
+
+  if (result.safe === undefined) {
+    const fallback = await moderateContentViaAPI(text, 'comment');
+    return fallback || { safe: true, badLines: [], suggestions: [], summary: '' };
+  }
+
+  if (!result.safe && !result.summary) {
+    result.summary = buildFallbackSummary({ badLines: result.badLines, type: 'comment' });
+  }
+
+  return result;
 }

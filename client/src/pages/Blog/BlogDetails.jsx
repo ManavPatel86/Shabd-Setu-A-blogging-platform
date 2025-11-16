@@ -16,11 +16,13 @@ import { getEnv } from '@/helpers/getEnv'
 import { deleteData } from '@/helpers/handleDelete'
 import { showToast } from '@/helpers/showToast'
 import Loading from '@/components/Loading'
+import DraftsList from '@/components/DraftsList'
 import { useState } from 'react'
 import { FiEdit } from "react-icons/fi";
 import { FaRegTrashAlt } from "react-icons/fa";
 import moment from 'moment'
 import { useSelector } from 'react-redux'
+import { getDisplayName } from '@/utils/functions'
 
 const BlogDetails = () => {
     const [refreshData, setRefreshData] = useState(false)
@@ -44,7 +46,11 @@ const BlogDetails = () => {
     if (loading) return <Loading />
     if (error) return <div className="text-red-500">Error loading blogs: {error.message}</div>
     return (
-        <div>
+        <div className="space-y-8">
+            {/* Drafts Section */}
+            <DraftsList refreshTrigger={refreshData} />
+
+            {/* Published Blogs Section */}
             <Card>
                 <CardHeader>
                     <div>
@@ -73,7 +79,7 @@ const BlogDetails = () => {
 
                                 blogData.blog.map(blog =>
                                     <TableRow key={blog._id}>
-                                        {isAdmin && <TableCell>{blog?.author?.name}</TableCell>}
+                                        {isAdmin && <TableCell>{getDisplayName(blog?.author)}</TableCell>}
                                         <TableCell className="max-w-[240px] whitespace-normal break-words text-sm">{blog?.title}</TableCell>
                                         <TableCell className="max-w-[200px] whitespace-normal break-words text-sm">
                                             {Array.isArray(blog?.categories) && blog.categories.length > 0

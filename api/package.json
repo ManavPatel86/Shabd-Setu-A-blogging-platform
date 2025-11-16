@@ -9,7 +9,8 @@
     "dev": "nodemon index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "usernames:backfill": "node scripts/backfillUsernames.js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
     "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "axios": "^1.7.7",
     "dotenv": "^17.2.2",
     "entities": "^7.0.0",
     "express": "^5.1.0",

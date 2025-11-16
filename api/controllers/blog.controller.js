@@ -2,7 +2,7 @@ import cloudinary from "../config/cloudinary.js"
 import { handleError } from "../helpers/handleError.js"
 import Blog from "../models/blog.model.js"
 import BlogLike from "../models/bloglike.model.js"
-import { encode } from 'entities'
+import { encode, decode } from 'entities'
 import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
 import slugify from "slugify";
@@ -21,6 +21,7 @@ const normalizeSlug = (value = '') => {
 }
 
 const stripHtml = (value = '') => value.replace(/<[^>]*>/g, '').trim()
+const toPlainText = (value = '') => decode(value)
 
 const parseRequestBody = (raw) => {
     if (!raw) {
@@ -101,8 +102,8 @@ export const addBlog = async (req, res, next) => {
             return next(handleError(401, 'Unauthorized.'))
         }
 
-        const categories = normalizeCategories(data.categories ?? data.category)
-        if (isPublished && !categories.length) {
+        const normalizedCategories = normalizeCategories(data.categories ?? data.category)
+        if (isPublished && !normalizedCategories.length) {
             return next(handleError(400, 'At least one category is required to publish a blog.'))
         }
 
@@ -115,18 +116,6 @@ export const addBlog = async (req, res, next) => {
                 })
                 .catch((error) => {
                     next(handleError(500, error.message))
-                });
-            featuredImage = uploadResult.secure_url
-        }
-
-        const incomingCategories = Array.isArray(data.categories)
-            ? data.categories
-            : data.category
-                ? [data.category]
-                : []
-        const categories = [...new Set(incomingCategories.filter(Boolean))]
-        if (!categories.length) {
-            return next(handleError(400, 'At least one category is required.'))
                 })
 
             if (!uploadResult) {
@@ -167,22 +156,20 @@ export const addBlog = async (req, res, next) => {
                 success: false,
                 message: 'Blog content failed moderation.',
                 badLines: moderationResult.badLines,
-                suggestions: moderationResult.suggestions
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
             });
         }
 
         const blog = new Blog({
-            author: req.user?._id || data.author,
-            category: data.category,
-            author: data.author,
             author: authorId,
-            categories,
+            categories: normalizedCategories,
             title,
             slug: slug || '',
             featuredImage,
-            blogContent: encode(blogContentRaw),
             summary: typeof data.summary === 'string' ? data.summary.trim() : undefined,
             description: typeof data.description === 'string' ? data.description.trim().slice(0, 300) : '',
+            blogContent: encode(blogContentRaw),
             status,
             publishedAt: isPublished ? new Date() : null,
         })
@@ -251,14 +238,15 @@ export const updateBlog = async (req, res, next) => {
                 success: false,
                 message: 'Blog content failed moderation.',
                 badLines: moderationResult.badLines,
-                suggestions: moderationResult.suggestions
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
             });
         }
 
         blog.categories = categories
-        blog.title = data.title
-        blog.slug = data.slug
-        blog.blogContent = encode(data.blogContent)
+        blog.title = typeof data.title === 'string' ? data.title.trim() : blog.title
+        blog.slug = normalizeSlug(data.slug || data.title || blog.slug)
+        blog.blogContent = encode(typeof data.blogContent === 'string' ? data.blogContent : '')
 
         let featuredImage = blog.featuredImage
         if (req.file) {
@@ -708,17 +696,10 @@ export const getPersonalizedHome = async (req, res, next) => {
             .lean()
             .exec();
 
-        if (!sourceIds.length) {
-            // fallback: return most liked blogs
-            const popular = await Blog.aggregate([
-                { $match: publishedOnlyQuery() },
-                { $sample: { size: 12 } }
-            ])
-            const populated = await Blog.find({ _id: { $in: popular.map(p => p._id) }, ...publishedOnlyQuery() }).populate('author', 'name avatar role').populate('categories', 'name slug').lean().exec()
-            return res.status(200).json({ relatedBlog: populated.slice(0, 6) })
-        }
-
-        const sourceBlogs = await Blog.find({ _id: { $in: sourceIds }, ...publishedOnlyQuery() }).select('categories').lean().exec()
+        const sourceBlogs = await Blog.find({ _id: { $in: interactionIds }, ...publishedOnlyQuery() })
+            .select('categories')
+            .lean()
+            .exec();
         const categoryCount = new Map()
         sourceBlogs.forEach(sb => {
             const categories = sb?.categories || []
@@ -753,7 +734,6 @@ export const getPersonalizedHome = async (req, res, next) => {
         const topCategoryIds = sortedCategories.slice(0, 5).map(([id]) => id);
         const topAuthorIds = sortedAuthors.slice(0, 5).map(([id]) => id);
 
-        const candidates = await Blog.find({ categories: { $in: topCategoryIds }, ...publishedOnlyQuery() })
         const candidateFilter = [];
         if (topCategoryIds.length) {
             candidateFilter.push({ categories: { $in: topCategoryIds } });
@@ -770,7 +750,7 @@ export const getPersonalizedHome = async (req, res, next) => {
             return res.status(200).json(payload);
         }
 
-        const candidates = await Blog.find({
+        const candidateDocs = await Blog.find({
             _id: { $nin: interactionIds },
             $or: candidateFilter,
         })
@@ -781,7 +761,7 @@ export const getPersonalizedHome = async (req, res, next) => {
             .lean()
             .exec();
 
-        if (!candidates.length) {
+        if (!candidateDocs.length) {
             const payload = await fetchPopularFallback({
                 fallback: 'no-candidates',
                 message: 'No fresh matches yet. Check back soon!',
@@ -789,7 +769,7 @@ export const getPersonalizedHome = async (req, res, next) => {
             return res.status(200).json(payload);
         }
 
-        const candidateIds = candidates.map((candidate) => candidate._id).filter(Boolean);
+        const candidateIds = candidateDocs.map((candidate) => candidate._id).filter(Boolean);
         let likeCounts = {};
         if (candidateIds.length) {
             const counts = await BlogLike.aggregate([
@@ -801,7 +781,7 @@ export const getPersonalizedHome = async (req, res, next) => {
             });
         }
 
-        const scoredCandidates = candidates.map((candidate) => {
+        const scoredCandidates = candidateDocs.map((candidate) => {
             const categoryList = candidate?.categories || [];
             const baseCategoryScore = categoryList.reduce((sum, category) => {
                 const key = (category?._id || category)?.toString();

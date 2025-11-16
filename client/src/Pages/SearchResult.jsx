@@ -4,8 +4,8 @@ import BlogCard from '@/components/BlogCard';
 import Loading from '@/components/Loading';
 import { getEnv } from '@/helpers/getEnv';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { RouteProfileView } from '@/helpers/RouteName';
+import { getDisplayName } from '@/utils/functions';
 
 const SearchResult = () => {
   const [searchParams] = useSearchParams();
@@ -101,10 +101,13 @@ const SearchResult = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {authors.map((author) => {
-              const name = author?.name || 'Unknown';
+              const displayName = getDisplayName(author);
               const bio = author?.bio || '';
               const bioPreview = bio.length > 140 ? `${bio.slice(0, 137)}...` : bio;
               const avatarSrc = author?.avatar;
+              const usernameHandle = author?.username ? `@${author.username}` : '';
+              const initialsSource = (author?.name?.trim() || author?.username || 'U').toString();
+              const initials = initialsSource.charAt(0).toUpperCase();
               const handleAuthorClick = () => {
                 if (author?._id) {
                   navigate(RouteProfileView(author._id));
@@ -120,10 +123,13 @@ const SearchResult = () => {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={avatarSrc} />
-                      <AvatarFallback>{name.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{name}</p>
+                      <p className="font-semibold text-slate-800 truncate">{displayName}</p>
+                      {usernameHandle && (
+                        <p className="text-xs text-slate-500">{usernameHandle}</p>
+                      )}
                       {author.role && (
                         <p className="text-xs uppercase tracking-wide text-blue-500">{author.role}</p>
                       )}

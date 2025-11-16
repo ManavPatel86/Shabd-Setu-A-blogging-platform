@@ -3,7 +3,7 @@
 import React from 'react';
 import { AlertCircle, X, AlertTriangle } from 'lucide-react';
 
-export default function ModerationErrorDisplay({ errors, suggestions, onClose, onFixLine }) {
+export default function ModerationErrorDisplay({ errors, suggestions, summary, onClose, onFixLine }) {
   if (!errors || errors.length === 0) return null;
 
   // Check if any error is CRITICAL
@@ -36,6 +36,11 @@ export default function ModerationErrorDisplay({ errors, suggestions, onClose, o
 
         {/* Content */}
         <div className="overflow-y-auto flex-1 p-6 space-y-4">
+          {summary && (
+            <div className={`${hasCritical ? 'bg-red-100 border-l-4 border-red-600 text-red-900' : 'bg-blue-50 border-l-4 border-blue-400 text-blue-900'} p-4 rounded`}> 
+              <p className="text-sm leading-relaxed whitespace-pre-line">{summary}</p>
+            </div>
+          )}
           <div>
             <h3 className="font-semibold text-gray-900 mb-3">
               ❌ Found {errors.length} policy violation{errors.length !== 1 ? 's' : ''}

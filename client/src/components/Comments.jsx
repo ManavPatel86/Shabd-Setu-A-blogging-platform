@@ -16,7 +16,7 @@ import ModerationWarning from './ModerationWarning';
 
 const Comments = ({ blogid }) => {
     const user = useSelector((state)=> state.user)
-    const [moderationErrors, setModerationErrors] = React.useState({ badLines: [], suggestions: [], message: '' });
+    const [moderationErrors, setModerationErrors] = React.useState({ badLines: [], suggestions: [], message: '', summary: '' });
 
     const formSchema = z.object({
         comment: z.string().min(3, 'Comment must be at least 3 character long.'),
@@ -31,7 +31,7 @@ const Comments = ({ blogid }) => {
 
     async function onSubmit(values) {
         try {
-            setModerationErrors({ badLines: [], suggestions: [], message: '' });
+            setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' });
             const newValues = {
                 blogid,
                 comment: values.comment
@@ -44,17 +44,18 @@ const Comments = ({ blogid }) => {
             })
             const data = await response.json()
             if (!response.ok) {
-                if (data.badLines || data.suggestions) {
+                if (data.badLines || data.suggestions || data.summary) {
                     setModerationErrors({
                         badLines: data.badLines || [],
                         suggestions: data.suggestions || [],
-                        message: data.message || 'Comment failed moderation.'
+                        message: data.message || 'Comment failed moderation.',
+                        summary: data.summary || '',
                     });
                 }
-                return showToast('error', data.message)
+                return showToast('error', data.summary || data.message)
             }
             form.reset()
-            setModerationErrors({ badLines: [], suggestions: [], message: '' });
+            setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' });
             // Force CommentList to refresh
             window.dispatchEvent(new Event('refreshComments'))
             showToast('success', data.message)
@@ -70,7 +71,7 @@ const Comments = ({ blogid }) => {
         {user && user.isLoggedIn 
         ?
         <Form {...form}>
-            <ModerationWarning badLines={moderationErrors.badLines} suggestions={moderationErrors.suggestions} message={moderationErrors.message} />
+            <ModerationWarning badLines={moderationErrors.badLines} suggestions={moderationErrors.suggestions} message={moderationErrors.message} summary={moderationErrors.summary} />
             <form onSubmit={form.handleSubmit(onSubmit)}  >
                 <div className='mb-3'>
                     <FormField

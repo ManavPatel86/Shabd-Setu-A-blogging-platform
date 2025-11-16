@@ -1,11 +1,12 @@
 import express from 'express'
-import { GoogleLogin, Login, Logout, Register, verifyOtp, resendOtp, verifyTwoFactor, requestPasswordReset, resetPassword, resendTwoFactorCode, getTwoFactorStatus, requestTwoFactorToggle, confirmTwoFactorToggle} from '../controllers/Auth.controller.js'
+import { GoogleLogin, Login, Logout, Register, verifyOtp, resendOtp, verifyTwoFactor, requestPasswordReset, resetPassword, resendTwoFactorCode, getTwoFactorStatus, requestTwoFactorToggle, confirmTwoFactorToggle, checkUsernameAvailability} from '../controllers/Auth.controller.js'
 import {authenticate} from '../middleware/authenticate.js';
 
 
 const AuthRoute = express.Router()
 
 AuthRoute.post('/register', Register)
+AuthRoute.get('/username/check', checkUsernameAvailability)
 AuthRoute.post('/login', Login)
 AuthRoute.post('/two-factor/verify', verifyTwoFactor)
 AuthRoute.post('/two-factor/resend', resendTwoFactorCode)

@@ -25,7 +25,8 @@ export const addcomment = async (req, res, next) => {
                 success: false,
                 message: 'Comment failed moderation.',
                 badLines: moderationResult.badLines,
-                suggestions: moderationResult.suggestions
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
             });
         }
 
@@ -160,7 +161,8 @@ export const addComment = async (req, res) => {
                 success: false,
                 message: 'Comment failed moderation.',
                 badLines: moderationResult.badLines,
-                suggestions: moderationResult.suggestions
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
             });
         }
 
@@ -202,7 +204,8 @@ export const replyToComment = async (req, res) => {
                 success: false,
                 message: 'Comment failed moderation.',
                 badLines: moderationResult.badLines,
-                suggestions: moderationResult.suggestions
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
             });
         }
 

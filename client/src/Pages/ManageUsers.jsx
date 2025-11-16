@@ -10,6 +10,7 @@ import { showToast } from "@/helpers/showToast";
 import { getEnv } from "@/helpers/getEnv";
 import { RouteIndex, RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
 import { Users, ShieldBan, UserCheck, Search } from "lucide-react";
+import { getDisplayName } from '@/utils/functions';
 
 const ManageUsers = () => {
     const navigate = useNavigate();
@@ -76,7 +77,8 @@ const ManageUsers = () => {
         return users.filter((item) => {
             const name = item?.name?.toLowerCase() || "";
             const email = item?.email?.toLowerCase() || "";
-            return name.includes(term) || email.includes(term);
+            const username = item?.username?.toLowerCase() || "";
+            return name.includes(term) || email.includes(term) || username.includes(term);
         });
     }, [searchTerm, users]);
 
@@ -239,6 +241,10 @@ const ManageUsers = () => {
                                 const isBlacklisted = Boolean(item?.isBlacklisted);
                                 const isAdminUser = item?.role === "admin";
                                 const disableActions = isAdminUser || actionInProgress === item?._id;
+                                const displayName = getDisplayName(item);
+                                const usernameHandle = item?.username ? `@${item.username}` : item?._id;
+                                const initialsSource = (item?.name?.trim() || item?.username || 'U').toString();
+                                const initials = initialsSource.charAt(0).toUpperCase();
 
                                 return (
                                     <TableRow
@@ -254,12 +260,12 @@ const ManageUsers = () => {
                                                         <Avatar className="h-10 w-10 border border-gray-200">
                                                             <AvatarImage src={item?.avatar} />
                                                             <AvatarFallback>
-                                                                {item?.name?.charAt(0)?.toUpperCase() || "U"}
+                                                                {initials}
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div>
-                                                            <p className="font-medium text-gray-900">{item?.name || "Unknown"}</p>
-                                                            <p className="text-xs text-gray-500">{item?._id}</p>
+                                                            <p className="font-medium text-gray-900">{displayName}</p>
+                                                            <p className="text-xs text-gray-500">{usernameHandle}</p>
                                                         </div>
                                                     </div>
                                                 </TableCell>

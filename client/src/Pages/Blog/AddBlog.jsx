@@ -27,7 +27,7 @@ const AddBlog = () => {
         const [filePreview, setFilePreview] = useState(null)
         const [file, setFile] = useState(null)
         const [categorizing, setCategorizing] = useState(false)
-        const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '' })
+        const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '', summary: '' })
         const [isSubmitting, setIsSubmitting] = useState(false)
         const [isSavingDraft, setIsSavingDraft] = useState(false)
         const [generatingDescription, setGeneratingDescription] = useState(false)
@@ -165,15 +165,16 @@ const AddBlog = () => {
         scheduleAutoSave()
     }, [form.watch('title'), form.watch('blogContent'), scheduleAutoSave])
 
-     async function onSubmit(values, isDraft = false) {
-
+    async function onSubmit(values, isDraft = false) {
+        setIsSubmitting(true)
         try {
-            setModerationErrors({ badLines: [], suggestions: [], message: '' });
-            const newValues = { ...values, author: user?.user?._id }
-            if (!file) {
-                showToast('error', 'Feature image required.')
+            setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' })
+
+            // Require a featured image when publishing
+            if (!isDraft && !file && !filePreview) {
+                showToast('error', 'Featured image is required.')
                 return
-            setIsSubmitting(true)
+            }
 
             // Validate required fields for published blogs
             if (!isDraft) {
@@ -189,55 +190,53 @@ const AddBlog = () => {
                     showToast('error', 'Blog content must be at least 3 characters long.')
                     return
                 }
-                const textContent = values.blogContent.replace(/<[^>]*>/g, '').trim();
+                const textContent = values.blogContent.replace(/<[^>]*>/g, '').trim()
                 if (textContent.length > MAX_CONTENT_LENGTH) {
-                    showToast('error', `Blog content exceeds maximum length of ${MAX_CONTENT_LENGTH.toLocaleString()} characters`);
-                    return
-                }
-                if (!file && !filePreview) {
-                    showToast('error', 'Featured image is required.')
+                    showToast('error', `Blog content exceeds maximum length of ${MAX_CONTENT_LENGTH.toLocaleString()} characters`)
                     return
                 }
             }
 
-            const newValues = { ...values, author: user?.user?._id, status: isDraft ? 'draft' : 'published' }
+            const payload = { ...values, author: user?.user?._id, status: isDraft ? 'draft' : 'published' }
 
             const formData = new FormData()
             if (file) {
                 formData.append('file', file)
             }
-            formData.append('data', JSON.stringify(newValues))
+            formData.append('data', JSON.stringify(payload))
 
-            // If we have a saved draft and we're publishing, update instead of create
-            const endpoint = savedDraftId && !isDraft
-                ? `${getEnv('VITE_API_BASE_URL')}/blog/update/${savedDraftId}`
-                : savedDraftId && isDraft
+            // If we have a saved draft, update instead of create
+            const endpoint = savedDraftId
                 ? `${getEnv('VITE_API_BASE_URL')}/blog/update/${savedDraftId}`
                 : `${getEnv('VITE_API_BASE_URL')}/blog/add`
-            
             const method = savedDraftId ? 'put' : 'post'
 
             const response = await fetch(endpoint, {
-                method: method,
+                method,
                 credentials: 'include',
                 body: formData
             })
+
             const data = await response.json()
             if (!response.ok) {
-                if (data.badLines || data.suggestions) {
+                if (data.badLines || data.suggestions || data.summary) {
                     setModerationErrors({
                         badLines: data.badLines || [],
                         suggestions: data.suggestions || [],
-                        message: data.message || 'Blog content failed moderation.'
-                    });
+                        message: data.summary || data.message || 'Blog content failed moderation.',
+                        summary: data.summary || '',
+                    })
                 }
-                return showToast('error', data.message)
+                showToast('error', data.message || 'Failed to submit blog')
+                return
             }
+
             form.reset()
             setFile(null)
             setFilePreview(null)
             setLastSaved(null)
             setSavedDraftId(null)
+            setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' })
             navigate(RouteBlog)
             showToast('success', data.message)
         } catch (error) {
@@ -427,120 +426,54 @@ const AddBlog = () => {
     }
 
   return (
-        <div className='mt-9'>
-            <Card className="pt-5 ">
-                <CardContent>
-                    <ModerationErrorList badLines={moderationErrors.badLines} suggestions={moderationErrors.suggestions} />
-                        {moderationErrors.badLines?.length > 0 && (
-                        <ModerationErrorDisplay
-                            errors={moderationErrors.badLines}
-                            suggestions={moderationErrors.suggestions}
-                            onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '' })}
-                            onFixLine={(lineNum) => {
-                                // If line 1 -> focus title, line 2 -> focus slug, otherwise scroll to editor
-                                if (lineNum === 1) {
-                                    const titleInput = document.querySelector('input[name="title"]');
-                                    if (titleInput) {
-                                        titleInput.focus();
-                                        titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        return;
-                                    }
-                                }
-                                if (lineNum === 2) {
-                                    const slugInput = document.querySelector('input[name="slug"]');
-                                    if (slugInput) {
-                                        slugInput.focus();
-                                        slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        return;
-                                    }
-                                }
-                                // Otherwise jump to editor area
-                                const editorFrame = document.querySelector('iframe[role="application"]');
-                                if (editorFrame) {
-                                    editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    // try to focus if possible
-                                    try { editorFrame.contentWindow?.focus(); } catch (e) {}
-                                }
-                                showToast('info', `Please fix line ${lineNum} in the editor`);
-                            }}
-                        />
-                    )}
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)}  >
-                            <div className='mb-3'>
-                                <FormField
-                                    control={form.control}
-                                    name="categories"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="flex items-center justify-between gap-3">
-                                                <span>Categories</span>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleCategorizeWithAI}
-                                                    disabled={categorizing}
-                                                >
-                                                    {categorizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                                    Categorize with AI
-                                                </Button>
-                                            </FormLabel>
-                                            <FormControl>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {availableCategories.length > 0 ? (
-                                                        availableCategories.map((category) => {
-                                                            const selected = Array.isArray(field.value) ? field.value : []
-                                                            const isChecked = selected.includes(category._id)
-                                                            return (
-                                                                <label
-                                                                    key={category._id}
-                                                                    className={`flex items-center gap-2 px-3 py-2 rounded-full border cursor-pointer transition-colors ${
-                                                                        isChecked ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300'
-                                                                    }`}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isChecked}
-                                                                        onChange={(event) => {
-                                                                            const checked = event.target.checked
-                                                                            const current = Array.isArray(field.value) ? field.value : []
-                                                                            const next = checked
-                                                                                ? [...current, category._id]
-                                                                                : current.filter((id) => id !== category._id)
-                                                                            field.onChange(next)
-                                                                        }}
-                                                                        className="accent-blue-500 h-4 w-4"
-                                                                    />
-                                                                    <span className="text-sm font-medium">
-                                                                        {category.name}
-                                                                    </span>
-                                                                </label>
-                                                            )
-                                                        })
-                                                    ) : (
-                                                        <span className="text-sm text-gray-500">No categories available</span>
-                                                    )}
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-        <div className='mt-6 max-w-6xl mx-auto px-4'>
-            {/* Header Section */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">Create New Blog Post</h1>
-                <p className="text-gray-600 dark:text-gray-400">Share your thoughts and stories with the world</p>
-                {lastSaved && (
-                    <p className="text-sm text-gray-500 mt-2">
-                        Last saved: {lastSaved.toLocaleTimeString()}
-                    </p>
-                )}
-            </div>
+    <div className='mt-9'>
+      <div className='max-w-6xl mx-auto px-4'>
+        <ModerationErrorList badLines={moderationErrors.badLines} suggestions={moderationErrors.suggestions} />
+        {moderationErrors.badLines?.length > 0 && (
+          <ModerationErrorDisplay
+            errors={moderationErrors.badLines}
+            suggestions={moderationErrors.suggestions}
+                        summary={moderationErrors.summary || moderationErrors.message}
+                        onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' })}
+            onFixLine={(lineNum) => {
+              if (lineNum === 1) {
+                const titleInput = document.querySelector('input[name="title"]')
+                if (titleInput) {
+                  titleInput.focus()
+                  titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  return
+                }
+              }
+              if (lineNum === 2) {
+                const slugInput = document.querySelector('input[name="slug"]')
+                if (slugInput) {
+                  slugInput.focus()
+                  slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  return
+                }
+              }
+              const editorFrame = document.querySelector('iframe[role="application"]')
+              if (editorFrame) {
+                editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                try { editorFrame.contentWindow?.focus() } catch (e) {}
+              }
+              showToast('info', `Please fix line ${lineNum} in the editor`)
+            }}
+          />
+        )}
 
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit((values) => onSubmit(values, false))} className="space-y-6">
+        <div className='mb-8'>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">Create New Blog Post</h1>
+          <p className="text-gray-600 dark:text-gray-400">Share your thoughts and stories with the world</p>
+          {lastSaved && (
+            <p className="text-sm text-gray-500 mt-2">
+              Last saved: {lastSaved.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit((values) => onSubmit(values, false))} className="space-y-6">
                     
                     {/* Title Card */}
                     <Card className="border hover:shadow-md transition-all">
@@ -729,7 +662,7 @@ const AddBlog = () => {
                                     <FormItem>
                                         <FormControl>
                                             <div className="border rounded-lg overflow-hidden">
-                                                <Editor props={{ initialData: '', onChange: handleEditorData }} />
+                                                <Editor initialData="" onChange={handleEditorData} />
                                             </div>
                                         </FormControl>
                                         <p className="text-xs text-gray-500 mt-2">
@@ -838,12 +771,12 @@ const AddBlog = () => {
                                 </>
                             )}
                         </Button>
-                    </div>
-                </form>
-            </Form>
-
+                        </div>
+                    </form>
+                </Form>
+            </div>
         </div>
     )
 }
 
-export default AddBlog;
+export default AddBlog

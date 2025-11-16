@@ -15,6 +15,7 @@ import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
 import { useSelector } from "react-redux";
 import { RouteBlogDetails, RouteProfileView, RouteSignIn } from "@/helpers/RouteName";
+import { getDisplayName } from '@/utils/functions';
 import SaveButton from "@/components/SaveButton";
 import ReportModal from '@/components/ReportModal';
 import { Flag } from 'lucide-react';

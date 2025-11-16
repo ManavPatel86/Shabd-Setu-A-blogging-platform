@@ -7,6 +7,7 @@ import Loading from "@/components/Loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RouteProfileView } from "@/helpers/RouteName";
 import { UserPlus } from "lucide-react";
+import { getDisplayName } from '@/utils/functions'
 
 const Followers = () => {
   const currentUser = useSelector((state) => state.user?.user);
@@ -68,7 +69,12 @@ const Followers = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {followers.map((follower, idx) => (
+          {followers.map((follower, idx) => {
+            const displayName = getDisplayName(follower)
+            const usernameHandle = follower?.username ? `@${follower.username}` : ''
+            const initialsSource = (follower?.name?.trim() || follower?.username || 'F').toString()
+            const initials = initialsSource.charAt(0).toUpperCase()
+            return (
             <div
               key={follower?._id || idx}
               className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
@@ -76,23 +82,27 @@ const Followers = () => {
             >
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16 border-2 border-gray-200">
-                  <AvatarImage src={follower?.avatar ?? undefined} alt={follower?.name ?? 'Follower'} />
+                  <AvatarImage src={follower?.avatar ?? undefined} alt={displayName} />
                   <AvatarFallback>
-                    {follower?.name ? follower.name.charAt(0).toUpperCase() : "F"}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-gray-900 truncate">
-                    {follower?.name || "Unknown"}
+                    {displayName}
                   </h3>
+                  {usernameHandle && (
+                    <p className="text-sm text-gray-500 truncate">{usernameHandle}</p>
+                  )}
                   {follower?.email && (
                     <p className="text-sm text-gray-500 truncate">{follower.email}</p>
                   )}
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

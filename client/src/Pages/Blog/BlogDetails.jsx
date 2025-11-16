@@ -22,6 +22,7 @@ import { FiEdit } from "react-icons/fi";
 import { FaRegTrashAlt } from "react-icons/fa";
 import moment from 'moment'
 import { useSelector } from 'react-redux'
+import { getDisplayName } from '@/utils/functions'
 
 const BlogDetails = () => {
     const [refreshData, setRefreshData] = useState(false)
@@ -78,7 +79,7 @@ const BlogDetails = () => {
 
                                 blogData.blog.map(blog =>
                                     <TableRow key={blog._id}>
-                                        {isAdmin && <TableCell>{blog?.author?.name}</TableCell>}
+                                        {isAdmin && <TableCell>{getDisplayName(blog?.author)}</TableCell>}
                                         <TableCell className="max-w-[240px] whitespace-normal break-words text-sm">{blog?.title}</TableCell>
                                         <TableCell className="max-w-[200px] whitespace-normal break-words text-sm">
                                             {Array.isArray(blog?.categories) && blog.categories.length > 0

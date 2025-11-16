@@ -27,7 +27,7 @@ const formSchema = z.object({
   description: z.string().optional().default(''),
 })
 
-const EditBlog = () => {
+function EditBlog() {
   const { blogid } = useParams()
   const navigate = useNavigate()
   const [filePreview, setFilePreview] = useState(null)
@@ -36,7 +36,7 @@ const EditBlog = () => {
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [editorData, setEditorData] = useState('')
   const [categorizing, setCategorizing] = useState(false)
-  const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '' })
+  const [moderationErrors, setModerationErrors] = useState({ badLines: [], suggestions: [], message: '', summary: '' })
   const [generatingDescription, setGeneratingDescription] = useState(false)
   const [blogStatus, setBlogStatus] = useState('published')
   const [contentLength, setContentLength] = useState(0)
@@ -295,7 +295,7 @@ const EditBlog = () => {
 
     try {
       setIsSubmitting(true)
-      setModerationErrors({ badLines: [], suggestions: [], message: '' })
+      setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' })
 
       // Validate required fields for published blogs
       if (!isDraft) {
@@ -339,11 +339,12 @@ const EditBlog = () => {
       const data = await response.json()
 
       if (!response.ok) {
-        if (data.badLines || data.suggestions) {
+        if (data.badLines || data.suggestions || data.summary) {
           setModerationErrors({
             badLines: data.badLines || [],
             suggestions: data.suggestions || [],
-            message: data.message || 'Blog content failed moderation.'
+            message: data.message || 'Blog content failed moderation.',
+            summary: data.summary || '',
           });
         }
         showToast('error', data?.message || 'Failed to update blog.')
@@ -402,109 +403,48 @@ const EditBlog = () => {
 
   return (
     <div className="mt-9">
-      <Card className="pt-5">
-        <CardContent>
-          {moderationErrors.badLines?.length > 0 && (
-            <ModerationErrorDisplay
-              errors={moderationErrors.badLines}
-              suggestions={moderationErrors.suggestions}
-              onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '' })}
-              onFixLine={(lineNum) => {
-                if (lineNum === 1) {
-                  const titleInput = document.querySelector('input[name="title"]');
-                  if (titleInput) {
-                    titleInput.focus();
-                    titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                  }
-                }
-                if (lineNum === 2) {
-                  const slugInput = document.querySelector('input[name="slug"]');
-                  if (slugInput) {
-                    slugInput.focus();
-                    slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                  }
-                }
-                const editorFrame = document.querySelector('iframe[role="application"]');
-                if (editorFrame) {
-                  editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  try { editorFrame.contentWindow?.focus(); } catch (e) {}
-                }
-                showToast('info', `Please fix line ${lineNum} in the editor`);
-              }}
-            />
-          )}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="mb-3">
-                <FormField
-                  control={form.control}
-                  name="categories"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center justify-between gap-3">
-                        <span>Categories</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCategorizeWithAI}
-                          disabled={categorizing}
-                        >
-                          {categorizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                          Categorize with AI
-                        </Button>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="flex flex-wrap gap-2">
-                          {availableCategories.length ? (
-                            availableCategories.map((category) => {
-                              const selected = Array.isArray(field.value) ? field.value : []
-                              const isChecked = selected.includes(category._id)
-                              return (
-                                <label
-                                  key={category._id}
-                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border cursor-pointer transition-colors ${
-                                    isChecked ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300'
-                                  }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(event) => {
-                                      const checked = event.target.checked
-                                      const current = Array.isArray(field.value) ? field.value : []
-                                      const next = checked
-                                        ? [...current, category._id]
-                                        : current.filter((id) => id !== category._id)
-                                      field.onChange(next)
-                                    }}
-                                    className="accent-blue-500 h-4 w-4"
-                                  />
-                                  <span className="text-sm font-medium">{category.name}</span>
-                                </label>
-                              )
-                            })
-                          ) : (
-                            <span className="text-sm text-gray-500">No categories available</span>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-    <div className='mt-6 max-w-6xl mx-auto px-4'>
-      {/* Header Section */}
-      <div className="mb-8">
+      {moderationErrors.badLines?.length > 0 && (
+        <ModerationErrorDisplay
+          errors={moderationErrors.badLines}
+          suggestions={moderationErrors.suggestions}
+          summary={moderationErrors.summary}
+          onClose={() => setModerationErrors({ badLines: [], suggestions: [], message: '', summary: '' })}
+          onFixLine={(lineNum) => {
+            if (lineNum === 1) {
+              const titleInput = document.querySelector('input[name="title"]');
+              if (titleInput) {
+                titleInput.focus();
+                titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+              }
+            }
+            if (lineNum === 2) {
+              const slugInput = document.querySelector('input[name="slug"]');
+              if (slugInput) {
+                slugInput.focus();
+                slugInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+              }
+            }
+            const editorFrame = document.querySelector('iframe[role="application"]');
+            if (editorFrame) {
+              editorFrame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              try { editorFrame.contentWindow?.focus(); } catch (e) {}
+            }
+            showToast('info', `Please fix line ${lineNum} in the editor`);
+          }}
+        />
+      )}
+      <div className="mt-6 max-w-6xl mx-auto px-4">
+        {/* Header Section */}
+        <div className="mb-8">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">
           {isDraft ? 'Edit Draft' : 'Edit Blog Post'}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
           {isDraft ? 'Continue working on your draft' : 'Update your published blog post'}
         </p>
-      </div>
+        </div>
 
       <Form {...form}>
         <form onSubmit={(e) => { e.preventDefault(); handlePublish(); }} className="space-y-6">
@@ -696,7 +636,8 @@ const EditBlog = () => {
                       <div className="border rounded-lg overflow-hidden">
                         <Editor
                           key={editorKey}
-                          props={{ initialData: editorData, onChange: handleEditorData }}
+                          initialData={editorData}
+                          onChange={handleEditorData}
                         />
                       </div>
                     </FormControl>
@@ -810,7 +751,8 @@ const EditBlog = () => {
         </form>
       </Form>
     </div>
+    </div>
   )
 }
 
-export default EditBlog
+export default EditBlog;

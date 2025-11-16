@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -16,6 +16,9 @@ import GoogleLogin from '@/components/ui/GoogleLogin';
 import { CiMail } from "react-icons/ci";
 import { CiUser } from "react-icons/ci";
 
+const USERNAME_REGEX = /^[a-z][a-z0-9_]{2,19}$/;
+const USERNAME_REQUIREMENTS_MESSAGE = "Usernames must be 3-20 characters, start with a letter, and may include lowercase letters, numbers, or underscores.";
+
 const SignUp = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
@@ -28,9 +31,14 @@ const SignUp = () => {
     const RESEND_INTERVAL_SECONDS = 60 * (Number.isNaN(rawResendInterval) ? 5 : rawResendInterval);
     const [resendDisabled, setResendDisabled] = useState(false);
     const [resendTimer, setResendTimer] = useState(0);
+    const [usernameStatus, setUsernameStatus] = useState('idle');
+    const [usernameMessage, setUsernameMessage] = useState(USERNAME_REQUIREMENTS_MESSAGE);
 
     const formSchema = z.object({
-        name: z.string().min(2, "Name must be at least 2 characters"),
+        username: z.string()
+            .min(3, "Username must be at least 3 characters")
+            .max(20, "Username must be at most 20 characters")
+            .regex(/^[a-z][a-z0-9_]*$/, USERNAME_REQUIREMENTS_MESSAGE),
         email: z.string().email("Invalid email address"),
         password: z.string().min(8, "Password must be at least 8 characters long"),
         confirmPassword: z.string(),
@@ -42,14 +50,16 @@ const SignUp = () => {
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            name: "",
+            username: "",
             email: "",
             password: "",
             confirmPassword: "",
         },
     });
 
-    React.useEffect(() => {
+    const watchedUsername = form.watch('username');
+
+    useEffect(() => {
         if (!resendDisabled) return;
         if (resendTimer <= 0) {
             setResendDisabled(false);
@@ -69,17 +79,112 @@ const SignUp = () => {
         return () => clearInterval(timer);
     }, [resendDisabled, resendTimer]);
 
+    const isUsernameBlocked = usernameStatus === 'checking' || usernameStatus === 'invalid' || usernameStatus === 'taken';
+
+    useEffect(() => {
+        if (step !== 'register') {
+            setUsernameStatus('idle');
+            setUsernameMessage(USERNAME_REQUIREMENTS_MESSAGE);
+            return;
+        }
+        const controller = new AbortController();
+        const pendingUsernameRaw = (watchedUsername || '').trim();
+        const normalizedUsername = pendingUsernameRaw.toLowerCase();
+
+        if (!pendingUsernameRaw) {
+            setUsernameStatus('idle');
+            setUsernameMessage(USERNAME_REQUIREMENTS_MESSAGE);
+            controller.abort();
+            return () => controller.abort();
+        }
+
+        if (pendingUsernameRaw.length < 3) {
+            setUsernameStatus('invalid');
+            setUsernameMessage('Usernames must be at least 3 characters long.');
+            controller.abort();
+            return () => controller.abort();
+        }
+
+        if (!/^[a-z]/.test(pendingUsernameRaw)) {
+            setUsernameStatus('invalid');
+            setUsernameMessage('Usernames need to start with a lowercase letter.');
+            controller.abort();
+            return () => controller.abort();
+        }
+
+        if (!USERNAME_REGEX.test(normalizedUsername)) {
+            setUsernameStatus('invalid');
+            setUsernameMessage(USERNAME_REQUIREMENTS_MESSAGE);
+            controller.abort();
+            return () => controller.abort();
+        }
+
+        setUsernameStatus('checking');
+        setUsernameMessage('Checking availability...');
+
+        const timeoutId = setTimeout(async () => {
+            try {
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_BASE_URL}/auth/username/check?username=${encodeURIComponent(normalizedUsername)}`,
+                    {
+                        method: 'GET',
+                        signal: controller.signal,
+                    }
+                );
+
+                const payload = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(payload?.message || 'Unable to check username');
+                }
+
+                const availability = payload?.data?.available;
+                const serverMessage = payload?.message;
+
+                if (availability === true) {
+                    setUsernameStatus('available');
+                    setUsernameMessage('Great choice! This username is available.');
+                } else if (availability === false) {
+                    setUsernameStatus('taken');
+                    setUsernameMessage(serverMessage || 'This username is already taken.');
+                } else {
+                    throw new Error('Unexpected response from the server.');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+                setUsernameStatus('invalid');
+                setUsernameMessage(error.message || 'Unable to check username right now.');
+            }
+        }, 400);
+
+        return () => {
+            clearTimeout(timeoutId);
+            controller.abort();
+        };
+    }, [watchedUsername, step]);
+
     async function onSubmit(values) {
+        if (usernameStatus !== 'available') {
+            return showToast('error', 'Please choose an available username before continuing.');
+        }
+
+        const payload = {
+            username: values.username.trim().toLowerCase(),
+            email: values.email.trim().toLowerCase(),
+            password: values.password,
+            confirmPassword: values.confirmPassword,
+        };
+
         setIsLoading(true);
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
             method: 'POST',
             headers: { 'Content-type': 'application/json' },
-            body: JSON.stringify(values)
+            body: JSON.stringify(payload)
         })
         const data = await response.json();
         setIsLoading(false);
         if (!response.ok) return showToast('error', data.message);
-        setPendingEmail(values.email.trim().toLowerCase());
+        setPendingEmail(payload.email);
         setStep('otp');
         setOtp('');
         setResendTimer(RESEND_INTERVAL_SECONDS);
@@ -164,24 +269,51 @@ const SignUp = () => {
                 {step === 'register' && (
                     <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        {/* Name Field */}
+                        {/* Username Field */}
                         <FormField
                             control={form.control}
-                            name="name"
+                            name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-sm font-medium text-gray-700 text-left block mb-2">Full Name</FormLabel>
+                                    <FormLabel className="text-sm font-medium text-gray-700 text-left block mb-2">Username</FormLabel>
                                     <FormControl>
                                         <div className="relative">
-                                        <Input
-                                            type="text"
-                                            placeholder="Enter your name"
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg"
-                                            {...field}
-                                        />
-                                        <CiUser className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                            <Input
+                                                type="text"
+                                                placeholder="e.g. writer_jane"
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent hover:shadow-lg"
+                                                autoCapitalize="none"
+                                                autoCorrect="off"
+                                                spellCheck={false}
+                                                autoComplete="username"
+                                                {...field}
+                                                onChange={(event) => field.onChange(event.target.value.toLowerCase())}
+                                            />
+                                            <CiUser className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                         </div>
                                     </FormControl>
+                                    {usernameMessage && (
+                                        <p
+                                            className={`mt-2 flex items-center gap-2 text-xs ${
+                                                usernameStatus === 'available'
+                                                    ? 'text-green-600'
+                                                    : usernameStatus === 'checking'
+                                                        ? 'text-indigo-600'
+                                                        : usernameStatus === 'idle'
+                                                            ? 'text-gray-500'
+                                                            : 'text-red-600'
+                                            }`}
+                                        >
+                                            {usernameStatus === 'checking' ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : usernameStatus === 'available' ? (
+                                                <CheckCircle2 className="h-4 w-4" />
+                                            ) : (
+                                                <AlertCircle className="h-4 w-4" />
+                                            )}
+                                            <span>{usernameMessage}</span>
+                                        </p>
+                                    )}
                                     <FormMessage className="text-red-500 text-sm" />
                                 </FormItem>
                             )}
@@ -269,10 +401,10 @@ const SignUp = () => {
                         {/* Sign Up Button */}
                         <Button
                             type="submit"
-                            disabled={isLoading}
-                            className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg"
+                            disabled={isLoading || isUsernameBlocked}
+                            className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg disabled:opacity-60"
                         >
-                            {isLoading ? "Creating Account..." : "Sign Up"}
+                            {isLoading ? "Creating Account..." : isUsernameBlocked ? "Complete username first" : "Sign Up"}
                         </Button>
                     </form>
                 </Form>

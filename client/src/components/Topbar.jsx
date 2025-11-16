@@ -25,6 +25,7 @@ import { Users, UserPlus } from "lucide-react";
 import { removeUser } from '@/redux/user/user.slice';
 import { showToast } from '@/helpers/showToast';
 import { getEnv } from '@/helpers/getEnv';
+import { getDisplayName } from '@/utils/functions';
 
 const Topbar = () => {
     const isMobile = useIsMobile();
@@ -39,10 +40,12 @@ const Topbar = () => {
     const [followersError, setFollowersError] = useState('')
 
     const avatarSrc = loggedInUser?.avatar || usericon
-    const displayName = loggedInUser?.name || 'User'
+    const displayName = getDisplayName(loggedInUser)
     const displayEmail = loggedInUser?.email || ''
-    const initials = displayName?.charAt(0)?.toUpperCase() || 'U'
+    const initialsSource = (loggedInUser?.name?.trim() || loggedInUser?.username || 'User').toString()
+    const initials = initialsSource?.charAt(0)?.toUpperCase() || 'U'
     const roleLabel = loggedInUser?.role === 'admin' ? 'Admin' : 'Member'
+    const usernameLabel = loggedInUser?.username ? `@${loggedInUser.username}` : ''
 
     useEffect(() => {
         if (!menuOpen || !loggedInUser?._id) {
@@ -158,6 +161,9 @@ const Topbar = () => {
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold">{displayName}</p>
                                     <p className="truncate text-xs text-white/75">{displayEmail}</p>
+                                    {usernameLabel && (
+                                        <p className="truncate text-xs text-white/80">{usernameLabel}</p>
+                                    )}
                                     <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-wide">
                                         <span className="rounded-full border border-white/40 px-2 py-0.5 font-semibold text-white/90">{roleLabel}</span>
                                         <span className="rounded-full border border-white/30 px-2 py-0.5 font-semibold text-white/80 flex items-center gap-1">
