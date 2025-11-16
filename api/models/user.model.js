@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
     isBlacklisted: {
         type: Boolean,
         default: false
+    },
+    twoFactorEnabled: {
+        type: Boolean,
+        default: false
     }
 })
 

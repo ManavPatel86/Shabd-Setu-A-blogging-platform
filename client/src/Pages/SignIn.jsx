@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,8 +14,8 @@ import {
   FormLabel,
   FormMessage,
 } from "../components/ui/form";
-import { Link, Route, useNavigate } from "react-router-dom";
-import { RouteSignUp, RouteIndex } from "@/helpers/RouteName";
+import { Link, useNavigate } from "react-router-dom";
+import { RouteSignUp, RouteIndex, RouteForgotPassword } from "@/helpers/RouteName";
 import { CiMail } from "react-icons/ci";
 import { showToast } from '@/helpers/showToast'
 import { getEnv } from "@/helpers/getEnv";
@@ -30,6 +30,14 @@ const SignIn = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
+  const baseUrl = useMemo(() => getEnv("VITE_API_BASE_URL"), []);
 
   const formSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -46,9 +54,10 @@ const SignIn = () => {
 
   async function onSubmit(values) {
     try {
+        setIsLoading(true)
         console.log("ENV VALUE = ", import.meta.env.VITE_API_BASE_URL);
         console.log("HELPER VALUE = ", getEnv("VITE_API_BASE_URL"));
-        const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/login`, {
+        const response = await fetch(`${baseUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-type': 'application/json' },
             credentials: 'include', // include cookies in the request
@@ -58,12 +67,88 @@ const SignIn = () => {
         if (!response.ok) {
             return showToast('error', data.message)
         }
+        if (data.requiresTwoFactor) {
+          setTwoFactorStep(true)
+          setTwoFactorToken(data.twoFactorToken)
+          setPendingEmail(values.email)
+          setTwoFactorCode("")
+          showToast('info', data.message || 'Enter the verification code we emailed you.')
+          return
+        }
+
         dispath(setUser(data.user))
         navigate(RouteIndex)
         showToast('success', data.message)
     } catch (error) {
         showToast('error', error.message)
     }
+    finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleTwoFactorVerify = async () => {
+    if (!twoFactorCode) {
+      return showToast('error', 'Enter the verification code sent to your email.')
+    }
+    setTwoFactorLoading(true)
+    try {
+      const response = await fetch(`${baseUrl}/auth/two-factor/verify`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: twoFactorToken, code: twoFactorCode })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return showToast('error', data.message)
+      }
+      dispath(setUser(data.user))
+      showToast('success', data.message)
+      setTwoFactorStep(false)
+      setTwoFactorToken("")
+      setTwoFactorCode("")
+      setPendingEmail("")
+      navigate(RouteIndex)
+    } catch (error) {
+      showToast('error', error.message)
+    } finally {
+      setTwoFactorLoading(false)
+    }
+  }
+
+  const handleResendTwoFactorCode = async () => {
+    if (!twoFactorToken) {
+      return showToast('error', 'Session expired. Please sign in again to request a new code.')
+    }
+
+    setResendLoading(true)
+    try {
+      const response = await fetch(`${baseUrl}/auth/two-factor/resend`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: twoFactorToken })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return showToast('error', data.message)
+      }
+      setTwoFactorToken(data.twoFactorToken)
+      setTwoFactorCode("")
+      showToast('success', data.message || 'We sent a new verification code to your email.')
+    } catch (error) {
+      showToast('error', error.message)
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  const handleCancelTwoFactor = () => {
+    setTwoFactorStep(false)
+    setTwoFactorToken("")
+    setTwoFactorCode("")
+    setPendingEmail("")
   }
 
   return (
@@ -151,7 +236,7 @@ const SignIn = () => {
             {/* Sign In Button */}
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || twoFactorStep}
               className="w-full h-14 bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
             >
               {isLoading ? "Signing in..." : "Sign In"}
@@ -159,16 +244,54 @@ const SignIn = () => {
 
             {/* Forgot Password */}
             <div className="text-center">
-              <button
-                type="button"
+              <Link
+                to={RouteForgotPassword}
                 className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors duration-300"
               >
                 Forgot your password?
-              </button>
+              </Link>
             </div>
           </form>
         </Form>
 
+        {twoFactorStep && (
+          <div className="mt-6 border border-indigo-100 rounded-xl p-4 bg-indigo-50/60">
+            <p className="text-sm text-gray-600 mb-3">
+              We sent a 6-digit code to <span className="font-semibold">{pendingEmail}</span>. Enter it below to finish signing in.
+            </p>
+            <div className="flex flex-col md:flex-row gap-3">
+              <Input
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="Enter verification code"
+                className="flex-1"
+                maxLength={6}
+              />
+              <Button type="button" onClick={handleTwoFactorVerify} disabled={twoFactorLoading}>
+                {twoFactorLoading ? 'Verifying...' : 'Verify'}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 mt-3">
+              <button
+                type="button"
+                onClick={handleResendTwoFactorCode}
+                className="text-indigo-600 font-semibold hover:text-indigo-700"
+                disabled={resendLoading}
+              >
+                {resendLoading ? 'Sending new code...' : 'Resend code'}
+              </button>
+              <span className="hidden sm:inline">•</span>
+              <button
+                type="button"
+                onClick={handleCancelTwoFactor}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Cancel verification
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">You can also restart the sign-in process if the code still doesn&apos;t arrive.</p>
+          </div>
+        )}
         {/* Divider */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-center text-sm text-gray-600">
