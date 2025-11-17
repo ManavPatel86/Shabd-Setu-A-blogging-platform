@@ -11,7 +11,7 @@ import { getEnv } from "@/helpers/getEnv";
 import SummaryModal from "./SummaryModal";
 import { decode } from "entities";
 
-const BlogCard = ({ blog }) => {
+const BlogCard = ({ blog, className = "" }) => {
   const navigate = useNavigate();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -181,13 +181,15 @@ const BlogCard = ({ blog }) => {
         onClick={(e) => {
           if (!e.target.closest(".blog-actions")) navigateToBlog(false);
         }}
-        className="
+        className={`
           bg-white rounded-3xl p-5 
-          shadow-sm hover:shadow-xl shadow-indigo-50
-          transition-all duration-300 
-          mb-6 flex flex-col border border-gray-100 
-          hover:-translate-y-1 cursor-pointer
-        "
+          border border-gray-100
+          shadow-[0_12px_40px_-20px_rgba(15,23,42,0.35)]
+          hover:-translate-y-1 hover:shadow-xl
+          transition-all duration-300 cursor-pointer
+          mb-6 flex flex-col
+          ${className}
+        `}
       >
         {/* IMAGE */}
         <div className="relative h-52 w-full rounded-3xl overflow-hidden mb-4 group">

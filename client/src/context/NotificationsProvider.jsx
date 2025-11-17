@@ -41,18 +41,40 @@ export default function NotificationsProvider({ currentUser, children }) {
       socketUrl = apiBase?.replace(/\/?api\/?$/, '') || window.location.origin;
     }
 
-    const socket = io(socketUrl, {
-      transports: ['websocket'],
-      withCredentials: true
-    });
-    
+    let socket;
+    const handleSocketError = (err) => {
+      if (import.meta.env?.DEV) {
+        console.warn('Notifications socket disconnected:', err?.message || err);
+      }
+      socket?.disconnect();
+    };
+
+    try {
+      socket = io(socketUrl, {
+        transports: ['websocket'],
+        withCredentials: true,
+        reconnectionAttempts: 2,
+        reconnectionDelay: 1500
+      });
+    } catch (connectionError) {
+      handleSocketError(connectionError);
+      return undefined;
+    }
+
     socket.emit('auth:identify', currentUser._id);
-    
+
     socket.on('notification:new', (doc) => {
       setItems((prev) => [doc, ...prev]);
     });
-    
-    return () => socket.disconnect();
+    socket.on('connect_error', handleSocketError);
+    socket.on('error', handleSocketError);
+
+    return () => {
+      socket?.off('notification:new');
+      socket?.off('connect_error', handleSocketError);
+      socket?.off('error', handleSocketError);
+      socket?.disconnect();
+    };
   }, [currentUser?._id]);
 
   const unreadCount = useMemo(() => items.filter(n => !n.isRead).length, [items]);

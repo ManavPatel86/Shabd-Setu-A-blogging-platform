@@ -173,7 +173,7 @@ const Topbar = () => {
                     {!user.isLoggedIn ? (
                         <Button
                             asChild
-                            className="inline-flex items-center gap-2 bg-linear-to-r from-gray-900 to-gray-800 text-white px-6 py-3 rounded-full text-xs font-semibold shadow-lg hover:-translate-y-0.5 transition-all"
+                            className="inline-flex items-center gap-2 bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-white px-6 py-3 rounded-full text-xs font-semibold shadow-lg shadow-indigo-200 hover:-translate-y-0.5 hover:from-[#6C5CE7] hover:to-[#6C5CE7] transition-all"
                         >
                             <Link to={RouteSignIn}>
                                 <MdLogin className="text-base" />

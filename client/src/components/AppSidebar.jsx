@@ -119,7 +119,6 @@ const AppSidebar = () => {
         { icon: MessageSquare, label: "Comments", to: RouteCommentDetails, auth: true },
         { icon: Bookmark, label: "Saved", to: RouteSaved, auth: true },
         { icon: Users, label: "Following", to: RouteFollowing, auth: true },
-        { icon: HelpCircle, label: "Help", to: RouteHelp, auth: true },
         { icon: Briefcase, label: "Manage Categories", to: RouteCategoryDetails, admin: true },
         { icon: Users, label: "Manage Users", to: RouteUser, admin: true },
     ];

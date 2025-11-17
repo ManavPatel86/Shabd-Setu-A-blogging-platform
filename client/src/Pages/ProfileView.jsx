@@ -3,10 +3,10 @@ import { useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import { getEnv } from "@/helpers/getEnv";
 import Loading from "@/components/Loading";
-import { Avatar } from "@/components/ui/avatar";
-import { AvatarImage } from "@radix-ui/react-avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BlogCard from "@/components/BlogCard";
 import FollowButton from "@/components/FollowButton";
+import { BookOpen, Eye, Feather, Sparkles, Tag, Users } from "lucide-react";
 
 const ProfileView = () => {
   const { userId } = useParams();
@@ -48,6 +48,9 @@ const ProfileView = () => {
   const blogs = blogData?.blog || [];
   const followersCount = followStats?.followersCount || 0;
   const followingCount = followStats?.followingCount || 0;
+  const roleLabel = profile?.role
+    ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
+    : "User";
 
   const { totalViews, categoryLabels } = useMemo(() => {
     const views = blogs.reduce((acc, item) => acc + (item.views || 0), 0);
@@ -68,7 +71,49 @@ const ProfileView = () => {
     return { totalViews: views, categoryLabels: labels };
   }, [blogs]);
 
-  if (userLoading || blogsLoading) {
+  const statCards = useMemo(
+    () => [
+      {
+        title: "Connections",
+        value: followersCount,
+        helper: "people tuned in",
+        accent: "from-white/40 via-white/15 to-white/0",
+        tone: "text-slate-900",
+        icon: Users,
+      },
+      {
+        title: "Following",
+        value: followingCount,
+        helper: "voices they follow",
+        accent: "from-purple-50 via-white to-white",
+        tone: "text-purple-900",
+        icon: Feather,
+      },
+      {
+        title: "Stories",
+        value: blogs.length,
+        helper: "published pieces",
+        accent: "from-indigo-50 via-white to-white",
+        tone: "text-indigo-900",
+        icon: BookOpen,
+      },
+      {
+        title: "Total views",
+        value: totalViews,
+        helper: "lifetime reads",
+        accent: "from-emerald-50 via-white to-white",
+        tone: "text-emerald-900",
+        icon: Eye,
+      },
+    ],
+    [blogs.length, followersCount, followingCount, totalViews]
+  );
+
+  const profileBio = profile?.bio?.trim() || "This storyteller hasn’t shared a bio yet.";
+  const topicPreview = categoryLabels.slice(0, 3);
+  const storyLabel = blogs.length === 1 ? "story" : "stories";
+
+  if (userLoading || blogsLoading || statsLoading) {
     return <Loading />;
   }
 
@@ -80,10 +125,6 @@ const ProfileView = () => {
     );
   }
 
-  const roleLabel = profile?.role
-    ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
-    : "User";
-
   if (!profile) {
     return (
       <div className="text-center py-10 text-gray-500">This profile is unavailable.</div>
@@ -91,111 +132,133 @@ const ProfileView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Profile Header */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8">
-          <div className="relative h-24">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzBoMnYyaC0yeiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
-          </div>
-          
-          <div className="relative px-8 pb-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 -mt-16">
-              <Avatar className="h-32 w-32 border-4 border-white shadow-xl ring-4 ring-blue-100">
-                <AvatarImage src={profile.avatar} alt={profile.name} />
-              </Avatar>
-              
-              <div className="flex-1 text-center sm:text-left pb-2">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-gray-900">{profile.name}</h1>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                    {roleLabel}
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50/30 to-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 lg:px-12 py-10 space-y-10">
+        <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] text-white px-6 sm:px-10 py-10 shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)]">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-12 w-64 h-64 bg-purple-300/40 rounded-full blur-3xl translate-y-1/2" />
+          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="relative">
+                <div className="absolute inset-0 -translate-y-2 translate-x-2 rounded-full bg-white/20 blur-2xl" />
+                <Avatar className="h-28 w-28 border-4 border-white shadow-xl">
+                  <AvatarImage src={profile.avatar ?? undefined} alt={profile.name} />
+                  <AvatarFallback>
+                    {profile.name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="space-y-4 text-white">
+                <div className="space-y-2">
+                  <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.4em] text-white/70">
+                    <Sparkles className="h-4 w-4" />
+                    Storyteller profile
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-3xl sm:text-4xl font-black leading-tight">{profile.name}</h1>
+                    <span className="rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-white/80">
+                      {roleLabel}
+                    </span>
+                  </div>
+                  {profile.email && <p className="text-white/75 text-sm">{profile.email}</p>}
+                </div>
+                <p className="text-sm sm:text-base text-white/85 max-w-2xl">{profileBio}</p>
+                <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.35em] text-white/75">
+                  <span className="rounded-full border border-white/25 bg-white/10 px-4 py-1">
+                    Followers · {followersCount}
+                  </span>
+                  <span className="rounded-full border border-white/25 bg-white/10 px-4 py-1">
+                    Following · {followingCount}
+                  </span>
+                  <span className="rounded-full border border-white/25 bg-white/10 px-4 py-1">
+                    Views · {totalViews}
                   </span>
                 </div>
-                {profile.email && (
-                  <p className="text-gray-600 mb-2">{profile.email}</p>
+                {topicPreview.length > 0 && (
+                  <div className="flex flex-wrap gap-2 text-xs text-white/80">
+                    {topicPreview.map((topic) => (
+                      <span key={topic} className="rounded-full border border-white/40 bg-white/10 px-3 py-1">
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
                 )}
-                {profile.bio && (
-                  <p className="text-gray-700 leading-relaxed max-w-2xl">
-                    {profile.bio}
-                  </p>
-                )}
-              </div>
-              
-              <div className="flex items-end pb-2">
-                <FollowButton userId={userId} className="px-6 py-2" />
               </div>
             </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-200">
-              <div className="text-center p-4 bg-blue-50 rounded-xl">
-                <p className="text-3xl font-bold text-blue-600">{blogs.length}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  {blogs.length === 1 ? "Article" : "Articles"}
-                </p>
+            <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+              <div className="rounded-4xl border border-white/25 bg-white/10 px-8 py-6 text-center shadow-[0_20px_60px_-35px_rgba(15,23,42,0.8)]">
+                <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Stories live</p>
+                <p className="text-4xl font-black text-white">{blogs.length}</p>
+                <p className="text-xs text-white/70">{storyLabel}</p>
               </div>
-              <div className="text-center p-4 bg-purple-50 rounded-xl">
-                <p className="text-3xl font-bold text-purple-600">{totalViews}</p>
-                <p className="text-sm text-gray-600 mt-1">Total Views</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-xl">
-                <p className="text-3xl font-bold text-green-600">{followersCount}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  {followersCount === 1 ? "Follower" : "Followers"}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-xl">
-                <p className="text-3xl font-bold text-orange-600">{followingCount}</p>
-                <p className="text-sm text-gray-600 mt-1">Following</p>
-              </div>
+              <FollowButton
+                userId={userId}
+                className="rounded-full bg-white/90 px-8 py-3 text-sm font-semibold text-[#6C5CE7] shadow-[0_20px_60px_-45px_rgba(15,23,42,0.8)] transition hover:bg-white"
+              />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Categories */}
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {statCards.map((card) => (
+            <div
+              key={card.title}
+              className={`rounded-3xl border border-slate-100 bg-linear-to-br ${card.accent} px-6 py-5 shadow-[0_20px_60px_-50px_rgba(15,23,42,0.8)]`}
+            >
+              <div className="flex items-center gap-3">
+                <card.icon className="h-10 w-10 text-[#6C5CE7]" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">{card.title}</p>
+                  <p className={`text-3xl font-black ${card.tone}`}>{card.value}</p>
+                  <p className="text-sm text-slate-500">{card.helper}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+
         {categoryLabels.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-1 h-6 bg-blue-600 rounded-full"></span>
-              Writing Topics
-            </h2>
-            <div className="flex flex-wrap gap-2">
+          <section className="rounded-4xl border border-slate-100 bg-white/95 p-6 shadow-[0_25px_70px_-55px_rgba(15,23,42,0.7)]">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="rounded-full border border-slate-200 bg-slate-50 p-2 text-[#6C5CE7]">
+                <Tag className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Writing topics</p>
+                <h2 className="text-xl font-semibold text-slate-900">Areas of focus</h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
               {categoryLabels.map((label) => (
                 <span
                   key={label}
-                  className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
+                  className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
                 >
                   {label}
                 </span>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Articles Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <span className="w-1 h-8 bg-blue-600 rounded-full"></span>
-              Published Articles
-            </h2>
-            {blogs.length > 0 && (
-              <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                {blogs.length} {blogs.length === 1 ? "post" : "posts"}
-              </span>
-            )}
+        <section className="rounded-4xl border border-slate-100 bg-white/95 p-6 shadow-[0_25px_70px_-55px_rgba(15,23,42,0.7)] space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Published articles</p>
+              <h2 className="text-2xl font-semibold text-slate-900">Latest work</h2>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600">
+              {blogs.length} {storyLabel}
+            </span>
           </div>
-          
+
           {blogs.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-12 text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#6C5CE7]/10 text-[#6C5CE7]">
+                <BookOpen className="h-10 w-10" />
               </div>
-              <p className="text-gray-500 text-lg">No articles published yet</p>
-              <p className="text-gray-400 text-sm mt-2">Check back later for new content!</p>
+              <p className="text-lg font-semibold text-slate-800">No articles published yet</p>
+              <p className="mt-2 text-sm text-slate-500">Check back soon for fresh writing from {profile.name}.</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -204,7 +267,7 @@ const ProfileView = () => {
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
