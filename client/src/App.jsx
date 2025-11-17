@@ -11,6 +11,7 @@ import {
     RouteProfileView,
     RouteSignIn,
     RouteSignUp,
+    RouteForgotPassword,
     RouteBlogDetails,
     RouteSearch,
     RouteCommentDetails,
@@ -21,6 +22,7 @@ import {
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
+    RouteAdminReports,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";
 import EditBlog from "./Pages/Blog/EditBlog";
@@ -35,6 +37,7 @@ import Help from "./Pages/Help";
 import Followers from "./Pages/Followers";
 import Saved from "./Pages/Saved";
 import ManageUsers from "./Pages/ManageUsers";
+import AdminReports from "./Pages/AdminReports";
 import AddCategory from './Pages/Category/AddCategory'
 import CategoryDetails from './Pages/Category/CategoryDetails'
 import EditCategory from './Pages/Category/EditCategory'
@@ -45,6 +48,7 @@ import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
 import Landing from "./Pages/Landing";
+import ForgotPassword from "./Pages/ForgotPassword";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -81,6 +85,7 @@ function App() {
                         <Route path={RouteCommentDetails} element={<Comments />} />
                         <Route path={RouteSaved} element={<Saved />} />
                         <Route path={RouteUser} element={<ManageUsers />} />
+                        <Route path={RouteAdminReports} element={<AdminReports />} />
 
                         {/* This is the new public blog detail route */}
                         <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
@@ -88,6 +93,7 @@ function App() {
 
                     <Route path={RouteSignIn} element={<SignIn />} />
                     <Route path={RouteSignUp} element={<SignUp />} />
+                        <Route path={RouteForgotPassword} element={<ForgotPassword />} />
             </Routes>
             </NotificationsProvider>
         </BrowserRouter>

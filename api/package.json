@@ -9,7 +9,8 @@
     "dev": "nodemon index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "usernames:backfill": "node scripts/backfillUsernames.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +19,7 @@
     "@google/generative-ai": "^0.6.0",
     "@langchain/core": "^0.3.0",
     "@langchain/google-genai": "^0.1.0",
+    "axios": "^1.7.7",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
@@ -31,6 +33,7 @@
     "nodemailer": "^6.10.1",
     "nodemon": "^3.1.10",
     "react-toastify": "^11.0.5",
+    "slugify": "^1.6.6",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

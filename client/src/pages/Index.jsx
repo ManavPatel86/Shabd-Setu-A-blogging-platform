@@ -1,0 +1,292 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+
+import BlogCard from "@/components/BlogCard";
+import CategoryBar from "@/components/CategoryBar";
+import FeedTabs from "@/components/FeedTabs";
+import FeaturedCard from "@/components/FeaturedCard";
+import Loading from "@/components/Loading";
+import { getEnv } from "@/helpers/getEnv";
+import { useFetch } from "@/hooks/useFetch";
+
+/* ----------------------
+   CATEGORY HELPERS (UI)
+---------------------- */
+const CATEGORY_ICON_MAP = {
+  technology: "💻",
+  tech: "💻",
+  travel: "✈",
+  science: "🔬",
+  health: "🏥",
+  design: "🎨",
+  lifestyle: "🌿",
+  entertainment: "🍿",
+  business: "💼",
+  finance: "💰",
+  education: "📚",
+  art: "🖼",
+};
+
+const FALLBACK_CATEGORIES = [
+  { name: "All", icon: "🌐" },
+  { name: "Technology", icon: "💻" },
+  { name: "Travel", icon: "✈" },
+  { name: "Design", icon: "🎨" },
+  { name: "Health", icon: "🏥" },
+  { name: "Lifestyle", icon: "🌿" },
+];
+
+const getBlogCategories = (blog) => {
+  if (Array.isArray(blog?.categories)) return blog.categories.filter(Boolean);
+  if (blog?.category) return [blog.category];
+  return [];
+};
+
+const normalizeCategoryName = (name) => (typeof name === "string" ? name.trim() : "");
+
+const detectCategoryIcon = (label) => {
+  if (!label) return "📝";
+  const emojiMatch = label.match(/\p{Extended_Pictographic}/u);
+  if (emojiMatch) return emojiMatch[0];
+  const mapped = CATEGORY_ICON_MAP[label.toLowerCase()];
+  return mapped || "📝";
+};
+
+const normalizeId = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object" && typeof value.toString === "function") {
+    return value.toString();
+  }
+  return null;
+};
+
+const isFollowingAuthor = (blog, followingIds) => {
+  if (!blog) return false;
+
+  const idsToCheck = [
+    blog?.author?._id,
+    blog?.author?.id,
+    blog?.author?.userId,
+  ]
+    .map(normalizeId)
+    .filter(Boolean);
+
+  if (followingIds && followingIds.size && idsToCheck.length) {
+    return idsToCheck.some((id) => followingIds.has(id));
+  }
+
+  return Boolean(
+    blog?.author?.isFollowing ||
+      blog?.author?.isFollowed ||
+      blog?.author?.isFollower ||
+      blog?.author?.followStatus === "following" ||
+      blog?.author?.youFollow
+  );
+};
+
+const getEngagementScore = (blog) => {
+  const likes = Number(
+    blog?.likeCount ??
+      blog?.likes ??
+      blog?.likesCount ??
+      blog?.stats?.likes ??
+      0
+  );
+  const views = Number(blog?.viewCount ?? blog?.views ?? blog?.stats?.views ?? 0);
+  const comments = Number(
+    blog?.commentCount ?? blog?.commentsCount ?? blog?.stats?.comments ?? 0
+  );
+
+  return likes * 2 + views * 0.25 + comments * 1.5;
+};
+
+/* ----------------------
+    FINAL PAGE
+---------------------- */
+const Index = () => {
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeFeedTab, setActiveFeedTab] = useState("Latest");
+  const currentUserId = useSelector((state) => state.user?.user?._id);
+
+  /* ----------------------------
+        BACKEND FETCH (MAIN)
+  ---------------------------- */
+  const blogsEndpoint = `${getEnv("VITE_API_BASE_URL")}/blog/blogs`;
+
+  const { data: blogData, loading, error } = useFetch(
+    blogsEndpoint,
+    { method: "get", credentials: "include" },
+    [blogsEndpoint]
+  );
+
+  const blogs = useMemo(
+    () => (Array.isArray(blogData?.blog) ? blogData.blog : []),
+    [blogData]
+  );
+
+  /* ----------------------------
+        FOLLOWING FETCH (UI)
+  ---------------------------- */
+  const followingEndpoint = currentUserId
+    ? `${getEnv("VITE_API_BASE_URL")}/follow/following/${currentUserId}`
+    : null;
+
+  const { data: followingData } = useFetch(
+    followingEndpoint,
+    { method: "get", credentials: "include" },
+    [followingEndpoint]
+  );
+
+  const followingIds = useMemo(() => {
+    if (!Array.isArray(followingData?.following)) return new Set();
+    return new Set(
+      followingData.following
+        .map((user) => normalizeId(user?._id || user?.id || user?.userId))
+        .filter(Boolean)
+    );
+  }, [followingData]);
+
+  /* ------------------------------------
+      ORDER BY NEWEST FIRST (UI logic)
+  ------------------------------------ */
+  const orderedBlogs = useMemo(() => {
+    return [...blogs].sort((a, b) => {
+      const A = new Date(a?.createdAt || 0).getTime();
+      const B = new Date(b?.createdAt || 0).getTime();
+      return B - A;
+    });
+  }, [blogs]);
+
+  /* ------------------------------------
+      BUILD CATEGORY LIST (UI logic)
+  ------------------------------------ */
+  const derivedCategories = useMemo(() => {
+    if (!orderedBlogs.length) return FALLBACK_CATEGORIES;
+
+    const seen = new Map();
+
+    orderedBlogs.forEach((blog) => {
+      getBlogCategories(blog).forEach((category) => {
+        const rawName = normalizeCategoryName(category?.name || category);
+        if (!rawName || seen.has(rawName)) return;
+        seen.set(rawName, {
+          name: rawName,
+          icon: category?.icon || detectCategoryIcon(rawName),
+        });
+      });
+    });
+
+    const dynamic = Array.from(seen.values());
+    const withAll = [{ name: "All", icon: "🌐" }, ...dynamic];
+
+    return withAll.length > 1 ? withAll : FALLBACK_CATEGORIES;
+  }, [orderedBlogs]);
+
+  // Reset activeCategory if invalid
+  useEffect(() => {
+    if (!derivedCategories.some((c) => c.name === activeCategory)) {
+      setActiveCategory("All");
+    }
+  }, [derivedCategories, activeCategory]);
+
+  /* ------------------------------------
+      FEATURED BLOG
+  ------------------------------------ */
+  const featuredBlog = useMemo(() => {
+    return (
+      orderedBlogs.find((b) => b?.isFeatured || b?.featured) ||
+      orderedBlogs[0]
+    );
+  }, [orderedBlogs]);
+
+  /* ------------------------------------
+      FILTERING (UI logic)
+  ------------------------------------ */
+  const filteredBlogs = useMemo(() => {
+    // CATEGORY FILTER
+    const byCategory = orderedBlogs.filter((blog) => {
+      if (activeCategory === "All") return true;
+
+      return getBlogCategories(blog).some((cat) => {
+        const raw = normalizeCategoryName(cat?.name || cat);
+        return raw.toLowerCase() === activeCategory.toLowerCase();
+      });
+    });
+
+    // FEED TABS
+    if (activeFeedTab === "Following") {
+      const following = byCategory.filter((blog) =>
+        isFollowingAuthor(blog, followingIds)
+      );
+      return following;
+    }
+
+    if (activeFeedTab === "Personalized") {
+      return [...byCategory].sort((a, b) => getEngagementScore(b) - getEngagementScore(a));
+    }
+
+    return byCategory;
+  }, [orderedBlogs, activeCategory, activeFeedTab, followingIds]);
+
+  if (loading) return <Loading />;
+
+  return (
+    <>
+      {/* Category Selector */}
+      <CategoryBar
+        categories={derivedCategories}
+        activeCategory={activeCategory}
+        setActiveCategory={setActiveCategory}
+      />
+
+      <div className="px-4 sm:px-8 lg:px-12 pt-6 pb-16">
+        {/* Featured Blog */}
+        {featuredBlog && <FeaturedCard blog={featuredBlog} />}
+
+        {/* Feed Tabs */}
+        <FeedTabs
+          activeFeedTab={activeFeedTab}
+          setActiveFeedTab={setActiveFeedTab}
+        />
+
+        <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-3 shadow-sm">
+          <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
+            Total blogs
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+              {activeCategory === "All" ? "All categories" : activeCategory}
+            </span>
+            <span className="text-2xl font-bold text-slate-900">
+              {filteredBlogs.length}
+            </span>
+          </div>
+        </div>
+
+        {/* BLOG GRID */}
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pt-6">
+          {filteredBlogs.length > 0 ? (
+            filteredBlogs.map((blog) => (
+              <BlogCard key={blog?._id} blog={blog} />
+            ))
+          ) : (
+            <div className="col-span-full bg-white border border-dashed border-gray-200 rounded-3xl p-12 text-center text-gray-500">
+              <p className="text-lg font-semibold mb-2">
+                {error ? "We hit a snag." : "No blogs match this view yet."}
+              </p>
+              <p className="text-sm">
+                {error
+                  ? "Please refresh or try again shortly."
+                  : "Try switching categories or feed tabs to discover more content."}
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+    </>
+  );
+};
+
+export default Index;

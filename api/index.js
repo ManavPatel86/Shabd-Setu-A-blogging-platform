@@ -15,6 +15,8 @@ import ViewRoute from './routes/view.route.js'
 import FollowRoute from './routes/follow.route.js'
 import SaveRoute from './routes/save.route.js'
 import NotificationRoute from './routes/notification.route.js'
+import ModerationRoute from './routes/moderation.route.js'
+import ReportsRoute from './routes/reports.route.js'
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
@@ -24,7 +26,8 @@ import Blog from './models/blog.model.js';
 dotenv.config()
 
 const PORT = process.env.PORT
-const app = express()
+const app = express();
+app.set('trust proxy', 1); // trust Render/other reverse proxies for secure cookies
 const server = createServer(app)
 
 const io = new SocketServer(server, { cors: { origin: "*" } });
@@ -81,6 +84,8 @@ app.use('/api/view', ViewRoute)
 app.use('/api/follow', FollowRoute)
 app.use('/api/save', SaveRoute)
 app.use('/api/notifications', NotificationRoute)
+app.use('/api/moderate', ModerationRoute)
+app.use('/api/report', ReportsRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})

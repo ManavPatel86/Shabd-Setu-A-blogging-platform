@@ -3,6 +3,7 @@ import { handleError } from "../helpers/handleError.js"
 import Comment from "../models/comment.model.js"
 import Blog from "../models/blog.model.js";
 import { notifyComment, notifyReply } from "../utils/notifyTriggers.js";
+import { moderateComment } from "../utils/moderation.js";
 
 import mongoose from "mongoose"
 export const addcomment = async (req, res, next) => {
@@ -15,6 +16,18 @@ export const addcomment = async (req, res, next) => {
 
         if (!mongoose.Types.ObjectId.isValid(blogid)) {
             return next(handleError(400, 'Invalid blog ID'))
+        }
+
+        // AI Moderation: block unsafe comments
+        const moderationResult = await moderateComment(comment.trim());
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
+            });
         }
 
         const newComment = new Comment({
@@ -132,13 +145,25 @@ export const deleteComment = async (req, res, next) => {
 }
 
 export const addComment = async (req, res) => {
-  try {
-    const { blogId } = req.params;
-    const { text } = req.body;
+    try {
+        const { blogId } = req.params;
+        const { text } = req.body;
         const userId = req.user?._id;
 
         if (!userId) {
             return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // AI Moderation: block unsafe comments, show errors
+        const moderationResult = await moderateComment(text);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
+            });
         }
 
         const comment = await Comment.create({
@@ -156,10 +181,10 @@ export const addComment = async (req, res) => {
         }
 
         res.status(201).json(comment);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to add comment" });
-  }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to add comment" });
+    }
 };
 
 
@@ -169,15 +194,27 @@ export const replyToComment = async (req, res) => {
     const { text } = req.body;
         const userId = req.user?._id;
 
-    const parentComment = await Comment.findById(commentId);
-    if (!parentComment) return res.status(404).json({ error: "Comment not found" });
+        const parentComment = await Comment.findById(commentId);
+        if (!parentComment) return res.status(404).json({ error: "Comment not found" });
 
-    const reply = await Comment.create({
-            user: userId,
-            blogid: blogId,
-            comment: text,
-      parentId: commentId,
-    });
+        // AI Moderation for replies
+        const moderationResult = await moderateComment(text);
+        if (!moderationResult.safe) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment failed moderation.',
+                badLines: moderationResult.badLines,
+                suggestions: moderationResult.suggestions,
+                summary: moderationResult.summary,
+            });
+        }
+
+        const reply = await Comment.create({
+                        user: userId,
+                        blogid: blogId,
+                        comment: text,
+            parentId: commentId,
+        });
 
 
         if (String(parentComment.user) !== String(userId)) {

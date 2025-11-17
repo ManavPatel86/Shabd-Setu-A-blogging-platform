@@ -1,8 +1,17 @@
 import React, { useState, useRef } from "react";
-import { MessageCircle, Share2, Bot, ChevronRight, Clock } from "lucide-react";
+import {
+  MessageCircle,
+  Share2,
+  Bot,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
-import { RouteBlogDetails, RouteProfileView } from "@/helpers/RouteName";
+import {
+  RouteBlogDetails,
+  RouteProfileView,
+} from "@/helpers/RouteName";
 import { showToast } from "@/helpers/showToast";
 import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
@@ -14,12 +23,12 @@ import { decode } from "entities";
 const BlogCard = ({ blog, className = "" }) => {
   const navigate = useNavigate();
 
+  // -------- Summary states (from MAIN version) --------
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [summary, setSummary] = useState("");
   const [cachedSummary, setCachedSummary] = useState("");
-
   const abortControllerRef = useRef(null);
 
   if (!blog) return null;
@@ -36,6 +45,7 @@ const BlogCard = ({ blog, className = "" }) => {
     slug,
   } = blog;
 
+  // Backend-correct category logic (from MAIN)
   const categories = Array.isArray(categoriesFromApi)
     ? categoriesFromApi.filter(Boolean)
     : category
@@ -44,28 +54,39 @@ const BlogCard = ({ blog, className = "" }) => {
 
   const primaryCategory = categories[0];
 
+  // -------- Comment Count (UI branch logic) --------
   const commentCount =
-    typeof blog?.commentStats?.totalComments === "number"
-      ? blog.commentStats.totalComments
-      : typeof blog?.commentsCount === "number"
-      ? blog.commentsCount
-      : typeof blog?.commentCount === "number"
-      ? blog.commentCount
-      : Array.isArray(blog?.comments)
-      ? blog.comments.length
-      : 0;
+    blog?.commentStats?.totalComments ??
+    blog?.commentsCount ??
+    blog?.commentCount ??
+    (Array.isArray(blog?.comments) ? blog.comments.length : 0);
+
+  const cleanDescription = (() => {
+    if (!description) return "";
+    try {
+      return decode(description)
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch {
+      return description;
+    }
+  })();
 
   const formatCount = (value) => {
     if (typeof value !== "number" || Number.isNaN(value)) return "0";
-    if (value >= 1000000)
-      return `${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1)}M`;
-    if (value >= 1000)
-      return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K`;
-    return `${value}`;
+    if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`;
+    }
+    if (value >= 1_000) {
+      return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`;
+    }
+    return String(value);
   };
 
   const formattedCommentCount = formatCount(commentCount);
 
+  // -------- Navigation logic (MAIN) --------
   const navigateToBlog = (showComments = false) => {
     const catSlug = primaryCategory?.slug || "category";
     navigate(
@@ -74,7 +95,7 @@ const BlogCard = ({ blog, className = "" }) => {
     );
   };
 
-  // ------------------------------ SUMMARY HANDLER ------------------------------
+  // -------- SUMMARY HANDLER (MAIN version – most stable) --------
   const fetchSummary = async (refresh = false) => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
@@ -122,12 +143,12 @@ const BlogCard = ({ blog, className = "" }) => {
 
   const closeModal = () => setIsModalOpen(false);
 
-  // ------------------------------ SHARE HANDLER ------------------------------
+  // -------- SHARE HANDLER (MAIN/UI same) --------
   const handleShare = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}${RouteBlogDetails(
-      category?.slug,
+      primaryCategory?.slug,
       slug || _id
     )}`;
 
@@ -148,33 +169,39 @@ const BlogCard = ({ blog, className = "" }) => {
     }
   };
 
-  // ------------------------------ EXCERPT HANDLER ------------------------------
+  // -------- EXCERPT (MAIN version is more accurate) --------
   const getBlogExcerpt = (html) => {
     if (!html) return "No preview available.";
-
     try {
-      let decoded = decode(html);
+      let decodedHTML = decode(html)
+        .replace(/<script[\s\S]?>[\s\S]?<\/script>/gi, "")
+        .replace(/<style[\s\S]?>[\s\S]?<\/style>/gi, "");
 
-      decoded = decoded.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
-      decoded = decoded.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
-
-      const blocks = decoded
+      const blocks = decodedHTML
         .split(/<\/?[^>]+>/g)
-        .map((t) => t.replace(/\s+/g, " ").trim())
-        .filter((t) => t.length > 0);
+        .map((txt) => txt.replace(/\s+/g, " ").trim())
+        .filter((txt) => txt.length > 0);
 
       if (!blocks.length) return "No preview available.";
 
-      const best = blocks.find((b) => b.length > 40);
-      const clean = (best || blocks[0]).trim();
+      const best = blocks.find(
+        (b) =>
+          b.length > 40 &&
+          !b.startsWith("{") &&
+          !b.startsWith("[") &&
+          !b.match(/^#/) &&
+          !b.match(/^h\d/i)
+      );
 
+      const finalText = best || blocks[0];
+      const clean = finalText.replace(/\s+/g, " ").trim();
       return clean.length > 150 ? clean.slice(0, 147) + "..." : clean;
     } catch {
       return "No preview available.";
     }
   };
 
-  // ------------------------------ RENDER ------------------------------
+  // -------- UI Rendering (UI version layout) --------
   return (
     <>
       <div
@@ -182,103 +209,82 @@ const BlogCard = ({ blog, className = "" }) => {
           if (!e.target.closest(".blog-actions")) navigateToBlog(false);
         }}
         className={`
-          bg-white rounded-3xl p-5 
-          border border-gray-100
-          shadow-[0_12px_40px_-20px_rgba(15,23,42,0.35)]
-          hover:-translate-y-1 hover:shadow-xl
+          flex h-full flex-col
+          rounded-[26px] border border-slate-100 bg-white/95
+          p-4 shadow-[0_20px_48px_-32px_rgba(15,23,42,0.45)] backdrop-blur-sm
           transition-all duration-300 cursor-pointer
-          mb-6 flex flex-col
+          hover:-translate-y-1 hover:shadow-xl
           ${className}
         `}
       >
         {/* IMAGE */}
-        <div className="relative h-52 w-full rounded-3xl overflow-hidden mb-4 group">
+        <div className="group relative mb-3 w-full overflow-hidden rounded-[20px]">
           <img
             src={featuredImage || "/placeholder.jpg"}
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className="h-40 w-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
 
-          <div className="absolute top-4 right-4 flex gap-2 flex-wrap">
-            {(categories.length > 0 ? categories.slice(0, 2) : ["Uncategorized"]).map(
-              (item, index) => {
-                const label = item?.name || item;
-                const key =
-                  item?._id || item?.slug || item?.name || `cat-${_id}-${index}`;
-
-                return (
-                  <span
-                    key={key}
-                    className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl text-[11px] font-bold text-gray-800 shadow-sm tracking-wide"
-                  >
-                    {label}
-                  </span>
-                );
-              }
-            )}
+          {/* Category Badges */}
+          <div className="absolute top-3 left-3">
+            <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
+              {(categories.length > 0 ? categories : [{ name: "Uncategorized" }])[0]?.name || "Uncategorized"}
+            </span>
           </div>
         </div>
 
         {/* AUTHOR + DATE */}
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-          <div
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               if (author?._id) navigate(RouteProfileView(author._id));
             }}
-            className="flex items-center space-x-3 cursor-pointer"
+            className="flex items-center gap-3"
           >
             <img
               src={author?.avatar || "/default-avatar.png"}
-              className="w-11 h-11 rounded-full border shadow-sm object-cover"
+              className="h-10 w-10 rounded-full border border-slate-100 object-cover shadow-sm"
+              alt={author?.name || "Author avatar"}
             />
 
-            <div>
-              <h4 className="text-sm font-bold text-gray-900 leading-tight">
+            <div className="text-left">
+              <h4 className="text-sm font-semibold text-slate-900">
                 {author?.name || "Unknown Author"}
               </h4>
-
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-slate-400">
                 <ViewCount blogId={_id} />
               </span>
             </div>
-          </div>
+          </button>
 
-          <span className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-full flex items-center gap-1 font-semibold">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
             <Clock size={12} /> {moment(createdAt).format("MMM D, YYYY")}
           </span>
         </div>
 
-        {/* TITLE (max 3 lines) */}
+        {/* TITLE */}
         <h2
-          className="
-            text-xl font-bold text-gray-900 leading-snug 
-            hover:text-[#6C5CE7] transition-colors 
-            line-clamp-3 mb-2
-          "
+          className="mb-1 text-[1.02rem] font-semibold leading-snug text-slate-900 transition-colors hover:text-[#6C5CE7] line-clamp-2"
         >
           {title}
         </h2>
 
-        {/* DESCRIPTION (max 2 lines) */}
-        <p className="text-gray-500 text-[14px] leading-relaxed line-clamp-2 mb-4">
-          {getBlogExcerpt(blog?.blogContent)}
+        {/* EXCERPT */}
+        <p className="mb-2 text-[12.5px] leading-relaxed text-slate-500 line-clamp-[3]">
+          {cleanDescription || getBlogExcerpt(blog?.blogContent)}
         </p>
 
         {/* ACTION BUTTONS */}
-        <div className="mt-auto pt-3 space-y-3">
-          <div className="flex flex-wrap items-center gap-2.5">
+        <div className="mt-auto space-y-3 pt-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 navigateToBlog(false);
               }}
-              className="
-                bg-[#6C5CE7] text-white 
-                px-5 py-2.5 rounded-2xl text-sm font-semibold 
-                flex items-center gap-2 shadow-md shadow-indigo-200
-                hover:bg-[#5b4bc4] hover:shadow-lg transition-all
-              "
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#6C5CE7] px-4 py-1.5 text-xs font-semibold text-white shadow-[0_10px_26px_-18px_rgba(108,92,231,0.9)] transition hover:bg-[#5b4bc4] hover:shadow-lg"
             >
               Read Article
               <ChevronRight size={16} className="opacity-80" />
@@ -286,81 +292,55 @@ const BlogCard = ({ blog, className = "" }) => {
 
             <button
               onClick={openSummary}
-              className="
-                bg-white border border-gray-200 
-                px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 
-                flex items-center gap-2 
-                hover:border-[#6C5CE7] hover:text-[#6C5CE7] 
-                shadow-sm transition-colors
-              "
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
             >
-              <Bot className="h-4 w-4" />
+              <Bot className="h-3.5 w-3.5" />
               Smart Summary
             </button>
           </div>
 
-          {/* BOTTOM ACTION BAR */}
+          {/* ACTION BAR */}
           <div
             className="
-              blog-actions rounded-2xl 
-              bg-white/90 border border-gray-100 
-              px-4 py-3 
-              flex items-center justify-between gap-3 
-              text-sm text-gray-600 shadow-sm
+              blog-actions flex w-full items-center gap-2 overflow-x-auto
+              rounded-[20px] border border-slate-100 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm
             "
           >
-            <div className="flex items-center gap-3">
-              <LikeCount blogid={_id} variant="clean" />
+            <LikeCount
+              blogid={_id}
+              variant="chip"
+              className="transition text-xs"
+            />
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigateToBlog(true);
-                }}
-                className="
-                  inline-flex items-center gap-2 
-                  px-4 py-2 rounded-2xl 
-                  bg-white/80 text-sm font-medium text-gray-700 
-                  hover:bg-gray-50 transition-all
-                "
-              >
-                <MessageCircle className="h-4 w-4 text-gray-600" />
-                <span>{formattedCommentCount}</span>
-              </button>
-            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateToBlog(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>{formattedCommentCount}</span>
+            </button>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleShare}
-                className="
-                  inline-flex items-center gap-2 
-                  px-4 py-2 rounded-2xl 
-                  text-sm font-semibold text-white 
-                  bg-gradient-to-r from-[#6C5CE7] to-[#8B5CF6]
-                  shadow-md shadow-indigo-200 hover:shadow-lg 
-                  hover:scale-[1.02] transition-all
-                "
-              >
-                <Share2 size={16} />
-                Share
-              </button>
+            <button
+              onClick={handleShare}
+              aria-label="Share blog"
+              className="inline-flex items-center justify-center rounded-full bg-[#6C5CE7]/12 p-2 text-[#6C5CE7] transition hover:bg-[#6C5CE7]/20"
+            >
+              <Share2 size={14} />
+            </button>
 
-              <SaveButton
-                blogId={_id}
-                size="sm"
-                withLabel
-                className="
-                  rounded-2xl border border-gray-200 
-                  bg-white px-4 py-2 text-sm font-medium text-gray-700 
-                  hover:border-[#6C5CE7] hover:text-[#6C5CE7] 
-                  transition-all
-                "
-              />
-            </div>
+            <SaveButton
+              blogId={_id}
+              size="sm"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
+            />
           </div>
         </div>
       </div>
 
+      {/* SUMMARY MODAL */}
       <SummaryModal
         isOpen={isModalOpen}
         onClose={closeModal}

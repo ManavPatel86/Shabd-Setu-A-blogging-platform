@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { RouteBlogDetails, RouteBlog } from '@/helpers/RouteName'
 import { useSelector } from 'react-redux'
 import { IoClose } from "react-icons/io5";
+import { getDisplayName } from '@/utils/functions'
 
 const RelatedBlog = ({ category, currentBlog, onClose, hideCloseButton }) => {
   // category may be a slug or an array; prefer slug string
@@ -71,19 +72,22 @@ const RelatedBlog = ({ category, currentBlog, onClose, hideCloseButton }) => {
           </button>
         </div>
       )}
-      {related.slice(0, 6).map((post) => (
-        <Link
-          key={post._id}
-          to={post?.categories && post.categories[0]?.slug && post.slug ? RouteBlogDetails(post.categories[0].slug, post.slug) : RouteBlog}
-          className="flex items-start gap-3 hover:bg-gray-50 p-2 rounded-md"
-        >
-          <img src={post.featuredImage || ''} alt={post.title} className="w-16 h-12 object-cover rounded" />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">{post.title}</div>
-            <div className="text-xs text-muted-foreground">{post?.author?.name || 'Unknown'}</div>
-          </div>
-        </Link>
-      ))}
+      {related.slice(0, 6).map((post) => {
+        const authorName = getDisplayName(post?.author)
+        return (
+          <Link
+            key={post._id}
+            to={post?.categories && post.categories[0]?.slug && post.slug ? RouteBlogDetails(post.categories[0].slug, post.slug) : RouteBlog}
+            className="flex items-start gap-3 hover:bg-gray-50 p-2 rounded-md"
+          >
+            <img src={post.featuredImage || ''} alt={post.title} className="w-16 h-12 object-cover rounded" />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">{post.title}</div>
+              <div className="text-xs text-muted-foreground">{authorName}</div>
+            </div>
+          </Link>
+        )
+      })}
     </div>
   )
 }

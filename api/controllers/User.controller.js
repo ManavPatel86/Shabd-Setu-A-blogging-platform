@@ -31,9 +31,23 @@ export const updateUser = async (req, res, next) => {
         const { userid } = req.params
 
         const user = await User.findById(userid)
-        user.name = data.name
-        user.email = data.email
-        user.bio = data.bio
+
+        if (typeof data.name === 'string') {
+            user.name = data.name.trim()
+        }
+
+        if (typeof data.bio === 'string') {
+            user.bio = data.bio.trim()
+        }
+
+        if (typeof data.email === 'string' && data.email.trim() && data.email.trim().toLowerCase() !== user.email) {
+            const normalizedEmail = data.email.trim().toLowerCase()
+            const emailExists = await User.findOne({ email: normalizedEmail, _id: { $ne: userid } })
+            if (emailExists) {
+                return next(handleError(409, 'Another account already uses this email.'))
+            }
+            user.email = normalizedEmail
+        }
 
         if (data.password && data.password.length >= 8) {
             const hashedPassword = bcryptjs.hashSync(data.password)
@@ -212,7 +226,7 @@ export const getUserProfileOverview = async (req, res, next) => {
 
         const [userDoc, blogs] = await Promise.all([
             User.findById(userObjectId)
-                .select('name email avatar bio createdAt role')
+                .select('name username email avatar bio createdAt role')
                 .lean()
                 .exec(),
             Blog.find({ author: userObjectId })
@@ -344,6 +358,7 @@ export const getUserProfileOverview = async (req, res, next) => {
             user: {
                 _id: userDoc._id,
                 name: userDoc.name,
+                username: userDoc.username,
                 email: userDoc.email,
                 avatar: userDoc.avatar,
                 bio: userDoc.bio,

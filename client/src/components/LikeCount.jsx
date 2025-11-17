@@ -58,10 +58,17 @@ const LikeCount = ({ blogid, className = "", variant = "text" }) => {
         if (variant === "clean") {
             return "px-4 py-2 rounded-xl bg-gray-50 text-gray-700 hover:bg-gray-100";
         }
+        if (variant === "chip") {
+            return "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-[#6C5CE7] hover:text-[#6C5CE7]";
+        }
         return "text-gray-600 hover:text-red-500";
     })();
     const iconBase = "h-4 w-4 transition-colors";
-    const iconColor = hasLiked ? "text-red-500" : "text-gray-400";
+    const iconColor = hasLiked
+        ? "text-[#6C5CE7]"
+        : variant === "chip"
+            ? "text-slate-400"
+            : "text-gray-400";
 
     return (
         <button onClick={handleLike} className={`${baseButtonClasses} ${variantClasses} ${className}`}>
