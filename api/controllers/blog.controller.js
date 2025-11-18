@@ -1,6 +1,7 @@
 import cloudinary from "../config/cloudinary.js"
 import { handleError } from "../helpers/handleError.js"
 import Blog from "../models/blog.model.js"
+import BlogLike from "../models/bloglike.model.js"
 import { encode } from 'entities'
 import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
@@ -280,6 +281,148 @@ export const getAllBlogs = async (req, res, next) => {
         res.status(200).json({
             blog
         })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
+export const getPersonalizedRelated = async (req, res, next) => {
+    try {
+        const { blog } = req.params
+
+        const userId = req.user?._id
+
+        if (!userId) {
+            return res.status(200).json({ relatedBlog: [] })
+        }
+
+        // blog IDs user liked
+        const likedBlogIds = await BlogLike.find({ user: userId }).distinct('blogid')
+
+        // saved blogs from user
+        const userDoc = await User.findById(userId).select('savedBlogs').lean().exec()
+        const savedBlogIds = (userDoc && Array.isArray(userDoc.savedBlogs)) ? userDoc.savedBlogs : []
+
+        const sourceIds = Array.from(new Set([...(likedBlogIds || []), ...(savedBlogIds || [])]))
+
+        // fallback to category-based when no history
+        if (!sourceIds.length) {
+            const currentBlog = await Blog.findOne({ slug: blog }).select('categories').lean().exec()
+            const firstCategory = currentBlog?.categories && currentBlog.categories.length ? currentBlog.categories[0] : null
+            if (!firstCategory) return res.status(200).json({ relatedBlog: [] })
+            const related = await Blog.find({ categories: firstCategory, slug: { $ne: blog } })
+                .populate('author', 'name avatar role')
+                .populate('categories', 'name slug')
+                .lean()
+                .exec()
+            return res.status(200).json({ relatedBlog: related })
+        }
+
+        // collect categories from user's liked/saved blogs
+        const sourceBlogs = await Blog.find({ _id: { $in: sourceIds } }).select('categories').lean().exec()
+        const categoryCount = new Map()
+        sourceBlogs.forEach(sb => {
+            const categories = sb?.categories || []
+            categories.forEach(c => {
+                const key = (c?._id || c)?.toString()
+                if (!key) return
+                categoryCount.set(key, (categoryCount.get(key) || 0) + 1)
+            })
+        })
+
+        const topCategoryIds = Array.from(categoryCount.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([key]) => key)
+
+        if (!topCategoryIds.length) return res.status(200).json({ relatedBlog: [] })
+
+        const candidates = await Blog.find({ categories: { $in: topCategoryIds }, slug: { $ne: blog } })
+            .populate('author', 'name avatar role')
+            .populate('categories', 'name slug')
+            .lean()
+            .exec()
+
+        const candidateIds = candidates.map(c => c._id).filter(Boolean)
+
+        // compute like counts to rank
+        let likeCounts = {}
+        if (candidateIds.length) {
+            const counts = await BlogLike.aggregate([
+                { $match: { blogid: { $in: candidateIds } } },
+                { $group: { _id: '$blogid', count: { $sum: 1 } } }
+            ])
+            counts.forEach(entry => {
+                if (entry && entry._id) likeCounts[entry._id.toString()] = entry.count || 0
+            })
+        }
+
+        const enriched = candidates.map(c => ({ ...c, likeCount: likeCounts[c._id?.toString()] || 0 }))
+        enriched.sort((a, b) => b.likeCount - a.likeCount)
+
+        res.status(200).json({ relatedBlog: enriched.slice(0, 6) })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
+export const getPersonalizedHome = async (req, res, next) => {
+    try {
+        const userId = req.user?._id
+        if (!userId) return res.status(200).json({ relatedBlog: [] })
+
+        const likedBlogIds = await BlogLike.find({ user: userId }).distinct('blogid')
+        const userDoc = await User.findById(userId).select('savedBlogs').lean().exec()
+        const savedBlogIds = (userDoc && Array.isArray(userDoc.savedBlogs)) ? userDoc.savedBlogs : []
+
+        const sourceIds = Array.from(new Set([...(likedBlogIds || []), ...(savedBlogIds || [])]))
+
+        if (!sourceIds.length) {
+            // fallback: return most liked blogs
+            const popular = await Blog.aggregate([
+                { $match: {} },
+                { $sample: { size: 12 } }
+            ])
+            const populated = await Blog.find({ _id: { $in: popular.map(p => p._id) } }).populate('author', 'name avatar role').populate('categories', 'name slug').lean().exec()
+            return res.status(200).json({ relatedBlog: populated.slice(0, 6) })
+        }
+
+        const sourceBlogs = await Blog.find({ _id: { $in: sourceIds } }).select('categories').lean().exec()
+        const categoryCount = new Map()
+        sourceBlogs.forEach(sb => {
+            const categories = sb?.categories || []
+            categories.forEach(c => {
+                const key = (c?._id || c)?.toString()
+                if (!key) return
+                categoryCount.set(key, (categoryCount.get(key) || 0) + 1)
+            })
+        })
+
+        const topCategoryIds = Array.from(categoryCount.entries()).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k)
+        if (!topCategoryIds.length) return res.status(200).json({ relatedBlog: [] })
+
+        const candidates = await Blog.find({ categories: { $in: topCategoryIds } })
+            .populate('author', 'name avatar role')
+            .populate('categories', 'name slug')
+            .lean()
+            .exec()
+
+        const candidateIds = candidates.map(c => c._id).filter(Boolean)
+        let likeCounts = {}
+        if (candidateIds.length) {
+            const counts = await BlogLike.aggregate([
+                { $match: { blogid: { $in: candidateIds } } },
+                { $group: { _id: '$blogid', count: { $sum: 1 } } }
+            ])
+            counts.forEach(entry => {
+                if (entry && entry._id) likeCounts[entry._id.toString()] = entry.count || 0
+            })
+        }
+
+        const enriched = candidates.map(c => ({ ...c, likeCount: likeCounts[c._id?.toString()] || 0 }))
+        enriched.sort((a,b)=>b.likeCount - a.likeCount)
+
+        res.status(200).json({ relatedBlog: enriched.slice(0, 8) })
     } catch (error) {
         next(handleError(500, error.message))
     }
