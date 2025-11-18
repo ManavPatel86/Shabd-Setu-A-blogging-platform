@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
-import User from '../models/user.model.js';
-import Blog from '../models/blog.model.js';
-import BlogLike from '../models/bloglike.model.js';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
+import User from '../../models/user.model.js';
+import Blog from '../../models/blog.model.js';
+import BlogLike from '../../models/bloglike.model.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
 
 // Mock the notification utilities BEFORE importing the controller
-jest.unstable_mockModule('../utils/notifyTriggers.js', () => ({
+jest.unstable_mockModule('../../utils/notifyTriggers.js', () => ({
   notifyLike: jest.fn().mockResolvedValue(undefined)
 }));
 
-const { notifyLike } = await import('../utils/notifyTriggers.js');
-const { doLike, likeCount, likeBlog } = await import('../controllers/bloglike.controller.js');
+const { notifyLike } = await import('../../utils/notifyTriggers.js');
+const { doLike, likeCount, likeBlog } = await import('../../controllers/BlogLike.controller.js');
 
 describe('BlogLike Controller', () => {
   let req, res, next, testUser, testUser2, testBlog;
@@ -361,6 +361,20 @@ describe('BlogLike Controller', () => {
 
       // notifyLike should not be called for own blog
       expect(res._statusCode).toBe(201);
+    });
+
+    it('should notify when liking someone else blog', async () => {
+      // testBlog is authored by testUser, so like from testUser2
+      req.user = { _id: testUser2._id };
+      req.params.blogId = testBlog._id.toString();
+
+      await likeBlog(req, res);
+
+      expect(res._statusCode).toBe(201);
+      expect(notifyLike).toHaveBeenCalledWith({
+        likerId: testUser2._id,
+        blogId: testBlog._id.toString()
+      });
     });
 
     it('should handle errors gracefully', async () => {

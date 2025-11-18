@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
-import User from '../models/user.model.js';
-import Blog from '../models/blog.model.js';
-import Comment from '../models/comment.model.js';
-import Category from '../models/category.model.js';
+import User from '../../models/user.model.js';
+import Blog from '../../models/blog.model.js';
+import Comment from '../../models/comment.model.js';
+import Category from '../../models/category.model.js';
 import mongoose from 'mongoose';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
 
 // Mock the notification utilities BEFORE importing controllers
-jest.unstable_mockModule('../utils/notifyTriggers.js', () => ({
+jest.unstable_mockModule('../../utils/notifyTriggers.js', () => ({
   notifyComment: jest.fn().mockResolvedValue(undefined),
   notifyReply: jest.fn().mockResolvedValue(undefined)
 }));
 
-const { notifyComment, notifyReply } = await import('../utils/notifyTriggers.js');
-const { addcomment, getComments, deleteComment, commentCount, getAllComments, addComment, replyToComment } = await import('../controllers/Comment.controller.js');
+const { notifyComment, notifyReply } = await import('../../utils/notifyTriggers.js');
+const { addcomment, getComments, deleteComment, commentCount, getAllComments, addComment, replyToComment } = await import('../../controllers/Comment.controller.js');
 
 describe('Comment Controller Tests', () => {
   let req, res, next, testUser, testBlog;
@@ -541,6 +541,46 @@ describe('Comment Controller Tests', () => {
 
       consoleErrorSpy.mockRestore();
     });
+
+    it('should log error and continue when notifyComment fails (covers line 31)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const notificationError = new Error('Queue service unavailable');
+      notifyComment.mockRejectedValueOnce(notificationError);
+
+      // Create another user's blog so notification is triggered
+      const otherUser = await User.create({
+        name: 'Blog Owner',
+        email: 'owner@example.com',
+        password: 'password123',
+      });
+
+      const otherBlog = await Blog.create({
+        title: 'Others Blog',
+        slug: 'others-blog',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: otherUser._id,
+      });
+
+      req.body = {
+        blogid: otherBlog._id.toString(),
+        comment: 'Comment on others blog',
+      };
+
+      await addcomment(req, res, next);
+
+      // Comment should still be created despite notification failure
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Comment submitted successfully.');
+      
+      // Verify console.error was called with the specific message from line 31
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to enqueue comment notification', notificationError);
+
+      consoleErrorSpy.mockRestore();
+    });
+
+
   });
 
   describe('Error Handling', () => {

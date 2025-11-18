@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import mongoose from 'mongoose';
-import Notification from '../models/notification.model.js';
-import { getNotifications, markAsRead, markAllAsRead, deleteNotification } from '../controllers/notification.controller.js';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
-import User from '../models/user.model.js';
+import Notification from '../../models/notification.model.js';
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification } from '../../controllers/notification.controller.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
+import User from '../../models/user.model.js';
 
 const buildRes = () => {
   const res = {

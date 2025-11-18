@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -104,62 +104,62 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import jwt from 'jsonwebtoken'
 import User from '../models/user.model.js'
 import { handleError } from '../helpers/handleError.js'
 &nbsp;
-export const authenticate = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync (req, res, next) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    try {</span>
-        const token = <span class="cstat-no" title="statement not covered" >req.cookies.access_token</span>
-<span class="cstat-no" title="statement not covered" >        if (!token) {</span>
-<span class="cstat-no" title="statement not covered" >            return next(handleError(401, 'Unauthorized.'))</span>
+export const authenticate = async (req, res, next) =&gt; {
+    try {
+        const token = req.cookies.access_token
+        if (!token) {
+            return next(handleError(401, 'Unauthorized.'))
         }
 &nbsp;
-        const decodedToken = <span class="cstat-no" title="statement not covered" >jwt.verify(token, process.env.JWT_SECRET)</span>
-        const user = <span class="cstat-no" title="statement not covered" >await User.findById(decodedToken._id).lean()</span>
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
+        const user = await User.findById(decodedToken._id).lean()
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        if (!user) {</span>
-<span class="cstat-no" title="statement not covered" >            return next(handleError(401, 'Unauthorized.'))</span>
+        if (!user) {
+            return next(handleError(401, 'Unauthorized.'))
         }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        if (user.isBlacklisted) {</span>
-<span class="cstat-no" title="statement not covered" >            return next(handleError(403, 'Account is blacklisted.'))</span>
+        if (user.isBlacklisted) {
+            return next(handleError(403, 'Account is blacklisted.'))
         }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        req.user = {</span>
+        req.user = {
             _id: user._id,
             name: user.name,
             email: user.email,
@@ -167,12 +167,12 @@ export const authenticate = <span class="cstat-no" title="statement not covered"
             avatar: user.avatar
         }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        next()</span>
+        next()
     } catch (error) {
-<span class="cstat-no" title="statement not covered" >        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {</span>
-<span class="cstat-no" title="statement not covered" >            return next(handleError(401, 'Invalid or expired token.'))</span>
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return next(handleError(401, 'Invalid or expired token.'))
         }
-<span class="cstat-no" title="statement not covered" >        next(handleError(500, error.message))</span>
+        next(handleError(500, error.message))
     }
 }</pre></td></tr></table></pre>
 
@@ -181,7 +181,7 @@ export const authenticate = <span class="cstat-no" title="statement not covered"
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-13T10:17:41.319Z
+                at 2025-11-18T15:49:18.068Z
             </div>
         <script src="../prettify.js"></script>
         <script>

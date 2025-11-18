@@ -89,8 +89,8 @@ export async function notifyFollowersNewPost({ authorId, blogId }) {
   ]);
   if (!author || !blog) return;
 
-  const follows = await Follow.find({ followingId: authorId });
-  const followerIds = follows.map(follow => follow.followerId);
+  const follows = await Follow.find({ following: authorId });
+  const followerIds = follows.map(follow => follow.follower);
 
   for (const followerId of followerIds) {
     await createNotification({

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
-import Category from '../models/category.model.js';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
-import { addCategory, showCategory, updateCategory, deleteCategory, getAllCategory } from '../controllers/Category.controller.js';
+import Category from '../../models/category.model.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
+import { addCategory, showCategory, updateCategory, deleteCategory, getAllCategory } from '../../controllers/Category.controller.js';
 
 describe('Category Controller Tests', () => {
   let req, res, next;
@@ -122,6 +122,34 @@ describe('Category Controller Tests', () => {
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(500);
       expect(res._error.message).toBe('Database connection failed');
+
+      saveSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle duplicate error with undefined message property (covers || \'\')', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      // Create error without code 11000, but with "duplicate" in message that is undefined
+      // This forces the regex test to run with error.message || ''
+      const saveError = new Error();
+      saveError.code = 12345; // Not 11000, so first part of || is false
+      // Delete the message property so error.message returns undefined
+      delete saveError.message;
+      // Add a custom toString that would fail the duplicate test
+      saveError.toString = () => 'Some error with duplicate in description';
+      
+      const saveSpy = jest.spyOn(Category.prototype, 'save').mockRejectedValueOnce(saveError);
+
+      req.body = {
+        name: 'Technology',
+        slug: 'technology',
+      };
+
+      await addCategory(req, res, next);
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
 
       saveSpy.mockRestore();
       consoleErrorSpy.mockRestore();

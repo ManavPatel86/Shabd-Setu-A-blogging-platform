@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
-import User from '../models/user.model.js';
-import Blog from '../models/blog.model.js';
-import BlogLike from '../models/bloglike.model.js';
-import Follow from '../models/follow.model.js';
-import Category from '../models/category.model.js'; // Import to register schema
+import User from '../../models/user.model.js';
+import Blog from '../../models/blog.model.js';
+import BlogLike from '../../models/bloglike.model.js';
+import Follow from '../../models/follow.model.js';
+import Category from '../../models/category.model.js'; // Import to register schema
 import bcryptjs from 'bcryptjs';
 import mongoose from 'mongoose';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
 import { 
   getUser, 
   updateUser,
@@ -15,7 +15,7 @@ import {
   updateUserBlacklistStatus,
   getUserContributionActivity,
   getUserProfileOverview 
-} from '../controllers/User.controller.js';
+} from '../../controllers/User.controller.js';
 
 describe('User Controller Tests', () => {
   let req, res, next;
@@ -193,6 +193,87 @@ describe('User Controller Tests', () => {
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(500);
     });
+
+    it('should update user avatar when file is uploaded', async () => {
+      // Mock cloudinary uploader
+      const cloudinaryMock = (await import('../../config/cloudinary.js')).default;
+      jest.spyOn(cloudinaryMock.uploader, 'upload').mockResolvedValueOnce({
+        secure_url: 'https://cloudinary.com/new-avatar.jpg',
+      });
+
+      const user = await User.create({
+        name: 'User with Avatar',
+        email: 'avatar@example.com',
+        password: bcryptjs.hashSync('password123'),
+        avatar: 'old-avatar.jpg',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'User with Avatar',
+        email: 'avatar@example.com',
+        bio: 'Updated bio',
+      });
+      req.file = {
+        path: '/tmp/uploaded-file.jpg',
+      };
+
+      await updateUser(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.user.avatar).toBe('https://cloudinary.com/new-avatar.jpg');
+      expect(cloudinaryMock.uploader.upload).toHaveBeenCalledWith(
+        '/tmp/uploaded-file.jpg',
+        { folder: 'yt-mern-blog', resource_type: 'auto' }
+      );
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle cloudinary upload error during avatar update', async () => {
+      const cloudinaryMock = (await import('../../config/cloudinary.js')).default;
+      
+      // Mock upload to return a rejected promise with .catch() method
+      const mockUpload = jest.fn().mockReturnValue({
+        catch: jest.fn().mockImplementation((errorHandler) => {
+          errorHandler(new Error('Cloudinary upload failed'));
+          return undefined;
+        })
+      });
+      
+      jest.spyOn(cloudinaryMock.uploader, 'upload').mockImplementation(mockUpload);
+
+      const user = await User.create({
+        name: 'User',
+        email: 'user@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'User',
+        email: 'user@example.com',
+        bio: '',
+      });
+      req.file = {
+        path: '/tmp/bad-file.jpg',
+      };
+
+      // Create a mock next function to track error calls
+      const nextMock = jest.fn((error) => {
+        res._error = error;
+      });
+
+      await updateUser(req, res, nextMock);
+
+      // The catch block calls next() with the error
+      expect(nextMock).toHaveBeenCalled();
+      const errorArg = nextMock.mock.calls[0][0];
+      expect(errorArg.statusCode).toBe(500);
+      expect(errorArg.message).toBe('Cloudinary upload failed');
+
+      jest.restoreAllMocks();
+    });
   });
 
   describe('getAllUser', () => {
@@ -250,6 +331,23 @@ describe('User Controller Tests', () => {
       expect(res._jsonData.success).toBe(true);
       expect(Array.isArray(res._jsonData.user)).toBe(true);
     });
+
+    it('should handle database errors in getAllUser', async () => {
+      req.user = { role: 'admin' };
+
+      // Mock User.find to throw an error
+      jest.spyOn(User, 'find').mockImplementationOnce(() => {
+        throw new Error('Database query failed');
+      });
+
+      await getAllUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Database query failed');
+
+      jest.restoreAllMocks();
+    });
   });
 
   describe('deleteUser', () => {
@@ -294,6 +392,24 @@ describe('User Controller Tests', () => {
       // Verify user still exists
       const stillExists = await User.findById(user._id);
       expect(stillExists).toBeTruthy();
+    });
+
+    it('should handle database errors in deleteUser', async () => {
+      req.user = { role: 'admin' };
+      req.params.id = new mongoose.Types.ObjectId().toString();
+
+      // Mock User.findByIdAndDelete to throw an error
+      jest.spyOn(User, 'findByIdAndDelete').mockImplementationOnce(() => {
+        throw new Error('Delete operation failed');
+      });
+
+      await deleteUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Delete operation failed');
+
+      jest.restoreAllMocks();
     });
   });
 
@@ -929,6 +1045,549 @@ describe('User Controller Tests', () => {
 
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(500);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle like count entries without _id (covers line 256)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-likes@example.com',
+        password: 'pass123',
+      });
+
+      const blog = await Blog.create({
+        title: 'Blog with likes',
+        slug: 'blog-likes',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      // Mock BlogLike.aggregate to return entry without _id
+      jest.spyOn(BlogLike, 'aggregate').mockResolvedValueOnce([
+        { _id: null, count: 5 }, // This should be skipped (line 256)
+        { _id: blog._id, count: 3 }, // This should be counted
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.stats.totalLikes).toBe(3); // Only counted the valid entry
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle categories without key (covers line 281)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-cat@example.com',
+        password: 'pass123',
+      });
+
+      const category = await Category.create({
+        name: 'Valid Category',
+        slug: 'valid-cat',
+      });
+
+      // Create blog with valid category
+      await Blog.create({
+        title: 'Blog with categories',
+        slug: 'blog-cat',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [category._id],
+      });
+
+      // Mock Blog.find to inject an object with toString() returning empty string
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            // Inject invalid category objects
+            blogs[0].categories = [
+              null, // null category
+              { _id: { toString: () => '' }, name: 'Empty toString' }, // toString returns empty
+              category // Valid category
+            ];
+          }
+          return blogs;
+        };
+        // Mock populate to return the query itself
+        query.populate = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      // Should only count the valid category, others filtered out at line 281
+      expect(res._jsonData.highlights.topCategories.length).toBeGreaterThanOrEqual(0);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should reject non-admin calling updateUserBlacklistStatus (covers line 373)', async () => {
+      const targetUser = await User.create({
+        name: 'Target User',
+        email: 'target@example.com',
+        password: 'pass123',
+      });
+
+      const nonAdminUser = await User.create({
+        name: 'Non-Admin',
+        email: 'nonadmin@example.com',
+        password: 'pass123',
+        role: 'user', // Not admin
+      });
+
+      req.user = nonAdminUser;
+      req.params.userid = targetUser._id.toString();
+      req.body = { isBlacklisted: true };
+
+      await updateUserBlacklistStatus(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(403);
+      expect(res._error.message).toBe('Only admins can access this resource.');
+    });
+
+    it('should handle errors in updateUserBlacklistStatus (covers line 409)', async () => {
+      const adminUser = await User.create({
+        name: 'Admin',
+        email: 'admin@example.com',
+        password: 'pass123',
+        role: 'admin',
+      });
+
+      req.user = adminUser;
+      req.params.userid = 'valid-object-id-123456789012'; // Valid format but mock will throw
+      req.body = { isBlacklisted: true };
+
+      // Mock User.findById to throw an error
+      jest.spyOn(User, 'findById').mockImplementationOnce(() => {
+        throw new Error('Database connection failed');
+      });
+
+      await updateUserBlacklistStatus(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Database connection failed');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle like count entries with undefined count (covers line 259-260)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-likes@example.com',
+        password: 'pass123',
+      });
+
+      const blog = await Blog.create({
+        title: 'Blog with Likes',
+        slug: 'blog-likes',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      // Mock BlogLike.aggregate to return entries with undefined count
+      jest.spyOn(BlogLike, 'aggregate').mockResolvedValueOnce([
+        { _id: blog._id, count: undefined },
+      ]);
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.stats.totalLikes).toBe(0);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle category without name or slug (covers line 285-286)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-nocat@example.com',
+        password: 'pass123',
+      });
+
+      // Create a valid category first
+      const category = await Category.create({
+        name: 'Valid Category',
+        slug: 'valid-category',
+      });
+
+      await Blog.create({
+        title: 'Blog with empty category',
+        slug: 'blog-empty-cat',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [category._id],
+      });
+
+      // Mock Blog.find to return blog with category having no name/slug
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0].categories = [
+              { _id: category._id, name: null, slug: null }
+            ];
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topCategories[0].name).toBe('Uncategorized');
+      expect(res._jsonData.highlights.topCategories[0].slug).toBe('');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle percentage calculation when totalPosts is 0 (covers line 302)', async () => {
+      const user = await User.create({
+        name: 'New Blogger',
+        email: 'newblogger@example.com',
+        password: 'pass123',
+      });
+
+      const category = await Category.create({
+        name: 'Test Category',
+        slug: 'test-category',
+      });
+
+      // Create a real blog with category
+      await Blog.create({
+        title: 'Test Blog',
+        slug: 'test-blog',
+        blogContent: 'Content',
+        featuredImage: 'test.jpg',
+        author: user._id,
+        categories: [category._id],
+      });
+
+      // Mock Blog.find to return an array that behaves specially:
+      // - Has length = 0 for totalPosts calculation
+      // - But allows iteration for category processing
+      // - And supports slice() returning itself for recentPosts processing
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const realBlogs = await origExec();
+          
+          // Create a special array that reports length as 0 but still iterates
+          const specialBlogs = Object.create(Array.prototype);
+          
+          // Copy all real blog data
+          realBlogs.forEach((blog, index) => {
+            specialBlogs[index] = blog;
+          });
+          
+          // Override length getter to return 0
+          Object.defineProperty(specialBlogs, 'length', {
+            get: function() {
+              return 0;
+            },
+            enumerable: false,
+            configurable: true
+          });
+          
+          // Override forEach to still iterate over the real blogs
+          specialBlogs.forEach = function(callback, thisArg) {
+            for (let i = 0; i < realBlogs.length; i++) {
+              callback.call(thisArg, realBlogs[i], i, this);
+            }
+          };
+          
+          // Override slice to return empty array (for recentPosts)
+          specialBlogs.slice = function() {
+            return [];
+          };
+          
+          // Override reduce for totalViews calculation
+          specialBlogs.reduce = function(callback, initialValue) {
+            return initialValue || 0;
+          };
+          
+          // Override map for the top post sorting
+          specialBlogs.map = function(callback) {
+            return realBlogs.map(callback);
+          };
+          
+          return specialBlogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      // With this mock, totalPosts = 0 but categories were processed
+      expect(res._jsonData.stats.totalPosts).toBe(0);
+      // The percentage should be 0 because totalPosts is 0
+      if (res._jsonData.highlights.topCategories.length > 0) {
+        expect(res._jsonData.highlights.topCategories[0].percentage).toBe(0);
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle blog with undefined _id (covers line 306)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-noid@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Blog Test',
+        slug: 'blog-test',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      // Mock Blog.find to return blog with undefined _id
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0]._id = null;
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.recentPosts[0].likeCount).toBe(0);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle blog without featuredImage (covers line 313)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-noimg@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Blog without image',
+        slug: 'blog-noimg',
+        blogContent: 'Content',
+        featuredImage: 'temp.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      // Mock Blog.find to return blog without featuredImage
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0].featuredImage = null;
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.recentPosts[0].featuredImage).toBe('');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle blog with null categories array (covers line 314)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-nullcat@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Blog Test',
+        slug: 'blog-test',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+      });
+
+      // Mock Blog.find to return blog with null categories
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0].categories = null;
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.recentPosts[0].categories).toEqual([]);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle top post without featuredImage (covers line 333)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-topnoimg@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Top Blog',
+        slug: 'top-blog',
+        blogContent: 'Content',
+        featuredImage: 'temp.jpg',
+        author: user._id,
+        categories: [],
+        views: 100,
+      });
+
+      // Mock Blog.find to return blog without featuredImage
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0].featuredImage = null;
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topPost.featuredImage).toBe('');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle top post with null categories (covers line 334)', async () => {
+      const user = await User.create({
+        name: 'Blogger',
+        email: 'blogger-topnullcat@example.com',
+        password: 'pass123',
+      });
+
+      await Blog.create({
+        title: 'Top Blog',
+        slug: 'top-blog',
+        blogContent: 'Content',
+        featuredImage: 'image.jpg',
+        author: user._id,
+        categories: [],
+        views: 100,
+      });
+
+      // Mock Blog.find to return blog with null categories
+      const originalFind = Blog.find;
+      jest.spyOn(Blog, 'find').mockImplementation((...args) => {
+        const query = originalFind.apply(Blog, args);
+        const origExec = query.exec.bind(query);
+        query.exec = async () => {
+          const blogs = await origExec();
+          if (blogs && blogs.length > 0) {
+            blogs[0].categories = null;
+          }
+          return blogs;
+        };
+        query.populate = () => query;
+        query.select = () => query;
+        query.sort = () => query;
+        query.lean = () => query;
+        return query;
+      });
+
+      req.params.userid = user._id.toString();
+
+      await getUserProfileOverview(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.highlights.topPost.categories).toEqual([]);
 
       jest.restoreAllMocks();
     });

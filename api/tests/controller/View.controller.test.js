@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import mongoose from 'mongoose';
-import User from '../models/user.model.js';
-import Blog from '../models/blog.model.js';
-import { View } from '../models/view.model.js';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
-import { addView, getViewCount } from '../controllers/view.controller.js';
+import User from '../../models/user.model.js';
+import Blog from '../../models/blog.model.js';
+import { View } from '../../models/view.model.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
+import { addView, getViewCount } from '../../controllers/view.controller.js';
 
 describe('View Controller', () => {
   let req, res, next, testUser, testBlog;
@@ -127,6 +127,26 @@ describe('View Controller', () => {
       spyDelete.mockRestore();
     });
 
+    it('rolls back and still returns 500 when deleteOne fails (executes catch handler)', async () => {
+      const spyUpdate = jest.spyOn(View, 'updateOne').mockResolvedValueOnce({ upsertedCount: 1 });
+      const spyBlogUpdate = jest.spyOn(Blog, 'findByIdAndUpdate').mockResolvedValueOnce(null);
+      const spyDelete = jest.spyOn(View, 'deleteOne').mockRejectedValueOnce(new Error('delete fail'));
+
+      req.body.blogId = testBlog._id.toString();
+
+      await addView(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Unable to update view count.');
+
+      spyUpdate.mockRestore();
+      spyBlogUpdate.mockRestore();
+      spyDelete.mockRestore();
+    });
+
+    
+
     it('handles duplicate-key (11000) by returning fallback view count', async () => {
       const err = new Error('dup');
       err.code = 11000;
@@ -199,10 +219,35 @@ describe('View Controller', () => {
       spy.mockRestore();
     });
 
-    // Note: cannot simulate missing req.body because the function destructures req.body at the
-    // top of the try block; attempting to set req.body = undefined would throw before the
-    // duplicate-key fallback is reached. The duplicate-key fallback is exercised by other
-    // tests above where updateOne rejects with code 11000.
+    it('handles duplicate-key error when req.body becomes null (covers || {} fallback)', async () => {
+      const err = new Error('dup');
+      err.code = 11000;
+      
+      // Start with valid req.body to pass initial checks
+      req.body = { blogId: testBlog._id.toString() };
+      
+      // Mock the initial findById to succeed so we get past the early checks
+      const spyFindBlog = jest.spyOn(Blog, 'findById')
+        .mockImplementationOnce(() => ({ select: () => Promise.resolve(testBlog) }))
+        .mockImplementationOnce(() => ({ select: () => Promise.resolve(testBlog) }));
+      
+      // Force updateOne to throw duplicate key error
+      const spyUpdate = jest.spyOn(View, 'updateOne').mockImplementationOnce(() => {
+        // Set req.body to null AFTER the initial destructuring but BEFORE the catch block
+        req.body = null;
+        return Promise.reject(err);
+      });
+
+      await addView(req, res, next);
+
+      // Should return 0 viewCount since blogId will be undefined from the || {} fallback
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.alreadyCounted).toBe(true);
+      expect(res._jsonData.viewCount).toBe(0);
+
+      spyUpdate.mockRestore();
+      spyFindBlog.mockRestore();
+    });
   });
 
   describe('getViewCount', () => {

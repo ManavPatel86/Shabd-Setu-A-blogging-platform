@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import mongoose from 'mongoose';
-import { toggleSaveBlog, getSavedBlogs, getSaveStatus } from '../controllers/save.controller.js';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
-import Blog from '../models/blog.model.js';
-import Category from '../models/category.model.js';
-import User from '../models/user.model.js';
-import { normalizeSavedBlogs } from '../controllers/save.controller.js';
+import { toggleSaveBlog, getSavedBlogs, getSaveStatus } from '../../controllers/save.controller.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
+import Blog from '../../models/blog.model.js';
+import Category from '../../models/category.model.js';
+import User from '../../models/user.model.js';
+import { normalizeSavedBlogs } from '../../controllers/save.controller.js';
 
 const buildRes = () => {
   const res = {

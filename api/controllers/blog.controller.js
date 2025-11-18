@@ -6,23 +6,21 @@ import Category from "../models/category.model.js"
 import User from "../models/user.model.js"
 import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
 
-const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const addBlog = async (req, res, next) => {
     try {
         const data = JSON.parse(req.body.data)
         let featuredImage = ''
         if (req.file) {
-            // Upload an image
-            const uploadResult = await cloudinary.uploader
-                .upload(
+            try {
+                const uploadResult = await cloudinary.uploader.upload(
                     req.file.path,
                     { folder: 'Shabd-Setu-A-blogging-platform', resource_type: 'auto' }
                 )
-                .catch((error) => {
-                    next(handleError(500, error.message))
-                });
-
-            featuredImage = uploadResult.secure_url
+                featuredImage = uploadResult.secure_url
+            } catch (error) {
+                return next(handleError(500, error.message))
+            }
         }
         
         const incomingCategories = Array.isArray(data.categories)
@@ -40,8 +38,6 @@ export const addBlog = async (req, res, next) => {
         const blog = new Blog({
             // Use authenticated user as author to avoid trusting client data
             author: req.user?._id || data.author,
-            category: data.category,
-            author: data.author,
             categories,
             title: data.title,
             slug: `${data.slug}-${Math.round(Math.random() * 100000)}`,
@@ -108,17 +104,15 @@ export const updateBlog = async (req, res, next) => {
         let featuredImage = blog.featuredImage
 
         if (req.file) {
-            // Upload an image
-            const uploadResult = await cloudinary.uploader
-                .upload(
+            try {
+                const uploadResult = await cloudinary.uploader.upload(
                     req.file.path,
                     { folder: 'yt-mern-blog', resource_type: 'auto' }
                 )
-                .catch((error) => {
-                    next(handleError(500, error.message))
-                });
-
-            featuredImage = uploadResult.secure_url
+                featuredImage = uploadResult.secure_url
+            } catch (error) {
+                return next(handleError(500, error.message))
+            }
         }
 
         blog.featuredImage = featuredImage

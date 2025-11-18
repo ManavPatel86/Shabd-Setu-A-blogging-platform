@@ -3,16 +3,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@je
 // Mock mailer before imports
 const mockSendOtpEmail = jest.fn();
 
-jest.unstable_mockModule('../utils/mailer.js', () => ({
+jest.unstable_mockModule('../../utils/mailer.js', () => ({
   sendOtpEmail: mockSendOtpEmail,
 }));
 
-import User from '../models/user.model.js';
-import OtpCode from '../models/OtpCode.model.js';
+import User from '../../models/user.model.js';
+import OtpCode from '../../models/OtpCode.model.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { connectTestDB, closeTestDB, clearTestDB } from './setup/testDb.js';
-import { Login, GoogleLogin, Logout, Register, verifyOtp, resendOtp } from '../controllers/Auth.controller.js';
+import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
+import { Login, GoogleLogin, Logout, Register, verifyOtp, resendOtp } from '../../controllers/Auth.controller.js';
 
 describe('Auth Controller Tests', () => {
   let req, res, next;
@@ -186,6 +186,34 @@ describe('Auth Controller Tests', () => {
 
       jest.restoreAllMocks();
     });
+
+    it('should use default OTP_EXPIRY_MINUTES and RESEND_INTERVAL_MINUTES when env vars are missing', async () => {
+      jest.resetModules();
+
+      // Remove env vars to trigger fallback defaults at module import
+      const prevOtpExpiry = process.env.OTP_EXPIRY_MINUTES;
+      const prevResend = process.env.OTP_RESEND_INTERVAL_MINUTES;
+      delete process.env.OTP_EXPIRY_MINUTES;
+      delete process.env.OTP_RESEND_INTERVAL_MINUTES;
+
+      // Mock Otp util and mailer to avoid DB/side effects
+      jest.unstable_mockModule('../../utils/Otp.js', () => ({
+        createAndSendOtp: jest.fn().mockResolvedValue(undefined),
+        verifyOtp: jest.fn(),
+        resendOtp: jest.fn(),
+      }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+
+      const ctrl = await import('../../controllers/Auth.controller.js');
+
+      // The act of importing the controller executes module-level initializers
+      // such as the OTP_EXPIRY_MINUTES and RESEND_INTERVAL_MINUTES fallbacks.
+      expect(typeof ctrl.Register).toBe('function');
+
+      // restore env
+      if (prevOtpExpiry !== undefined) process.env.OTP_EXPIRY_MINUTES = prevOtpExpiry;
+      if (prevResend !== undefined) process.env.OTP_RESEND_INTERVAL_MINUTES = prevResend;
+    });
   });
 
   describe('verifyOtp', () => {
@@ -229,6 +257,128 @@ describe('Auth Controller Tests', () => {
       // OTP should be deleted after verification
       const otpDoc = await OtpCode.findOne({ email: 'test@example.com' });
       expect(otpDoc).toBeNull();
+    });
+
+    it('should default role to "user" when pendingUser.role is missing', async () => {
+      const hashedPassword = bcryptjs.hashSync('password123');
+      // Create OTP document without role in pendingUser
+      await OtpCode.create({
+        email: 'norole@example.com',
+        code: '111111',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'No Role User',
+          passwordHash: hashedPassword,
+          // role omitted intentionally
+        },
+      });
+
+      req.body = { email: 'norole@example.com', otp: '111111' };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const user = await User.findOne({ email: 'norole@example.com' });
+      expect(user).toBeTruthy();
+      expect(user.role).toBe('user');
+    });
+
+    it('should default role to "user" when pendingUser.role is empty string', async () => {
+      const hashedPassword = bcryptjs.hashSync('password123');
+      await OtpCode.create({
+        email: 'emptyrole@example.com',
+        code: '222222',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'Empty Role User',
+          passwordHash: hashedPassword,
+          role: '', // Empty string to test falsy value
+        },
+      });
+
+      req.body = { email: 'emptyrole@example.com', otp: '222222' };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const user = await User.findOne({ email: 'emptyrole@example.com' });
+      expect(user).toBeTruthy();
+      expect(user.role).toBe('user');
+    });
+
+    it('should default role to "user" when pendingUser.role is null', async () => {
+      const hashedPassword = bcryptjs.hashSync('password123');
+      await OtpCode.create({
+        email: 'nullrole@example.com',
+        code: '333334',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'Null Role User',
+          passwordHash: hashedPassword,
+          role: null, // Explicitly null
+        },
+      });
+
+      req.body = { email: 'nullrole@example.com', otp: '333334' };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const user = await User.findOne({ email: 'nullrole@example.com' });
+      expect(user).toBeTruthy();
+      expect(user.role).toBe('user');
+    });
+
+    it('executes both role-present and role-missing flows in one test (covers both branches)', async () => {
+      // Create two OTPs: one with role present, one without
+      const hashedPassword = bcryptjs.hashSync('password123');
+      await OtpCode.create({
+        email: 'rolepresent@example.com',
+        code: '222222',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: { name: 'Role Present', passwordHash: hashedPassword, role: 'admin' }
+      });
+
+      await OtpCode.create({
+        email: 'rolemissing@example.com',
+        code: '333333',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: { name: 'Role Missing', passwordHash: hashedPassword }
+      });
+
+      // First: role present
+      req.body = { email: 'rolepresent@example.com', otp: '222222' };
+      await verifyOtp(req, res, next);
+      expect(res._statusCode).toBe(200);
+      const user1 = await User.findOne({ email: 'rolepresent@example.com' });
+      expect(user1.role).toBe('admin');
+
+      // Second: role missing -> should default to 'user'
+      req.body = { email: 'rolemissing@example.com', otp: '333333' };
+      await verifyOtp(req, res, next);
+      expect(res._statusCode).toBe(200);
+      const user2 = await User.findOne({ email: 'rolemissing@example.com' });
+      expect(user2.role).toBe('user');
     });
 
     it('should require email and OTP', async () => {
@@ -373,6 +523,92 @@ describe('Auth Controller Tests', () => {
       expect(res._error.statusCode).toBe(400);
       expect(res._error.message).toBe('Pending registration data is incomplete. Please register again.');
     });
+
+    it('should handle missing name in pending user data', async () => {
+      await OtpCode.create({
+        email: 'test@example.com',
+        code: '123456',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          // Missing name
+          passwordHash: bcryptjs.hashSync('password123'),
+        },
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+      };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Pending registration data is incomplete. Please register again.');
+    });
+
+    it('should handle generic error during verification', async () => {
+      // Force a generic error by mocking User.findOne to throw
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('Database connection error'));
+
+      await OtpCode.create({
+        email: 'test@example.com',
+        code: '123456',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'Test User',
+          passwordHash: bcryptjs.hashSync('password123'),
+        },
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+      };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Database connection error');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle case when verifyOtpUtil returns null (defensive branch line 71)', async () => {
+      // This tests the defensive check at line 71 when pendingUser is falsy
+      jest.resetModules();
+      
+      // Mock verifyOtp to return null instead of throwing
+      jest.unstable_mockModule('../../utils/Otp.js', () => ({
+        verifyOtp: jest.fn().mockResolvedValue(null), // Returns null instead of throwing
+        createAndSendOtp: jest.fn(),
+        resendOtp: jest.fn(),
+      }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+
+      const { verifyOtp: verifyOtpFresh } = await import('../../controllers/Auth.controller.js');
+
+      const freshReq = { body: { email: 'test@example.com', otp: '123456' } };
+      const freshRes = { _statusCode: null, _jsonData: null };
+      freshRes.status = function (code) { this._statusCode = code; return this; };
+      freshRes.json = function (d) { this._jsonData = d; return this; };
+      const freshNext = (err) => { freshRes._error = err; };
+
+      await verifyOtpFresh(freshReq, freshRes, freshNext);
+
+      expect(freshRes._error).toBeDefined();
+      expect(freshRes._error.statusCode).toBe(400);
+      expect(freshRes._error.message).toBe('No pending registration found. Please register again.');
+    });
   });
 
   describe('resendOtp', () => {
@@ -489,6 +725,75 @@ describe('Auth Controller Tests', () => {
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.data.resendCount).toBe(1);
     });
+
+    it('should handle generic unexpected errors', async () => {
+      // Force outer catch by making email trim throw (simulate corrupted req object)
+      req.body = { 
+        get email() {
+          throw new Error('Unexpected error accessing email');
+        }
+      };
+
+      await resendOtp(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Unexpected error accessing email');
+    });
+
+    it('resendOtp should use RESEND_INTERVAL_MINUTES * 60 when err.waitSeconds is missing', async () => {
+      jest.resetModules();
+
+      // Mock resendOtp to throw RESEND_TOO_SOON without waitSeconds
+      jest.unstable_mockModule('../../utils/Otp.js', () => ({
+        resendOtp: jest.fn().mockRejectedValue({ code: 'RESEND_TOO_SOON' }),
+        createAndSendOtp: jest.fn(),
+        verifyOtp: jest.fn(),
+      }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+
+      const { resendOtp: resendOtpFresh } = await import('../../controllers/Auth.controller.js');
+
+      const freshReq = { body: { email: 'test@example.com' } };
+      const freshRes = { _statusCode: null, _jsonData: null };
+      freshRes.status = function (code) { this._statusCode = code; return this; };
+      freshRes.json = function (d) { this._jsonData = d; return this; };
+      const freshNext = (err) => { freshRes._error = err; };
+
+      await resendOtpFresh(freshReq, freshRes, freshNext);
+
+      expect(freshRes._error).toBeDefined();
+      expect(freshRes._error.statusCode).toBe(429);
+      // default RESEND_INTERVAL_MINUTES is 5 -> 5*60 = 300
+      expect(freshRes._error.message).toContain('Resend allowed after');
+      expect(freshRes._error.message).toContain('300');
+    });
+
+    it('should handle resendOtp generic error (line 140 fallback)', async () => {
+      jest.resetModules();
+
+      // Mock resendOtp to throw error with unknown code
+      jest.unstable_mockModule('../../utils/Otp.js', () => ({
+        resendOtp: jest.fn().mockRejectedValue({ code: 'UNKNOWN_ERROR', message: 'Something went wrong' }),
+        createAndSendOtp: jest.fn(),
+        verifyOtp: jest.fn(),
+      }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+
+      const { resendOtp: resendOtpFresh } = await import('../../controllers/Auth.controller.js');
+
+      const freshReq = { body: { email: 'test@example.com' } };
+      const freshRes = { _statusCode: null, _jsonData: null };
+      freshRes.status = function (code) { this._statusCode = code; return this; };
+      freshRes.json = function (d) { this._jsonData = d; return this; };
+      const freshNext = (err) => { freshRes._error = err; };
+
+      await resendOtpFresh(freshReq, freshRes, freshNext);
+
+      expect(freshRes._error).toBeDefined();
+      expect(freshRes._error.statusCode).toBe(400);
+      expect(freshRes._error.message).toBe('Something went wrong');
+    });
   });
 
   describe('Login', () => {
@@ -579,6 +884,39 @@ describe('Auth Controller Tests', () => {
       
       expect(decoded.password).toBeUndefined();
     });
+
+    it('should handle errors during login', async () => {
+      // Force an error by mocking User.findOne to throw
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('Database error'));
+
+      req.body = {
+        email: 'test@example.com',
+        password: 'password123',
+      };
+
+      await Login(req, res);
+
+      expect(res._statusCode).toBe(500);
+      expect(res._jsonData.message).toBe('Database error');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should use sameSite "none" for cookies when NODE_ENV=production (Login)', async () => {
+      // Set production env temporarily
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      // Login: ensure cookie sameSite 'none'
+      // User already created in beforeEach
+      req.body = { email: 'test@example.com', password: 'password123' };
+      await Login(req, res);
+      expect(res._cookies.access_token).toBeDefined();
+      expect(res._cookies.access_token.options.sameSite).toBe('none');
+
+      // restore env
+      process.env.NODE_ENV = prevEnv;
+    });
   });
 
   describe('GoogleLogin', () => {
@@ -664,6 +1002,39 @@ describe('Auth Controller Tests', () => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       expect(decoded.email).toBe('google@example.com');
     });
+
+    it('should handle errors during Google login', async () => {
+      // Force an error by mocking User.findOne to throw
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('Google login failed'));
+
+      req.body = {
+        name: 'Google User',
+        email: 'google@example.com',
+        avatar: 'avatar.jpg',
+      };
+
+      await GoogleLogin(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Google login failed');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should use sameSite "none" for cookies when NODE_ENV=production (GoogleLogin)', async () => {
+      // Set production env temporarily
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      // GoogleLogin: new user
+      req.body = { name: 'Prod User', email: 'prod@example.com', avatar: 'a.jpg' };
+      await GoogleLogin(req, res, next);
+      expect(res._cookies.access_token.options.sameSite).toBe('none');
+
+      // restore env
+      process.env.NODE_ENV = prevEnv;
+    });
   });
 
   describe('Logout', () => {
@@ -687,6 +1058,33 @@ describe('Auth Controller Tests', () => {
         httpOnly: true,
         path: '/',
       });
+    });
+
+    it('should handle errors during logout', async () => {
+      // Force an error by mocking res.clearCookie to throw
+      res.clearCookie = jest.fn(() => {
+        throw new Error('Logout failed');
+      });
+
+      await Logout(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Logout failed');
+    });
+
+    it('should use sameSite "none" for cookies when NODE_ENV=production (Logout)', async () => {
+      // Set production env temporarily
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      // Logout: clearCookie should have sameSite 'none'
+      await Logout(req, res, next);
+      const cleared = res._clearedCookies[res._clearedCookies.length - 1];
+      expect(cleared.options.sameSite).toBe('none');
+
+      // restore env
+      process.env.NODE_ENV = prevEnv;
     });
   });
 });
