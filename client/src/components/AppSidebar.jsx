@@ -1,197 +1,154 @@
-import { useMemo } from "react";
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarGroup,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-} from "@/components/ui/sidebar";
+﻿import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import logo from "@/assets/images/logo-white.svg";
-import { IoHomeOutline } from "react-icons/io5";
-import { BiCategoryAlt } from "react-icons/bi";
-import { GrBlog } from "react-icons/gr";
-import { FaRegComments } from "react-icons/fa6";
-import { LuUsers } from "react-icons/lu";
+import {
+    LayoutDashboard,
+    FileText,
+    MessageSquare,
+    Bookmark,
+    Briefcase,
+    Users,
+    Settings,
+    LogOut,
+} from "lucide-react";
+
+import { useSelector, useDispatch } from "react-redux";
+import { getEnv } from "@/helpers/getEnv";
 import {
     RouteIndex,
-    RouteFollowing,
-    RouteSaved,
-    RouteCategoryFeed,
-    RouteCategoryDetails,
     RouteBlog,
     RouteCommentDetails,
+    RouteSaved,
+    RouteFollowing,
+    RouteCategoryDetails,
     RouteUser,
+    RouteHelp,
 } from "@/helpers/RouteName";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useSelector } from "react-redux";
-import { Bookmark } from "lucide-react";
-import { useFetch } from "@/hooks/useFetch";
-import { getEnv } from "@/helpers/getEnv";
+import { removeUser } from "@/redux/user/user.slice";
+import { showToast } from "@/helpers/showToast";
+import { TOPBAR_HEIGHT_PX } from "./Topbar";
 
-function AppSidebar({ className }) {
-    const isMobile = useIsMobile();
-    const user = useSelector((state) => state.user);
+/* ------------------------- Sidebar Item ------------------------- */
+const SidebarItem = ({ icon: Icon, label, to, active }) => (
+    <Link
+        to={to}
+        className={`relative flex items-center justify-between px-8 py-3.5 cursor-pointer transition-all duration-300 group 
+            ${active ? "bg-gray-50" : "hover:bg-gray-50"}`}
+    >
+        {active && (
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#6C5CE7] rounded-r-md" />
+        )}
+
+        <div
+            className={`flex items-center gap-5 ${
+                active ? "text-[#6C5CE7]" : "text-gray-500 group-hover:text-gray-900"
+            }`}
+        >
+            <Icon
+                size={22}
+                strokeWidth={active ? 2.5 : 2}
+                className="transition-transform group-hover:scale-110"
+            />
+            <span
+                className={`text-[15px] ${active ? "font-bold" : "font-medium"}`}
+            >
+                {label}
+            </span>
+        </div>
+    </Link>
+);
+
+/* ========================== MAIN SIDEBAR ========================== */
+const AppSidebar = () => {
+    const userState = useSelector((state) => state.user);
+    const dispatch = useDispatch();
     const location = useLocation();
 
-    const baseUrl = getEnv("VITE_API_BASE_URL");
-    const categoryUrl = baseUrl ? `${baseUrl}/category/all-category` : null;
-    const { data: categoryData, loading: categoriesLoading } = useFetch(
-        categoryUrl,
-        { method: "get", credentials: "include" },
-        [categoryUrl]
-    );
+    /* ----------------- LOGOUT ----------------- */
+    const handleLogout = async () => {
+        try {
+            const response = await fetch(`${getEnv("VITE_API_BASE_URL")}/auth/logout`, {
+                method: "get",
+                credentials: "include",
+            });
 
-    const categories = useMemo(() => {
-        if (!Array.isArray(categoryData?.category)) {
-            return [];
+            const data = await response.json();
+            if (!response.ok) return showToast("error", data.message);
+
+            dispatch(removeUser());
+            showToast("success", data.message);
+        } catch (error) {
+            showToast("error", error.message);
         }
-        return categoryData.category.filter(Boolean);
-    }, [categoryData]);
+    };
+
+    /* ----------------- Nav Items ----------------- */
+    const navItems = [
+        { icon: LayoutDashboard, label: "Dashboard", to: RouteIndex },
+        { icon: FileText, label: "My Blogs", to: RouteBlog, auth: true },
+        { icon: MessageSquare, label: "Comments", to: RouteCommentDetails, auth: true },
+        { icon: Bookmark, label: "Saved", to: RouteSaved, auth: true },
+        { icon: Users, label: "Following", to: RouteFollowing, auth: true },
+        { icon: Briefcase, label: "Manage Categories", to: RouteCategoryDetails, admin: true },
+        { icon: Users, label: "Manage Users", to: RouteUser, admin: true },
+    ];
+
+    const topOffset = TOPBAR_HEIGHT_PX || 88;
 
     return (
-        <Sidebar
-            className={`bg-white h-full border-r border-gray-200 ${className || ""}`}
-            collapsible={isMobile ? "offcanvas" : "none"}
+        <aside
+            className="fixed left-0 bottom-0 w-72 bg-white border-r border-gray-100 z-30 overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out"
+            style={{ top: `${topOffset}px` }}
         >
-            <SidebarHeader className="bg-white">
-                {!isMobile && (
-                    <div className="p-4">
-                        <img src={logo} width={120} alt="ShabdSetu" />
-                    </div>
+            <div className="py-6">
+                {/* ------------ Overview Section ------------ */}
+                <h3 className="px-8 mt-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    Overview
+                </h3>
+
+                <nav className="space-y-1.5">
+                    {navItems.map(({ icon, label, to, auth, admin }) => {
+                        if (auth && !userState?.isLoggedIn) return null;
+                        if (admin && userState?.user?.role !== "admin") return null;
+
+                        const active = location.pathname === to;
+                        return (
+                            <SidebarItem
+                                key={label}
+                                icon={icon}
+                                label={label}
+                                to={to}
+                                active={active}
+                            />
+                        );
+                    })}
+                </nav>
+
+            </div>
+
+            {/* ------------ Footer Items (Help + Logout) ------------ */}
+            <div className="p-6 border-t border-gray-50">
+                <SidebarItem
+                    icon={Settings}
+                    label="Help Center"
+                    to={RouteHelp}
+                    active={location.pathname === RouteHelp}
+                />
+
+                {userState?.isLoggedIn && (
+                    <button
+                        onClick={handleLogout}
+                        className="mt-3 w-full px-8 py-3.5 flex items-center gap-4 text-gray-500 hover:text-red-500 cursor-pointer transition-all group"
+                    >
+                        <LogOut
+                            size={22}
+                            className="group-hover:-translate-x-1 transition-transform"
+                        />
+                        <span className="text-[15px] font-medium">Logout</span>
+                    </button>
                 )}
-                {isMobile && <div className="h-4" />}
-            </SidebarHeader>
-
-            <SidebarContent className="bg-white">
-                <SidebarGroup>
-                    <SidebarMenu>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild>
-                                <Link to={RouteIndex} className="flex items-center gap-2">
-                                    <IoHomeOutline />
-                                    Home
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        {user && user.isLoggedIn
-                            ? <>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteBlog} className="flex items-center gap-2">
-                                            <GrBlog />
-                                            My Blogs
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteCommentDetails} className="flex items-center gap-2">
-                                            <FaRegComments />
-                                            Comments
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteSaved} className="flex items-center gap-2">
-                                            <Bookmark className="h-4 w-4" />
-                                            Saved
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteFollowing} className="flex items-center gap-2">
-                                            <LuUsers />
-                                            Following
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-
-                            </>
-                            :
-                            <></>
-                        }
-
-                        {user && user.isLoggedIn && user.user.role === 'admin'
-                            ? <>
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteCategoryDetails} className="flex items-center gap-2">
-                                            <BiCategoryAlt />
-                                                Manage Categories
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton asChild>
-                                        <Link to={RouteUser} className="flex items-center gap-2">
-                                            <LuUsers />
-                                                Manage Users
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            </>
-                            :
-                            <></>
-                        }
-
-                    </SidebarMenu>
-                </SidebarGroup>
-
-                <SidebarGroup>
-                    <SidebarGroupLabel className="flex items-center gap-2 font-semibold text-black-600 text-md">
-                        Popular Categories
-                    </SidebarGroupLabel>
-                    <SidebarMenu>
-                        {categoriesLoading ? (
-                            <SidebarMenuItem>
-                                <div className="text-sm text-gray-400 px-2 py-2">
-                                    Loading categories...
-                                </div>
-                            </SidebarMenuItem>
-                        ) : categories.length > 0 ? (
-                            categories.map((category) => {
-                                const path = category?.slug ? RouteCategoryFeed(category.slug) : null;
-                                if (!path) {
-                                    return null;
-                                }
-                                const isActive = location.pathname === path;
-                                return (
-                                    <SidebarMenuItem key={category._id || category.slug}>
-                                        <SidebarMenuButton asChild>
-                                            <Link
-                                                to={path}
-                                                className={`flex items-center gap-2 ${isActive ? "text-blue-600 font-semibold" : ""}`}
-                                            >
-                                                {category.name}
-                                            </Link>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                );
-                            })
-                        ) : (
-                            <SidebarMenuItem>
-                                <div className="text-sm text-gray-400 px-2 py-2">
-                                    No categories available
-                                </div>
-                            </SidebarMenuItem>
-                        )}
-                    </SidebarMenu>
-                </SidebarGroup>
-            </SidebarContent>
-        </Sidebar>
+            </div>
+        </aside>
     );
-}
+};
 
 export default AppSidebar;

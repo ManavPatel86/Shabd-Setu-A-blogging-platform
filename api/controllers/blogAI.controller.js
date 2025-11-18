@@ -212,6 +212,10 @@ export const generateCategorySuggestions = async (req, res, next) => {
       matched.push(category)
     })
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+    
     res.status(200).json({
       success: true,
       categories: matched,
@@ -468,5 +472,111 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
     const statusCode = error.statusCode ? error.statusCode : 500
     const message = error.message ? error.message : 'Failed to generate summary.'
     next(handleError(statusCode, message))
+  }
+}
+
+export const generateBlogDescription = async (req, res, next) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return next(handleError(500, 'Gemini API key is not configured.'))
+    }
+
+    const userId = req.user?._id
+    if (!userId) {
+      return next(handleError(401, 'Authentication required to generate description.'))
+    }
+
+    const rawTitle = String(req.body?.title || '').trim()
+    const rawContent = String(req.body?.content || '').trim()
+
+    if (!rawTitle && !rawContent) {
+      return next(handleError(400, 'Blog title or content is required for description generation.'))
+    }
+
+    const plainContent = toPlainText(rawContent)
+    const contentForDescription = plainContent.length > MAX_CONTENT_LENGTH
+      ? `${plainContent.slice(0, MAX_CONTENT_LENGTH)}...`
+      : plainContent
+
+    const prompt = ChatPromptTemplate.fromMessages([
+      [
+        'system',
+        'You are a professional blog editor. Generate a concise, engaging 2-4 line description (max 300 characters) '
+        + 'that summarizes the blog post and encourages readers to click. '
+        + 'The description should capture the essence of the content and be SEO-friendly.'
+      ],
+      [
+        'human',
+        'Blog title: {title}\n\nBlog content:\n{content}\n\n'
+        + 'Generate a brief, compelling description (2-4 lines, max 300 characters):'
+      ],
+    ])
+
+    const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+    const candidateModels = Array.from(new Set([
+      preferredModel,
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-pro',
+    ])).filter(Boolean)
+
+    let modelOutput = ''
+    let lastError
+
+    for (const modelId of candidateModels) {
+      try {
+        const model = new ChatGoogleGenerativeAI({
+          apiKey: process.env.GEMINI_API_KEY,
+          model: modelId,
+          temperature: 0.7,
+          maxOutputTokens: 256,
+        })
+
+        const chain = prompt.pipe(model).pipe(new StringOutputParser())
+
+        modelOutput = await chain.invoke({
+          title: rawTitle || 'Untitled Blog Post',
+          content: contentForDescription || 'No content provided.',
+        })
+
+        modelOutput = (modelOutput || '').trim()
+        if (modelOutput) {
+          break
+        }
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    if (!modelOutput) {
+      const message = lastError?.message || 'Gemini returned no output.'
+      const statusCode = lastError?.status === 404 ? 502 : 500
+      throw handleError(
+        statusCode,
+        `${message} Please verify GEMINI_MODEL is available.`
+      )
+    }
+
+    // Limit to 300 characters
+    let description = modelOutput.trim()
+    if (description.length > 300) {
+      description = description.slice(0, 297) + '...'
+    }
+
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+
+    return res.status(200).json({
+      success: true,
+      description,
+    })
+  } catch (error) {
+    next(handleError(500, error.message || 'Failed to generate description.'))
   }
 }

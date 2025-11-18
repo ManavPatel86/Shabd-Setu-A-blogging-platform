@@ -1,16 +1,36 @@
-import React, { useState, useRef, useEffect } from "react";
-import { MessageCircle, Share2, Bot, Loader2 } from "lucide-react";
+import React, { useState, useRef } from "react";
+import {
+  MessageCircle,
+  Share2,
+  Bot,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
-import { RouteBlogDetails, RouteProfileView } from "@/helpers/RouteName";
+import {
+  RouteBlogDetails,
+  RouteProfileView,
+} from "@/helpers/RouteName";
 import { showToast } from "@/helpers/showToast";
 import LikeCount from "./LikeCount";
 import ViewCount from "./ViewCount";
 import SaveButton from "./SaveButton";
 import { getEnv } from "@/helpers/getEnv";
+import SummaryModal from "./SummaryModal";
+import { decode } from "entities";
 
-const BlogCard = ({ blog }) => {
-  // Defensive check to prevent crash if blog is undefined
+const BlogCard = ({ blog, className = "" }) => {
+  const navigate = useNavigate();
+
+  // -------- Summary states (from MAIN version) --------
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+  const [summary, setSummary] = useState("");
+  const [cachedSummary, setCachedSummary] = useState("");
+  const abortControllerRef = useRef(null);
+
   if (!blog) return null;
 
   const {
@@ -19,328 +39,317 @@ const BlogCard = ({ blog }) => {
     title,
     description,
     author,
-  categories: categoriesFromApi,
-  category, // legacy fallback
+    categories: categoriesFromApi,
+    category,
     createdAt,
-    slug
+    slug,
   } = blog;
 
-  const navigate = useNavigate();
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState("");
-  const [summary, setSummary] = useState("");
-  const [cachedSummary, setCachedSummary] = useState("");
-  const abortControllerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
+  // Backend-correct category logic (from MAIN)
   const categories = Array.isArray(categoriesFromApi)
     ? categoriesFromApi.filter(Boolean)
     : category
-      ? [category]
-      : [];
+    ? [category]
+    : [];
 
   const primaryCategory = categories[0];
 
+  // -------- Comment Count (UI branch logic) --------
+  const commentCount =
+    blog?.commentStats?.totalComments ??
+    blog?.commentsCount ??
+    blog?.commentCount ??
+    (Array.isArray(blog?.comments) ? blog.comments.length : 0);
+
+  const cleanDescription = (() => {
+    if (!description) return "";
+    try {
+      return decode(description)
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch {
+      return description;
+    }
+  })();
+
+  const formatCount = (value) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "0";
+    if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`;
+    }
+    if (value >= 1_000) {
+      return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`;
+    }
+    return String(value);
+  };
+
+  const formattedCommentCount = formatCount(commentCount);
+
+  // -------- Navigation logic (MAIN) --------
   const navigateToBlog = (showComments = false) => {
-    const categorySlug = primaryCategory?.slug || 'category';
+    const catSlug = primaryCategory?.slug || "category";
     navigate(
-      RouteBlogDetails(categorySlug, slug || _id) +
-        (showComments ? '?comments=true' : '')
+      RouteBlogDetails(catSlug, slug || _id) +
+        (showComments ? "?comments=true" : "")
     );
   };
 
-  const handleCardClick = (e) => {
-    // If the click is coming from the actions bar, don't navigate
-    if (e.target.closest('.blog-actions')) {
-      return;
-    }
-    navigateToBlog(false);
-  };
-
-  const handleAuthorClick = (event) => {
-    event.stopPropagation();
-    if (author?._id) {
-      navigate(RouteProfileView(author._id));
-    }
-  };
-
-  const handleShare = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const path = RouteBlogDetails(category?.slug, slug || _id);
-    const url = `${window.location.origin}${path}`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: title || "Read this blog",
-          text: description ? description.replace(/<[^>]*>/g, '').slice(0, 120) : undefined,
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        showToast('success', 'Link copied to clipboard');
-      }
-    } catch (err) {
-      // If user cancels native share, do nothing; otherwise fallback to copy
-      if (err?.name !== 'AbortError') {
-        try {
-          await navigator.clipboard.writeText(url);
-          showToast('success', 'Link copied to clipboard');
-        } catch (_) {
-          showToast('error', 'Unable to share.');
-        }
-      }
-    }
-  };
-
+  // -------- SUMMARY HANDLER (MAIN version – most stable) --------
   const fetchSummary = async (refresh = false) => {
-    if (!_id) return;
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
       setSummaryLoading(true);
       setSummaryError("");
-      if (refresh && !cachedSummary) {
-        setSummary("");
-      }
 
       const query = refresh ? "?refresh=true" : "";
       const response = await fetch(
         `${getEnv("VITE_API_BASE_URL")}/blog/summary/${_id}${query}`,
-        {
-          method: "get",
-          credentials: "include",
-          signal: controller.signal,
-        }
+        { method: "get", credentials: "include", signal: controller.signal }
       );
 
       const result = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(result?.message || "Failed to generate summary");
-      }
 
-      const incomingSummary = result?.summary || "";
+      const text = result?.summary || "";
 
       if (result?.cached || !refresh) {
-        setCachedSummary(incomingSummary);
-        setSummary(incomingSummary);
+        setCachedSummary(text);
+        setSummary(text);
       } else {
-        setSummary(incomingSummary || cachedSummary);
+        setSummary(text || cachedSummary);
       }
-    } catch (error) {
-      if (error.name === "AbortError") return;
-      setSummary(cachedSummary || "");
-      setSummaryError(error.message || "Failed to generate summary");
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        setSummary(cachedSummary || "");
+        setSummaryError(err.message || "Failed to generate summary");
+      }
     } finally {
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
-      }
       setSummaryLoading(false);
     }
   };
 
-  const handleSummaryToggle = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const openSummary = (e) => {
+    e.stopPropagation();
+    setIsModalOpen(true);
+    if (!cachedSummary && !summaryLoading) fetchSummary(false);
+    else setSummary(cachedSummary);
+  };
 
-    const nextState = !isSummaryOpen;
-    setIsSummaryOpen(nextState);
+  const closeModal = () => setIsModalOpen(false);
 
-    if (nextState) {
-      if (cachedSummary) {
-        setSummary(cachedSummary);
-        setSummaryError("");
-      } else if (!summary && !summaryLoading) {
-        fetchSummary(false);
+  // -------- SHARE HANDLER (MAIN/UI same) --------
+  const handleShare = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}${RouteBlogDetails(
+      primaryCategory?.slug,
+      slug || _id
+    )}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title,
+          text: description?.replace(/<[^>]*>/g, "").slice(0, 120),
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast("success", "Link copied to clipboard");
       }
+    } catch {
+      await navigator.clipboard.writeText(url);
+      showToast("success", "Link copied to clipboard");
     }
   };
 
-  const handleSummaryRefresh = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (cachedSummary) {
-      setSummary(cachedSummary);
-      setSummaryError("");
+  // -------- EXCERPT (MAIN version is more accurate) --------
+  const getBlogExcerpt = (html) => {
+    if (!html) return "No preview available.";
+    try {
+      let decodedHTML = decode(html)
+        .replace(/<script[\s\S]?>[\s\S]?<\/script>/gi, "")
+        .replace(/<style[\s\S]?>[\s\S]?<\/style>/gi, "");
+
+      const blocks = decodedHTML
+        .split(/<\/?[^>]+>/g)
+        .map((txt) => txt.replace(/\s+/g, " ").trim())
+        .filter((txt) => txt.length > 0);
+
+      if (!blocks.length) return "No preview available.";
+
+      const best = blocks.find(
+        (b) =>
+          b.length > 40 &&
+          !b.startsWith("{") &&
+          !b.startsWith("[") &&
+          !b.match(/^#/) &&
+          !b.match(/^h\d/i)
+      );
+
+      const finalText = best || blocks[0];
+      const clean = finalText.replace(/\s+/g, " ").trim();
+      return clean.length > 150 ? clean.slice(0, 147) + "..." : clean;
+    } catch {
+      return "No preview available.";
     }
-    fetchSummary(true);
   };
 
+  // -------- UI Rendering (UI version layout) --------
   return (
-    <div
-      onClick={handleCardClick}
-      className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all cursor-pointer flex flex-col p-5"
-    >
-      {/* Top Categories */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {categories.length > 0 ? (
-          categories.map((item) => (
-            <span
-              key={item?._id || item?.slug || item?.name}
-              className="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-sm font-medium"
-            >
-              {item?.name || "Uncategorized"}
+    <>
+      <div
+        onClick={(e) => {
+          if (!e.target.closest(".blog-actions")) navigateToBlog(false);
+        }}
+        className={`
+          flex h-full flex-col
+          rounded-[26px] border border-slate-100 bg-white/95
+          p-4 shadow-[0_20px_48px_-32px_rgba(15,23,42,0.45)] backdrop-blur-sm
+          transition-all duration-300 cursor-pointer
+          hover:-translate-y-1 hover:shadow-xl
+          ${className}
+        `}
+      >
+        {/* IMAGE */}
+        <div className="group relative mb-3 w-full overflow-hidden rounded-[20px]">
+          <img
+            src={featuredImage || "/placeholder.jpg"}
+            alt={title}
+            className="h-40 w-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+
+          {/* Category Badges */}
+          <div className="absolute top-3 left-3">
+            <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
+              {(categories.length > 0 ? categories : [{ name: "Uncategorized" }])[0]?.name || "Uncategorized"}
             </span>
-          ))
-        ) : (
-          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
-            Uncategorized
-          </span>
-        )}
-      </div>
+          </div>
+        </div>
 
-      {/* Main Row */}
-      <div className="flex flex-col md:flex-row justify-between gap-5">
-        {/* Content */}
-        <div className="flex-1">
-          <h2 className="text-xl md:text-2xl font-bold leading-snug mb-2">
-            {title || "Untitled Blog"}
-          </h2>
-
-          <p
-            className="text-gray-600 text-sm md:text-base line-clamp-2 mb-4"
-            dangerouslySetInnerHTML={{
-              __html: description
-                ? description.slice(0, 180) + "..."
-                : "No description available."
-            }}
-          ></p>
-
-          {/* Author */}
+        {/* AUTHOR + DATE */}
+        <div className="mb-3 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={handleAuthorClick}
-            className="flex items-center gap-3 text-left focus:outline-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (author?._id) navigate(RouteProfileView(author._id));
+            }}
+            className="flex items-center gap-3"
           >
             <img
               src={author?.avatar || "/default-avatar.png"}
-              alt={author?.name || "Author"}
-              className="w-9 h-9 rounded-full border"
+              className="h-10 w-10 rounded-full border border-slate-100 object-cover shadow-sm"
+              alt={author?.name || "Author avatar"}
             />
-            <div>
-              <p className="font-medium text-sm text-gray-900">
-                {author?.name || "Anonymous"}
-              </p>
-              <p className="text-xs text-gray-500">
-                {createdAt
-                  ? moment(createdAt).format("MMM D, YYYY")
-                  : "Unknown date"}{" "}
-                · <span className="text-green-500 font-semibold"><ViewCount blogId={_id} /></span>
-              </p>
+
+            <div className="text-left">
+              <h4 className="text-sm font-semibold text-slate-900">
+                {author?.name || "Unknown Author"}
+              </h4>
+              <span className="text-xs text-slate-400">
+                <ViewCount blogId={_id} />
+              </span>
             </div>
           </button>
+
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+            <Clock size={12} /> {moment(createdAt).format("MMM D, YYYY")}
+          </span>
         </div>
 
-        {/* Image */}
-        <div className="w-full md:w-48 h-32 md:h-32 flex-shrink-0 overflow-hidden rounded-lg">
-          <img
-            src={featuredImage || "/placeholder.jpg"}
-            alt={title || "Blog Image"}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      </div>
+        {/* TITLE */}
+        <h2
+          className="mb-1 text-[1.02rem] font-semibold leading-snug text-slate-900 transition-colors hover:text-[#6C5CE7] line-clamp-2"
+        >
+          {title}
+        </h2>
 
-      {isSummaryOpen ? (
-        <div className="mt-4">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-900">AI Summary</p>
-              <button
-                type="button"
-                onClick={handleSummaryRefresh}
-                className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 disabled:opacity-60"
-                disabled={summaryLoading}
-              >
-                {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {summaryLoading ? "Refreshing" : "Refresh"}
-              </button>
-            </div>
+        {/* EXCERPT */}
+        <p className="mb-2 text-[12.5px] leading-relaxed text-slate-500 line-clamp-[3]">
+          {cleanDescription || getBlogExcerpt(blog?.blogContent)}
+        </p>
 
-            <div className="mt-3 text-xs leading-relaxed text-slate-700">
-              {summaryLoading && !summary ? (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating summary...
-                </div>
-              ) : summaryError ? (
-                <p className="text-red-600">{summaryError}</p>
-              ) : summary ? (
-                <div className="space-y-3">
-                  {(() => {
-                    const lines = summary
-                      .split("\n")
-                      .map((line) => line.trim())
-                      .filter(Boolean);
-                    const paragraphs = lines.filter((line) => !line.startsWith("-"));
-                    const bullets = lines.filter((line) => line.startsWith("-"));
-                    return (
-                      <>
-                        {paragraphs.map((paragraph, index) => (
-                          <p key={`card-summary-paragraph-${index}`}>{paragraph}</p>
-                        ))}
-                        {bullets.length > 0 ? (
-                          <ul className="list-disc list-inside space-y-1 text-slate-600">
-                            {bullets.map((bullet, index) => (
-                              <li key={`card-summary-bullet-${index}`}>
-                                {bullet.replace(/^[-*]\s?/, "").trim()}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </div>
-              ) : (
-                <p className="text-slate-500">Summary will appear here once generated.</p>
-              )}
-            </div>
+        {/* ACTION BUTTONS */}
+        <div className="mt-auto space-y-3 pt-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateToBlog(false);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#6C5CE7] px-4 py-1.5 text-xs font-semibold text-white shadow-[0_10px_26px_-18px_rgba(108,92,231,0.9)] transition hover:bg-[#5b4bc4] hover:shadow-lg"
+            >
+              Read Article
+              <ChevronRight size={16} className="opacity-80" />
+            </button>
+
+            <button
+              onClick={openSummary}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Smart Summary
+            </button>
+          </div>
+
+          {/* ACTION BAR */}
+          <div
+            className="
+              blog-actions flex w-full items-center gap-2 overflow-x-auto
+              rounded-[20px] border border-slate-100 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm
+            "
+          >
+            <LikeCount
+              blogid={_id}
+              variant="chip"
+              className="transition text-xs"
+            />
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateToBlog(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>{formattedCommentCount}</span>
+            </button>
+
+            <button
+              onClick={handleShare}
+              aria-label="Share blog"
+              className="inline-flex items-center justify-center rounded-full bg-[#6C5CE7]/12 p-2 text-[#6C5CE7] transition hover:bg-[#6C5CE7]/20"
+            >
+              <Share2 size={14} />
+            </button>
+
+            <SaveButton
+              blogId={_id}
+              size="sm"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-600 transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
+            />
           </div>
         </div>
-      ) : null}
-
-      {/* Bottom actions */}
-      <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-100">
-        <button
-          type="button"
-          onClick={handleSummaryToggle}
-          className="flex items-center gap-1 text-gray-600 hover:text-black text-sm"
-        >
-          <Bot className="h-4 w-4" /> {isSummaryOpen ? "Hide" : "Summary"}
-        </button>
-        <div className="blog-actions flex items-center gap-4 text-gray-500">
-          <LikeCount blogid={_id} />
-          <button onClick={(e) => {
-            e.preventDefault();
-            navigateToBlog(true);
-          }} className="flex items-center gap-1 text-gray-600 hover:text-black">
-            <MessageCircle className="h-4 w-4" />
-          </button>
-          <button onClick={handleShare} className="flex items-center gap-1 text-gray-600 hover:text-black cursor-pointer">
-            <Share2 className="h-4 w-4" />
-          </button>
-          <SaveButton blogId={_id} size="sm" className="text-gray-600" />
-        </div>
       </div>
-    </div>
+
+      {/* SUMMARY MODAL */}
+      <SummaryModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        summary={summary}
+        summaryLoading={summaryLoading}
+        summaryError={summaryError}
+        onRefresh={() => fetchSummary(true)}
+      />
+    </>
   );
 };
 

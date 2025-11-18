@@ -11,15 +11,18 @@ import {
     RouteProfileView,
     RouteSignIn,
     RouteSignUp,
+    RouteForgotPassword,
     RouteBlogDetails,
     RouteSearch,
     RouteCommentDetails,
     RouteFollowing,
+    RouteHelp,
     RouteFollowers,
     RouteSaved,
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
+    RouteAdminReports,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";
 import EditBlog from "./Pages/Blog/EditBlog";
@@ -30,9 +33,11 @@ import Profile from "./Pages/Profile";
 import Comments from "./Pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";
+import Help from "./Pages/Help";
 import Followers from "./Pages/Followers";
 import Saved from "./Pages/Saved";
 import ManageUsers from "./Pages/ManageUsers";
+import AdminReports from "./Pages/AdminReports";
 import AddCategory from './Pages/Category/AddCategory'
 import CategoryDetails from './Pages/Category/CategoryDetails'
 import EditCategory from './Pages/Category/EditCategory'
@@ -43,6 +48,7 @@ import SingleBlogDetails from "./Pages/SingleBlogDetails";
 import SearchResult from "./Pages/SearchResult";
 import CategoryFeed from "./Pages/CategoryFeed";
 import Landing from "./Pages/Landing";
+import ForgotPassword from "./Pages/ForgotPassword";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
@@ -62,6 +68,7 @@ function App() {
                         <Route path={RouteProfile} element={<Profile />} />
                         <Route path={RouteProfileView()} element={<ProfileView />} />
                         <Route path={RouteFollowing} element={<Following />} />
+                        <Route path={RouteHelp} element={<Help />} />
                         <Route path={RouteFollowers} element={<Followers />} />
                         <Route path={RouteAddCategory} element={<AddCategory />} />
                         <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
@@ -78,6 +85,7 @@ function App() {
                         <Route path={RouteCommentDetails} element={<Comments />} />
                         <Route path={RouteSaved} element={<Saved />} />
                         <Route path={RouteUser} element={<ManageUsers />} />
+                        <Route path={RouteAdminReports} element={<AdminReports />} />
 
                         {/* This is the new public blog detail route */}
                         <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
@@ -85,6 +93,7 @@ function App() {
 
                     <Route path={RouteSignIn} element={<SignIn />} />
                     <Route path={RouteSignUp} element={<SignUp />} />
+                        <Route path={RouteForgotPassword} element={<ForgotPassword />} />
             </Routes>
             </NotificationsProvider>
         </BrowserRouter>

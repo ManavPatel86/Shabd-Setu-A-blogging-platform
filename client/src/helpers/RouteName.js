@@ -2,6 +2,7 @@ export const RouteLanding = '/'
 export const RouteIndex = '/home'
 export const RouteSignIn = "/signin";
 export const RouteSignUp = "/signup";
+export const RouteForgotPassword = "/forgot-password";
 export const RouteProfile = "/profile";
 export const RouteProfileView = (userId) => {
     if (userId) {
@@ -10,6 +11,7 @@ export const RouteProfileView = (userId) => {
     return "/profile/view/:userId";
 };
 export const RouteFollowing = "/following";
+export const RouteHelp = "/help";
 export const RouteFollowers = "/followers";
 export const RouteSaved = "/saved";
 export const RouteCategoryFeed = (categorySlug) => {
@@ -71,3 +73,4 @@ export const RouteSearch = (q) => {
 
 export const RouteCommentDetails = '/comments'
 export const RouteUser = '/users'
+export const RouteAdminReports = '/admin/reports'
