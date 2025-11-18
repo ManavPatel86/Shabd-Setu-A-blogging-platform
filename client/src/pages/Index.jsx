@@ -241,9 +241,9 @@ const Index = () => {
         setActiveCategory={setActiveCategory}
       />
 
-      <div className="px-4 sm:px-8 lg:px-12 pt-6 pb-16">
-        {/* Featured Blog */}
-        {featuredBlog && <FeaturedCard blog={featuredBlog} />}
+      <div className="px-4 pt-4 pb-12 sm:px-8 lg:px-12 sm:pt-6 sm:pb-16">
+        {/* Featured Hero Slider */}
+        <FeaturedCard />
 
         {/* Feed Tabs */}
         <FeedTabs
@@ -251,12 +251,12 @@ const Index = () => {
           setActiveFeedTab={setActiveFeedTab}
         />
 
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-3 shadow-sm">
+        <div className="flex items-center justify-between px-5 py-3 mt-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
           <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
             Total blogs
           </span>
           <div className="flex items-center gap-3">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+            <span className="px-3 py-1 text-xs font-medium border rounded-full border-slate-200 bg-slate-50 text-slate-500">
               {activeCategory === "All" ? "All categories" : activeCategory}
             </span>
             <span className="text-2xl font-bold text-slate-900">
@@ -266,14 +266,14 @@ const Index = () => {
         </div>
 
         {/* BLOG GRID */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pt-6">
+        <section className="grid grid-cols-1 gap-8 pt-6 md:grid-cols-2 xl:grid-cols-3">
           {filteredBlogs.length > 0 ? (
             filteredBlogs.map((blog) => (
               <BlogCard key={blog?._id} blog={blog} />
             ))
           ) : (
-            <div className="col-span-full bg-white border border-dashed border-gray-200 rounded-3xl p-12 text-center text-gray-500">
-              <p className="text-lg font-semibold mb-2">
+            <div className="p-12 text-center text-gray-500 bg-white border border-gray-200 border-dashed col-span-full rounded-3xl">
+              <p className="mb-2 text-lg font-semibold">
                 {error ? "We hit a snag." : "No blogs match this view yet."}
               </p>
               <p className="text-sm">

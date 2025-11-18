@@ -257,28 +257,28 @@ const BlogDetail = ({ blog }) => {
     };
 
     return (
-        <div className="space-y-10 pb-12 text-gray-900">
-            <section className="relative overflow-hidden rounded-3xl bg-gray-200 shadow-[0_25px_80px_-40px_rgba(15,23,42,0.5)]">
-                <img src={featuredUrl} alt={title} className="h-[360px] w-full object-cover" />
+        <div className="px-4 pb-10 space-y-8 text-gray-900 sm:space-y-10 sm:pb-12 sm:px-0">
+            <section className="relative overflow-hidden rounded-3xl bg-gray-200 shadow-[0_25px_80px_-40px_rgba(15,23,42,0.5)] min-h-[260px]">
+                <img src={featuredUrl} alt={title} className="h-[260px] sm:h-[360px] w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 space-y-4 p-8">
-                    <div className="flex flex-wrap gap-3">
+                <div className="absolute inset-x-0 bottom-0 p-5 space-y-3 sm:space-y-4 sm:p-8">
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                         {categoryItems.map((cat) => (
                             <CategoryPill key={cat.key} label={cat.label} />
                         ))}
                     </div>
-                    <h1 className="text-4xl font-black tracking-tight text-white leading-tight md:text-5xl">
+                    <h1 className="text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
                         {title}
                     </h1>
                 </div>
             </section>
 
-            <section className="flex flex-wrap items-center gap-6 rounded-3xl border border-gray-100 bg-white px-6 py-5 shadow-sm">
+            <section className="flex flex-col gap-6 px-5 py-5 bg-white border border-gray-100 shadow-sm rounded-3xl sm:px-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
                     <img
                         src={author?.avatar || '/default-avatar.png'}
                         alt={author?.name}
-                        className="h-16 w-16 rounded-full border border-purple-100 object-cover"
+                        className="object-cover w-16 h-16 border border-purple-100 rounded-full"
                     />
                     <div>
                         <p className="text-sm uppercase tracking-[0.3em] text-gray-400">Author</p>
@@ -292,7 +292,7 @@ const BlogDetail = ({ blog }) => {
                         </button>
                     </div>
                 </div>
-                <div className="flex items-center gap-6 text-sm font-semibold text-gray-600">
+                <div className="flex flex-wrap gap-4 text-sm font-semibold text-gray-600">
                     <span className="flex items-center gap-2">
                         <Clock size={16} className="text-[#6C5CE7]" />
                         {formattedDate}
@@ -308,11 +308,11 @@ const BlogDetail = ({ blog }) => {
                 </div>
             </section>
 
-            <section className="rounded-3xl border border-gray-100 bg-white p-8 shadow-sm">
-                <div className="prose prose-lg max-w-none text-gray-700">
+            <section className="p-5 bg-white border border-gray-100 shadow-sm rounded-3xl sm:p-8">
+                <div className="prose prose-lg text-gray-700 max-w-none">
                     {articleBlocks.length ? (
                         articleBlocks.map((block, index) => (
-                            <p key={index} className="mb-6 text-[17px] leading-relaxed text-gray-700">
+                            <p key={index} className="mb-5 text-base sm:text-[17px] leading-relaxed text-gray-700">
                                 {block}
                             </p>
                         ))
@@ -322,13 +322,13 @@ const BlogDetail = ({ blog }) => {
                 </div>
             </section>
 
-            <section className="space-y-5 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+            <section className="p-5 space-y-5 bg-white border border-gray-100 shadow-sm rounded-3xl sm:p-6">
                 <div className="flex flex-wrap items-center gap-3">
                     <LikeCount blogid={_id} variant="clean" />
                     <button
                         type="button"
                         onClick={() => document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 rounded-2xl bg-gray-50 hover:bg-gray-100"
                     >
                         <MessageCircle size={16} />
                         {commentCount} Comments
@@ -349,7 +349,7 @@ const BlogDetail = ({ blog }) => {
                     />
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-gray-100 bg-gray-50/70 px-5 py-4">
+                <div className="flex flex-col gap-4 px-4 py-4 border border-gray-100 sm:flex-row sm:items-center sm:justify-between rounded-3xl bg-gray-50/70 sm:px-5">
                     <div>
                         <p className="text-sm font-semibold text-gray-900">Smart summary</p>
                         <p className="text-xs text-gray-500">AI highlights and talking points for this story.</p>
@@ -366,7 +366,7 @@ const BlogDetail = ({ blog }) => {
             </section>
 
             <section className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">Recommended</p>
                         <h3 className="text-2xl font-bold text-gray-900">Continue reading</h3>
@@ -375,7 +375,7 @@ const BlogDetail = ({ blog }) => {
                         See all
                     </Link>
                 </div>
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {(recommended.length ? recommended : []).map((item, idx) => {
                         const recCategories = normalizeCategories(item?.categories, item?.category);
                         const recCategoryItems = recCategories.length
@@ -391,23 +391,23 @@ const BlogDetail = ({ blog }) => {
                         return (
                             <div
                                 key={item?._id || idx}
-                                className="flex flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
+                                className="flex flex-col overflow-hidden bg-white border border-gray-100 shadow-sm rounded-3xl"
                             >
                                 <div className="h-40 overflow-hidden">
                                     <img
                                         src={item?.featuredImage || FALLBACK_IMAGE}
                                         alt={item?.title}
-                                        className="h-full w-full object-cover"
+                                        className="object-cover w-full h-full"
                                     />
                                 </div>
-                                <div className="flex flex-1 flex-col gap-4 p-5">
+                                <div className="flex flex-col flex-1 gap-4 p-5">
                                     <div className="flex flex-wrap gap-2">
                                         {recCategoryItems.map((cat) => (
                                             <CategoryPill key={cat.key} label={cat.label} />
                                         ))}
                                     </div>
-                                    <h4 className="line-clamp-2 text-lg font-bold text-gray-900">{item?.title}</h4>
-                                    <p className="line-clamp-2 text-sm text-gray-500">
+                                    <h4 className="text-lg font-bold text-gray-900 line-clamp-2">{item?.title}</h4>
+                                    <p className="text-sm text-gray-500 line-clamp-2">
                                         {stripHtml(item?.description || '').slice(0, 100) || 'Explore more insights.'}
                                     </p>
                                     <Link
@@ -422,7 +422,7 @@ const BlogDetail = ({ blog }) => {
                         );
                     })}
                     {!recommended.length && (
-                        <div className="rounded-3xl border border-dashed border-gray-200 bg-white/70 p-8 text-center text-gray-500">
+                        <div className="p-8 text-center text-gray-500 border border-gray-200 border-dashed rounded-3xl bg-white/70">
                             More suggestions appear once related posts are available.
                         </div>
                     )}

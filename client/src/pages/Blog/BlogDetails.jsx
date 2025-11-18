@@ -128,17 +128,17 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
     const authorInitial = (authorName || 'S').charAt(0).toUpperCase();
 
     return (
-        <tr className="group border-b border-gray-100 last:border-0 hover:bg-purple-50/40 transition-colors">
-            <td className="py-4 px-6 align-middle">
+        <tr className="transition-colors border-b border-gray-100 group last:border-0 hover:bg-purple-50/40">
+            <td className="px-6 py-4 align-middle">
                 <div className="flex items-center gap-4">
-                    <Avatar className="h-10 w-10 border border-gray-100 shadow-sm">
+                    <Avatar className="w-10 h-10 border border-gray-100 shadow-sm">
                         <AvatarImage src={avatarSrc || undefined} alt={authorName} className="object-cover" />
                         <AvatarFallback className="text-[#6C5CE7] text-sm font-semibold bg-purple-50">
                             {authorInitial}
                         </AvatarFallback>
                     </Avatar>
                     <div>
-                        <span className="text-gray-800 font-semibold text-sm group-hover:text-gray-900 transition-colors">
+                        <span className="text-sm font-semibold text-gray-800 transition-colors group-hover:text-gray-900">
                             {authorName}
                         </span>
                         {!isAdmin && isOwner && (
@@ -150,7 +150,7 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </div>
             </td>
 
-            <td className="py-4 px-4 align-middle">
+            <td className="px-4 py-4 align-middle">
                 <div className="flex items-center gap-2">
                     <p className="text-gray-900 font-semibold text-sm leading-relaxed line-clamp-2 group-hover:text-[#6C5CE7] transition-colors duration-200">
                         {blog?.title || 'Untitled blog'}
@@ -159,7 +159,7 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </div>
             </td>
 
-            <td className="py-4 px-4 align-middle">
+            <td className="px-4 py-4 align-middle">
                 <div className="flex flex-wrap gap-2.5">
                     {categories.map((cat, idx) => (
                         <CategoryPill key={`${blog?._id || idx}-${cat.name}`} {...cat} />
@@ -167,14 +167,14 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </div>
             </td>
 
-            <td className="py-4 px-4 align-middle whitespace-nowrap">
+            <td className="px-4 py-4 align-middle whitespace-nowrap">
                 <span className="text-gray-600 text-xs font-semibold bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 whitespace-nowrap">
                     {formattedDate}
                 </span>
             </td>
 
-            <td className="py-4 px-6 align-middle text-right">
-                <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+            <td className="px-6 py-4 text-right align-middle">
+                <div className="flex items-center justify-end gap-3 transition-all opacity-0 group-hover:opacity-100">
                     <Link
                         to={RouteBlogEdit(blog._id)}
                         className="p-2.5 rounded-xl bg-white/90 backdrop-blur border border-gray-200 text-gray-500 shadow-sm hover:text-[#6C5CE7] hover:border-purple-200 hover:bg-purple-50 hover:-translate-y-0.5 transition-all"
@@ -192,6 +192,75 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </div>
             </td>
         </tr>
+    );
+};
+
+const MobileBlogCard = ({ blog, isAdmin, currentUserId, onDelete }) => {
+    const authorName = blog?.author?.name || 'Unknown Author';
+    const isOwner = currentUserId && blog?.author?._id === currentUserId;
+    const categories = getCategoryLabels(blog).map(getCategoryMeta);
+    const formattedDate = blog?.createdAt ? moment(blog.createdAt).format('DD MMM YYYY') : '—';
+    const avatarSrc = blog?.author?.avatar || blog?.author?.profilePicture || '';
+    const authorInitial = (authorName || 'S').charAt(0).toUpperCase();
+
+    return (
+        <div className="p-4 space-y-3 border border-gray-100 shadow-sm rounded-3xl bg-white/95">
+            <div className="flex items-center gap-3">
+                <Avatar className="border border-gray-100 h-11 w-11">
+                    <AvatarImage src={avatarSrc || undefined} alt={authorName} className="object-cover" />
+                    <AvatarFallback className="text-[#6C5CE7] text-sm font-semibold bg-purple-50">
+                        {authorInitial}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">{authorName}</p>
+                    {!isAdmin && isOwner && (
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-purple-500 font-bold">You</p>
+                    )}
+                </div>
+                <span className="rounded-full bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-500 border border-gray-100">
+                    {formattedDate}
+                </span>
+            </div>
+
+            <div>
+                <p className="text-base font-semibold leading-snug text-gray-900">
+                    {blog?.title || 'Untitled blog'}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {categories.map((cat, idx) => (
+                        <CategoryPill key={`${blog?._id || idx}-${cat.name}-mobile`} {...cat} />
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-[#6C5CE7] font-semibold"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                >
+                    Details
+                    <ChevronRight size={14} />
+                </button>
+                <div className="flex items-center gap-2">
+                    <Link
+                        to={RouteBlogEdit(blog._id)}
+                        className="p-2 rounded-2xl border border-gray-200 text-gray-500 hover:text-[#6C5CE7] hover:border-purple-200 transition"
+                        aria-label="Edit blog"
+                    >
+                        <Edit3 size={14} />
+                    </Link>
+                    <button
+                        onClick={() => onDelete(blog._id)}
+                        className="p-2 text-gray-500 transition border border-gray-200 rounded-2xl hover:text-red-500 hover:border-red-200"
+                        aria-label="Delete blog"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -318,24 +387,24 @@ const BlogDetails = () => {
     /* --------- UI --------- */
 
     return (
-        <div className="space-y-7 text-gray-900 px-3 sm:px-6 lg:px-10 pt-6 lg:pt-10 pb-10">
-            <section className="rounded-[28px] border border-gray-100 bg-white/80 px-6 py-7 lg:px-10 backdrop-blur-md shadow-[0_30px_80px_-55px_rgba(15,23,42,0.65)]">
-                <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="px-3 pt-6 pb-10 text-gray-900 space-y-7 sm:px-6 lg:px-10 lg:pt-10">
+            <section className="rounded-[28px] border border-gray-100 bg-white/80 px-5 sm:px-6 lg:px-10 py-6 lg:py-7 backdrop-blur-md shadow-[0_30px_80px_-55px_rgba(15,23,42,0.65)]">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-400">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-gray-400">
                             Dashboard • My Blogs
                         </p>
-                        <h1 className="text-4xl font-black text-gray-900">
+                        <h1 className="text-3xl font-black text-gray-900 sm:text-4xl">
                             Publishing control room
                         </h1>
-                        <p className="text-sm text-gray-500 max-w-2xl">
+                        <p className="max-w-2xl text-sm text-gray-500">
                             Refine drafts, track performance, and act on feedback without leaving this surface.
                         </p>
                     </div>
 
                     <Link
                         to={RouteBlogAdd}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#8B5CF6] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200/70 transition hover:shadow-xl"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-linear-to-r from-[#6C5CE7] to-[#8B5CF6] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-200/70 transition hover:shadow-xl"
                     >
                         <Plus size={18} />
                         Add Blog
@@ -343,18 +412,18 @@ const BlogDetails = () => {
                 </div>
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                    <div className="flex items-center gap-3 rounded-3xl border border-gray-100 bg-white/80 px-4 py-3 shadow-sm">
+                    <div className="flex flex-col gap-3 px-4 py-3 border border-gray-100 shadow-sm sm:flex-row sm:items-center rounded-3xl bg-white/80">
                         <SearchIcon size={18} className="text-gray-400" />
                         <input
                             type="text"
                             placeholder="Search blogs, categories or authors"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-400 outline-none"
+                            className="flex-1 text-sm text-gray-700 bg-transparent outline-none placeholder:text-gray-400"
                         />
                     </div>
 
-                    <div className="rounded-3xl border border-gray-100 bg-white/70 px-5 py-4 shadow-sm">
+                    <div className="px-5 py-4 border border-gray-100 shadow-sm rounded-3xl bg-white/70">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-gray-400">
                             Matching results
                         </p>
@@ -375,7 +444,7 @@ const BlogDetails = () => {
                             key={card.label}
                             className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white/75 p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)]"
                         >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} opacity-10`} />
+                            <div className={`absolute inset-0 bg-linear-to-br ${card.accent} opacity-10`} />
                             <div className="relative flex items-center justify-between">
                                 <div className="space-y-2">
                                     <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gray-400">
@@ -394,14 +463,14 @@ const BlogDetails = () => {
             </section>
 
             <section className="rounded-[28px] border border-gray-100 bg-white/85 shadow-[0_30px_80px_-55px_rgba(15,23,42,0.5)]">
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">
+                <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 border-b border-gray-100">
                     <div className="space-y-2">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-gray-400">
                             Publishing queue
                         </p>
                         <div className="flex items-center gap-3">
                             <h2 className="text-xl font-bold text-gray-900">My Blogs</h2>
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                            <span className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 rounded-full">
                                 {blogs.length} total
                             </span>
                         </div>
@@ -423,7 +492,7 @@ const BlogDetails = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.3em] text-gray-400">
@@ -448,7 +517,7 @@ const BlogDetails = () => {
                             ) : (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center">
-                                        <div className="mx-auto max-w-sm space-y-2 rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 px-6 py-8">
+                                        <div className="max-w-sm px-6 py-8 mx-auto space-y-2 border border-gray-200 border-dashed rounded-3xl bg-gray-50/80">
                                             <p className="text-base font-semibold text-gray-700">No blogs match your search</p>
                                             <p className="text-sm text-gray-500">
                                                 Try adjusting your keywords or clear filters to see all entries.
@@ -459,6 +528,25 @@ const BlogDetails = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                <div className="px-4 pt-4 pb-5 space-y-4 md:hidden">
+                    {filteredBlogs.length > 0 ? (
+                        filteredBlogs.map((blog) => (
+                            <MobileBlogCard
+                                key={`${blog._id}-mobile`}
+                                blog={blog}
+                                isAdmin={isAdmin}
+                                currentUserId={currentUserId}
+                                onDelete={handleDelete}
+                            />
+                        ))
+                    ) : (
+                        <div className="max-w-sm px-6 py-8 mx-auto space-y-2 text-center border border-gray-200 border-dashed rounded-3xl bg-gray-50/80">
+                            <p className="text-base font-semibold text-gray-700">No blogs match your search</p>
+                            <p className="text-sm text-gray-500">Try adjusting your keywords or clear filters to see all entries.</p>
+                        </div>
+                    )}
                 </div>
             </section>
 
@@ -474,21 +562,21 @@ const BlogDetails = () => {
                         <span className="text-xs font-semibold text-gray-500">{uniqueCategories.size} active topics</span>
                     </div>
 
-                    <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 mt-6 md:grid-cols-3">
                         {categoryFrequency.map(([label, count]) => {
                             const width = Math.round((count / maxCategoryCount) * 100);
                             return (
                                 <div
                                     key={label}
-                                    className="rounded-3xl border border-gray-100 bg-gray-50/80 p-4"
+                                    className="p-4 border border-gray-100 rounded-3xl bg-gray-50/80"
                                 >
                                     <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
                                         <span>{label}</span>
                                         <span>{count} posts</span>
                                     </div>
-                                    <div className="mt-3 h-2 rounded-full bg-white/80">
+                                    <div className="h-2 mt-3 rounded-full bg-white/80">
                                         <div
-                                            className="h-full rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8B5CF6]"
+                                            className="h-full rounded-full bg-linear-to-r from-[#6C5CE7] to-[#8B5CF6]"
                                             style={{ width: `${width}%` }}
                                         />
                                     </div>
