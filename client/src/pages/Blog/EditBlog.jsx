@@ -20,8 +20,13 @@ import { RouteBlog } from '@/helpers/RouteName'
 import { Loader2, Save, Send, Image as ImageIcon, X, FileText, Sparkles, Type, MessageSquare } from 'lucide-react'
 import ModerationErrorDisplay from '@/components/ModerationErrorDisplay'
 
+const MAX_CATEGORIES = 5
+
 const formSchema = z.object({
-  categories: z.array(z.string().min(1)).optional().default([]),
+  categories: z.array(z.string().min(1))
+    .max(MAX_CATEGORIES, { message: `Select max ${MAX_CATEGORIES} categories.` })
+    .optional()
+    .default([]),
   title: z.string().optional().default(''),
   blogContent: z.string().optional().default(''),
   description: z.string().optional().default(''),
@@ -87,8 +92,16 @@ function EditBlog() {
 
     setBlogStatus(blog.status || 'published')
 
+    const initialCategoryIds = Array.isArray(blog.categories)
+      ? blog.categories.map((cat) => String(cat?._id || cat)).filter(Boolean)
+      : []
+    const uniqueCategoryIds = Array.from(new Set(initialCategoryIds)).slice(0, MAX_CATEGORIES)
+    if (initialCategoryIds.length > MAX_CATEGORIES) {
+      showToast('info', `Max ${MAX_CATEGORIES} categories allowed. Loaded the first ${MAX_CATEGORIES}.`)
+    }
+
     form.reset({
-      categories: Array.isArray(blog.categories) ? blog.categories.map((cat) => String(cat?._id || cat)) : [],
+      categories: uniqueCategoryIds,
       title: blog.title || '',
       blogContent: decodedContent || '',
       description: blog.description || '',
@@ -243,7 +256,7 @@ function EditBlog() {
         body: JSON.stringify({
           title,
           content: blogContent,
-          maxCategories: 3,
+          maxCategories: MAX_CATEGORIES,
         }),
       })
 
@@ -270,13 +283,19 @@ function EditBlog() {
         return
       }
 
-      form.setValue('categories', Array.from(new Set(suggestedIds)), {
+      const uniqueSuggested = Array.from(new Set(suggestedIds))
+      const limitedSuggested = uniqueSuggested.slice(0, MAX_CATEGORIES)
+      if (uniqueSuggested.length > MAX_CATEGORIES) {
+        showToast('info', `AI suggested more than ${MAX_CATEGORIES} categories. Using the first ${MAX_CATEGORIES} (max).`)
+      }
+
+      form.setValue('categories', limitedSuggested, {
         shouldDirty: true,
         shouldValidate: true,
       })
 
       // Cache the result and content signature
-      setCachedCategories(Array.from(new Set(suggestedIds)))
+      setCachedCategories(limitedSuggested)
       setLastCategorizedContent(contentSignature)
 
       showToast('success', 'Categories updated using AI suggestions.')
@@ -438,7 +457,7 @@ function EditBlog() {
       <div className="mt-6 max-w-6xl mx-auto px-4">
         {/* Header Section */}
         <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">
+        <h1 className="text-3xl font-bold bg-linear-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">
           {isDraft ? 'Edit Draft' : 'Edit Blog Post'}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
@@ -490,7 +509,7 @@ function EditBlog() {
                     <Sparkles className="h-5 w-5 text-violet-600" />
                     <CardTitle>Categories *</CardTitle>
                   </div>
-                  <CardDescription>Select relevant categories for your blog post</CardDescription>
+                  <CardDescription>Select max {MAX_CATEGORIES} categories for your blog post</CardDescription>
                 </div>
                 <Button
                   type="button"
@@ -541,8 +560,14 @@ function EditBlog() {
                                   onChange={(event) => {
                                     const checked = event.target.checked
                                     const current = Array.isArray(field.value) ? field.value : []
+                                    if (checked && current.length >= MAX_CATEGORIES) {
+                                      showToast('error', `Max ${MAX_CATEGORIES} categories allowed.`)
+                                      event.preventDefault()
+                                      event.target.checked = false
+                                      return
+                                    }
                                     const next = checked
-                                      ? [...current, category._id]
+                                      ? Array.from(new Set([...current, category._id])).slice(0, MAX_CATEGORIES)
                                       : current.filter((id) => id !== category._id)
                                     field.onChange(next)
                                   }}
@@ -558,6 +583,7 @@ function EditBlog() {
                       </div>
                     </FormControl>
                     <FormMessage />
+                    <p className="pt-2 text-xs text-gray-500">Max {MAX_CATEGORIES} categories per blog.</p>
                   </FormItem>
                 )}
               />

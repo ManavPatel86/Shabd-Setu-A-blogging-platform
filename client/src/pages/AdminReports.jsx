@@ -1,394 +1,252 @@
-// AdminReports.jsx
-// Admin page for managing blog reports
-import React, { useEffect, useState, useMemo } from 'react';
-import { getEnv } from '@/helpers/getEnv';
-import { showToast } from '@/helpers/showToast';
+// Admin report management page rebuilt to reflect the new moderation flow
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RouteProfileView, RouteBlogDetails } from '@/helpers/RouteName';
-import { 
-  Flag, 
-  CheckCircle, 
-  AlertCircle, 
-  Trash2, 
-  Ban, 
-  Eye,
+import {
+  Flag,
+  ShieldCheck,
+  Ban,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  ExternalLink,
   User as UserIcon,
-  ChevronDown,
-  ArrowRight,
-  X,
-  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { getDisplayName } from '@/utils/functions';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { getEnv } from '@/helpers/getEnv';
+import { showToast } from '@/helpers/showToast';
+import { RouteProfileView, RouteBlogDetails } from '@/helpers/RouteName';
 
-const getStatusColor = (status) => {
-  const colors = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    resolved: 'bg-green-100 text-green-800 border-green-300',
-    safe: 'bg-green-100 text-green-800 border-green-300',
-    removed: 'bg-red-100 text-red-800 border-red-300',
-    banned: 'bg-purple-100 text-purple-800 border-purple-300',
-  };
-  return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
-};
+const ADMIN_ROUTE_FALLBACK = '/blog';
 
-const getReportTypeColor = (type) => {
-  const colors = {
-    'Hate speech': 'bg-red-100 text-red-800 border-red-300',
-    'Spam': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    'Harassment': 'bg-red-100 text-red-800 border-red-300',
-    'NSFW': 'bg-orange-100 text-orange-800 border-orange-300',
-    'Fake Info': 'bg-blue-100 text-blue-800 border-blue-300',
-    'Other': 'bg-gray-100 text-gray-800 border-gray-300',
-  };
-  return colors[type] || 'bg-gray-100 text-gray-800 border-gray-300';
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString(undefined, { 
-    month: '2-digit',
-    day: '2-digit',
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return 'Unknown time';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  return date.toLocaleString(undefined, {
     year: 'numeric',
+    month: 'short',
+    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    hour12: true
   });
+};
+
+const resolveBlogLink = (blog) => {
+  if (!blog) return ADMIN_ROUTE_FALLBACK;
+  const categorySlug = blog.categories?.find((cat) => cat?.slug)?.slug;
+  if (blog.slug && categorySlug) {
+    return RouteBlogDetails(categorySlug, blog.slug);
+  }
+  return blog.slug ? `/blog/${blog.slug}` : ADMIN_ROUTE_FALLBACK;
+};
+
+const displayName = (user) => {
+  if (!user) return 'Unknown user';
+  return user.name || user.username || user.email || 'Unknown user';
+};
+
+const parseReportsPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.reports)) return payload.reports;
+  return [];
 };
 
 export default function AdminReports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [processingId, setProcessingId] = useState(null);
 
   useEffect(() => {
-    fetchReports();
+    let isMounted = true;
+
+    const loadReports = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/report/admin/reports`, {
+          credentials: 'include',
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to fetch reports');
+        }
+        if (isMounted) {
+          setReports(parseReportsPayload(payload));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setReports([]);
+        }
+        showToast('error', error.message || 'Unable to load reports');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadReports();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const fetchReports = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/report/admin/reports`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to fetch reports');
-      setReports(data);
-    } catch (err) {
-      showToast('error', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleAction = async (reportId, action) => {
+    if (!reportId || !action) return;
+    setProcessingId(reportId);
 
-  const handleStatusChange = async (reportId, status) => {
-    setUpdating(reportId);
-    try {
-      let url = `${getEnv('VITE_API_BASE_URL')}/report/admin/report/${reportId}`;
-      if (status === 'safe') url += '/safe';
-      else if (status === 'removed') url += '/remove';
-      else if (status === 'banned') url += '/ban';
-      else if (status === 'resolved') url += '/resolve';
+    const url = `${getEnv('VITE_API_BASE_URL')}/report/admin/report/${reportId}/${action}`;
 
+    try {
       const response = await fetch(url, {
         method: 'PATCH',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to update status');
-      showToast('success', 'Status updated successfully');
-      fetchReports();
-    } catch (err) {
-      showToast('error', err.message || 'Failed to update status');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to process report');
+      }
+
+      setReports((prev) => prev.filter((report) => report.id !== reportId && report._id !== reportId));
+      showToast('success', payload.message || 'Action completed.');
+    } catch (error) {
+      showToast('error', error.message || 'Unable to process report');
     } finally {
-      setUpdating(null);
+      setProcessingId(null);
     }
   };
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const total = reports.length;
-    const pending = reports.filter(r => r.status === 'pending').length;
-    const resolved = reports.filter(r => r.status === 'resolved').length;
-
-    return { total, pending, resolved };
-  }, [reports]);
-
-  // Filter reports based on status filter
-  const filteredReports = useMemo(() => {
-    if (statusFilter === 'all') return reports;
-    if (statusFilter === 'resolved') {
-      return reports.filter(r => r.status !== 'pending');
-    }
-    return reports.filter(r => r.status === statusFilter);
-  }, [reports, statusFilter]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
-              <p className="text-gray-600">Loading reports...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const totalReports = reports.length;
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Flag className="w-8 h-8 text-red-600" />
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Manage Reports</h1>
+    <div className="min-h-screen bg-slate-50 py-10">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex size-12 items-center justify-center rounded-xl bg-red-100 text-red-600">
+              <Flag className="size-6" />
+            </span>
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">Report Center</h1>
+              <p className="text-sm text-slate-600">Review flagged content and resolve reports in one place.</p>
+            </div>
           </div>
-          <p className="text-gray-600">Review and manage flagged blog content</p>
-        </div>
-
-        {/* Statistics Cards - Only 3 */}
-        {reports.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Reports</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-                  </div>
-                  <Flag className="w-8 h-8 text-gray-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending</p>
-                    <p className="text-3xl font-bold text-orange-600">{stats.pending}</p>
-                  </div>
-                  <AlertCircle className="w-8 h-8 text-yellow-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-gray-200 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Resolved</p>
-                    <p className="text-3xl font-bold text-green-600">{stats.resolved}</p>
-                  </div>
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <ShieldCheck className="size-5 text-emerald-600" />
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Open Reports</p>
+              <p className="text-lg font-semibold text-slate-900">{totalReports}</p>
+            </div>
           </div>
-        )}
+        </header>
 
-        {/* Filter Buttons */}
-        {reports.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setStatusFilter('pending')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'pending'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Pending
-            </button>
-            <button
-              onClick={() => setStatusFilter('resolved')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'resolved'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Resolved
-            </button>
-            <button
-              onClick={() => setStatusFilter('safe')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'safe'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Safe
-            </button>
-            <button
-              onClick={() => setStatusFilter('removed')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'removed'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Removed
-            </button>
-            <button
-              onClick={() => setStatusFilter('banned')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                statusFilter === 'banned'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Banned
-            </button>
-          </div>
-        )}
-
-        {/* Report Cards */}
-        {filteredReports.length === 0 ? (
-          <Card className="border border-gray-200 shadow-sm">
-            <CardContent className="py-12 text-center">
-              <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reports Found</h3>
-              <p className="text-gray-600">
-                {statusFilter === 'all' 
-                  ? 'All blogs are looking good!' 
-                  : `No ${statusFilter} reports found.`}
+        {loading ? (
+          <Card className="border border-slate-200 bg-white">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-16">
+              <Loader2 className="size-8 animate-spin text-slate-500" />
+              <p className="text-sm text-slate-600">Loading reports…</p>
+            </CardContent>
+          </Card>
+        ) : reports.length === 0 ? (
+          <Card className="border border-slate-200 bg-white">
+            <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+              <ShieldCheck className="size-10 text-emerald-500" />
+              <h2 className="text-lg font-semibold text-slate-900">All clear!</h2>
+              <p className="max-w-sm text-sm text-slate-600">
+                There are no pending reports right now. New reports will appear here automatically.
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredReports.map((r) => (
-              <Card key={r._id} className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  {/* Header with Status and Date */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(r.status)}`}>
-                      {r.status}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {formatDate(r.createdAt)}
-                    </span>
-                  </div>
+            {reports.map((report) => {
+              const reportId = report.id || report._id;
+              const blogLink = resolveBlogLink(report.blog);
+              const reporterLink = report.reporter?.id ? RouteProfileView(report.reporter.id) : '#';
+              const isProcessing = processingId === reportId;
 
-                  {/* Report Details */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-6">
-                    {/* Reported Blog */}
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">Reported Blog:</p>
-                      {
-                        (() => {
-                          const blogSlug = r.blogId?.slug || (r.blogId?._id && String(r.blogId._id));
-                          // prefer category slug from first category if available
-                          const categorySlug = r.blogId?.categories && r.blogId.categories.length > 0
-                            ? r.blogId.categories[0]?.slug
-                            : null;
-
-                          const to = (categorySlug && blogSlug)
-                            ? RouteBlogDetails(categorySlug, blogSlug)
-                            : (blogSlug ? `/blog/unknown/${blogSlug}` : '#');
-
-                          return (
-                            <Link
-                              to={to}
-                              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span className="line-clamp-1">{r.blogId?.title || 'Unknown Blog'}</span>
-                            </Link>
-                          );
-                        })()
-                      }
-                    </div>
-
-                    {/* Reporter */}
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">Reporter:</p>
-                      <Link 
-                        to={RouteProfileView(r.reporterId?._id)} 
-                        className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium"
-                      >
-                        <UserIcon className="w-4 h-4 text-gray-400" />
-                        <span>{getDisplayName(r.reporterId)}</span>
+              return (
+                <Card key={reportId} className="border border-slate-200 bg-white shadow-sm">
+                  <CardHeader className="gap-2 sm:flex sm:flex-row sm:items-center sm:justify-between">
+                    <CardTitle className="text-lg font-semibold text-slate-900">
+                      {report.blog?.title || 'Blog unavailable'}
+                    </CardTitle>
+                    <CardDescription className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Submitted {formatTimestamp(report.submittedAt)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6 pb-0 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Reported Blog</p>
+                      <Link to={blogLink} className="group inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700">
+                        <ExternalLink className="size-4 transition-transform group-hover:-translate-y-0.5" />
+                        <span className="line-clamp-2">{report.blog?.title || 'Blog unavailable'}</span>
                       </Link>
-                    </div>
-
-                    {/* Report Type */}
-                    <div className="md:col-span-2">
-                      <p className="text-sm text-gray-600 mb-2">Report Type:</p>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getReportTypeColor(r.type)}`}>
-                        {r.type}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-                    <Button
-                      onClick={() => handleStatusChange(r._id, 'safe')}
-                      disabled={updating === r._id || r.status === 'safe'}
-                      size="sm"
-                      variant="outline"
-                      className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                    >
-                      {updating === r._id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-3 h-3" />
+                      {report.blog?.author && (
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <UserIcon className="size-4 text-slate-400" />
+                          <span className="font-medium text-slate-700">Author:</span>
+                          <span>{displayName(report.blog.author)}</span>
+                        </div>
                       )}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Reporter</p>
+                      <Link to={reporterLink} className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-600">
+                        <UserIcon className="size-4 text-slate-400" />
+                        <span>{displayName(report.reporter)}</span>
+                      </Link>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <AlertCircle className="size-4" />
+                          {report.type || 'General'}
+                        </div>
+                        {report.reason && <p className="mt-1 text-amber-800">{report.reason}</p>}
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="mt-6 flex flex-wrap gap-2 border-t border-slate-200 bg-slate-50 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isProcessing}
+                      onClick={() => handleAction(reportId, 'safe')}
+                      className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    >
+                      {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
                       Mark Safe
                     </Button>
                     <Button
-                      onClick={() => handleStatusChange(r._id, 'removed')}
-                      disabled={updating === r._id || r.status === 'removed'}
-                      size="sm"
                       variant="outline"
-                      className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                      size="sm"
+                      disabled={isProcessing}
+                      onClick={() => handleAction(reportId, 'remove')}
+                      className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                     >
-                      {updating === r._id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <X className="w-3 h-3" />
-                      )}
+                      {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       Remove Blog
                     </Button>
                     <Button
-                      onClick={() => handleStatusChange(r._id, 'banned')}
-                      disabled={updating === r._id || r.status === 'banned'}
-                      size="sm"
                       variant="outline"
-                      className="flex items-center gap-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200"
+                      size="sm"
+                      disabled={isProcessing}
+                      onClick={() => handleAction(reportId, 'ban')}
+                      className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                     >
-                      {updating === r._id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Ban className="w-3 h-3" />
-                      )}
-                      Ban User
+                      {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Ban className="size-4" />}
+                      Ban Author
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardFooter>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
