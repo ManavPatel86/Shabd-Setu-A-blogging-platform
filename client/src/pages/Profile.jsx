@@ -348,7 +348,7 @@ const Profile = () => {
                                     <Link to={RouteProfileView(profileUser?._id)}>View public profile</Link>
                                 </Button>
                                 {userId && profileUser?._id && userId === profileUser._id ? (
-                                    <Button asChild className="mt-2 rounded-full bg-[#6C5CE7] px-6 py-2 text-sm font-semibold text-white shadow transition hover:opacity-95">
+                                    <Button asChild variant="ghost" className="mt-2 px-6 py-2 text-sm text-white border rounded-full border-white/40 hover:bg-white/10">
                                         <Link to={RouteAnalytics}>See your analytics</Link>
                                     </Button>
                                 ) : null}
