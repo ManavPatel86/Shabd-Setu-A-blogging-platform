@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getEnv } from '@/helpers/getEnv';
 import { showToast } from '@/helpers/showToast';
 import { Link } from 'react-router-dom';
-import { RouteProfileView } from '@/helpers/RouteName';
+import { RouteProfileView, RouteBlogDetails } from '@/helpers/RouteName';
 import { 
   Flag, 
   CheckCircle, 
@@ -122,6 +122,9 @@ export default function AdminReports() {
   // Filter reports based on status filter
   const filteredReports = useMemo(() => {
     if (statusFilter === 'all') return reports;
+    if (statusFilter === 'resolved') {
+      return reports.filter(r => r.status !== 'pending');
+    }
     return reports.filter(r => r.status === statusFilter);
   }, [reports, statusFilter]);
 
@@ -292,13 +295,29 @@ export default function AdminReports() {
                     {/* Reported Blog */}
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Reported Blog:</p>
-                      <Link 
-                        to={`/blog/${r.blogId?.slug || r.blogId?._id}`} 
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span className="line-clamp-1">{r.blogId?.title || 'Unknown Blog'}</span>
-                      </Link>
+                      {
+                        (() => {
+                          const blogSlug = r.blogId?.slug || (r.blogId?._id && String(r.blogId._id));
+                          // prefer category slug from first category if available
+                          const categorySlug = r.blogId?.categories && r.blogId.categories.length > 0
+                            ? r.blogId.categories[0]?.slug
+                            : null;
+
+                          const to = (categorySlug && blogSlug)
+                            ? RouteBlogDetails(categorySlug, blogSlug)
+                            : (blogSlug ? `/blog/unknown/${blogSlug}` : '#');
+
+                          return (
+                            <Link
+                              to={to}
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span className="line-clamp-1">{r.blogId?.title || 'Unknown Blog'}</span>
+                            </Link>
+                          );
+                        })()
+                      }
                     </div>
 
                     {/* Reporter */}
@@ -324,14 +343,6 @@ export default function AdminReports() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100"
-                    >
-                      Safe
-                      <ChevronDown className="w-3 h-3" />
-                    </Button>
                     <Button
                       onClick={() => handleStatusChange(r._id, 'safe')}
                       disabled={updating === r._id || r.status === 'safe'}
@@ -373,20 +384,6 @@ export default function AdminReports() {
                         <Ban className="w-3 h-3" />
                       )}
                       Ban User
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusChange(r._id, 'resolved')}
-                      disabled={updating === r._id || r.status === 'resolved'}
-                      size="sm"
-                      variant="outline"
-                      className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                    >
-                      {updating === r._id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <ArrowRight className="w-3 h-3" />
-                      )}
-                      Resolve
                     </Button>
                   </div>
                 </CardContent>

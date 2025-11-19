@@ -87,17 +87,6 @@ const blogSchema = new mongoose.Schema({
     views: {
         type: Number,
         default: 0
-    },
-    removed: {
-        type: Boolean,
-        default: false
-    },
-    removedAt: {
-        type: Date
-    },
-    removedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
     }
 }, { timestamps: true })
 

@@ -216,7 +216,7 @@ export const generateCategorySuggestions = async (req, res, next) => {
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')
     
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       categories: matched,
       suggestedSlugs: rawSuggestions,

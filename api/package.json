@@ -7,9 +7,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test:one": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch --verbose",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --verbose",
+    "test:coverage:one": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --verbose",
     "usernames:backfill": "node scripts/backfillUsernames.js"
   },
   "keywords": [],

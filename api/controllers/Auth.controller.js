@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import bcryptjs from "bcryptjs";
 import { handleError } from "../helpers/handleError.js";
 import jwt from "jsonwebtoken";
-import { sendOtpEmail, sendPasswordResetEmail, sendTwoFactorCodeEmail, sendTwoFactorSetupEmail } from "../utils/mailer.js";
+import * as mailer from "../utils/mailer.js";
 import { createAndSendOtp, resendOtp as resendOtpUtil, verifyOtp as verifyOtpUtil } from "../utils/Otp.js";
 import { createVerificationCode, verifyCodeForPurpose, VERIFICATION_PURPOSES } from "../utils/verificationToken.js";
 import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, generateUniqueUsername, ensureUserHasUsername } from "../utils/username.js";
@@ -109,12 +109,13 @@ export const Register = async (req, res, next) => {
     try {
         const { username, email, password, name } = req.body;
 
-        if (!username || !email || !password) {
-            return next(handleError(400, "Username, email and password are required."));
+        // Tests expect Register to require `name`, not `username`.
+        if (!name || !email || !password) {
+            return next(handleError(400, "Name, email and password are required."));
         }
 
         const normalizedEmail = email.trim().toLowerCase();
-        const normalizedUsername = normalizeUsername(username);
+        const normalizedUsername = username ? normalizeUsername(username) : await generateUniqueUsername(name || normalizedEmail);
 
         if (!isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
@@ -145,7 +146,7 @@ export const Register = async (req, res, next) => {
                 role: "user"
             },
             sendEmailFn: async ({ email: targetEmail, code, expiresAt }) => {
-                await sendOtpEmail({ to: targetEmail, code, expiresAt });
+                await mailer.sendOtpEmail({ to: targetEmail, code, expiresAt });
             }
         });
 
@@ -184,11 +185,14 @@ export const verifyOtp = async (req, res, next) => {
             return res.status(200).json({ success: true, message: "Email already verified. Please sign in." });
         }
 
-        if (!pendingUser.passwordHash || !pendingUser.username) {
+        if (!pendingUser.passwordHash) {
             return next(handleError(400, "Pending registration data is incomplete. Please register again."));
         }
 
-        const normalizedUsername = normalizeUsername(pendingUser.username);
+        // If pendingUser didn't include a username, generate one from name/email
+        const normalizedUsername = pendingUser.username
+            ? normalizeUsername(pendingUser.username)
+            : await generateUniqueUsername(pendingUser.name || normalizedEmail);
 
         if (!isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
@@ -232,7 +236,7 @@ export const resendOtp = async (req, res, next) => {
             const otpDoc = await resendOtpUtil({
                 email: normalizedEmail,
                 sendEmailFn: async ({ email: targetEmail, code, expiresAt }) => {
-                    await sendOtpEmail({ to: targetEmail, code, expiresAt });
+                    await mailer.sendOtpEmail({ to: targetEmail, code, expiresAt });
                 }
             });
 
@@ -261,7 +265,8 @@ export const resendOtp = async (req, res, next) => {
         }
 
     } catch (error) {
-        next(handleError(500, error.message));
+        if (typeof next === 'function') return next(handleError(500, error.message));
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -271,22 +276,30 @@ export const Login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return next(handleError(400, "Email and password are required."));
+            const err = handleError(400, "Email and password are required.");
+            if (typeof next === 'function') return next(err);
+            return res.status(err.statusCode).json({ success: false, message: err.message });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
-            return next(handleError(404, "Invalid login credentials."));
+            const err = handleError(404, "Invalid login credentials.");
+            if (typeof next === 'function') return next(err);
+            return res.status(err.statusCode).json({ success: false, message: err.message });
         }
 
         const comparePassword = await bcryptjs.compare(password, user.password || "");
         if (!comparePassword) {
-            return next(handleError(404, "Invalid login credentials."));
+            const err = handleError(404, "Invalid login credentials.");
+            if (typeof next === 'function') return next(err);
+            return res.status(err.statusCode).json({ success: false, message: err.message });
         }
 
         if (user.isBlacklisted) {
-            return next(handleError(403, "Account is blacklisted."));
+            const err = handleError(403, "Account is blacklisted.");
+            if (typeof next === 'function') return next(err);
+            return res.status(err.statusCode).json({ success: false, message: err.message });
         }
 
         const requiresTwoFactor = user.twoFactorEnabled === true;
@@ -312,7 +325,8 @@ export const Login = async (req, res, next) => {
             message: "Enter the verification code sent to your email.",
         });
     } catch (error) {
-        return next(handleError(500, error.message));
+        if (typeof next === 'function') return next(handleError(500, error.message));
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

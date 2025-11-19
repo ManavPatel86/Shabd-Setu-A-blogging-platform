@@ -374,7 +374,7 @@ const Profile = () => {
                 <div className="absolute bottom-0 left-12 h-64 w-64 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />
                 <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                        <div className="relative">
+                        <div className="relative flex flex-col items-center">
                             <div className="absolute inset-0 -translate-y-2 translate-x-2 rounded-full bg-white/25 blur-2xl" />
                             <Avatar className="relative h-28 w-28 border-4 border-white shadow-xl">
                                 <AvatarImage src={profileUser?.avatar || defaultAvatar} alt={profileUser?.name} />
@@ -386,7 +386,7 @@ const Profile = () => {
                                 <button
                                     type="button"
                                     onClick={() => handleCopyUsername(profileUser?.username)}
-                                    className="absolute -bottom-3 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/80 transition hover:bg-white/25"
+                                    className="relative z-10 mt-4 w-max rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/85 transition hover:bg-white/30"
                                 >
                                     {copiedUsername ? 'Copied' : usernameHandle}
                                 </button>
@@ -440,9 +440,8 @@ const Profile = () => {
                     </div>
                     <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
                         <div className="rounded-[28px] border border-white/25 bg-white/10 px-8 py-6 text-center shadow-[0_20px_60px_-35px_rgba(15,23,42,0.8)]">
-                            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Publishing streak</p>
+                            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Published Blogs</p>
                             <p className="text-4xl font-black text-white">{totalBlogsThisPeriod}</p>
-                            <p className="text-xs text-white/70">blogs this period</p>
                         </div>
                         <div className="flex flex-col gap-3">
                             <Button asChild className="rounded-full bg-white/90 px-6 py-2 text-sm font-semibold text-[#6C5CE7] shadow-[0_20px_60px_-45px_rgba(15,23,42,0.8)] transition hover:bg-white">
