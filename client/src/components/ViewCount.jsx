@@ -7,7 +7,16 @@ const ViewCount = ({ blogId, addView = false }) => {
   const [loading, setLoading] = useState(true);
   const hasAddedViewRef = useRef(false);
   const lastBlogIdRef = useRef(null);
-  const apiUrl = getEnv("VITE_API_BASE_URL");
+  const rawApi = getEnv("VITE_API_BASE_URL");
+  // Normalize API base: prefer value from env, fallback to local api path
+  const apiUrl = (() => {
+    const fallback = "http://localhost:3000/api";
+    const base = rawApi || fallback;
+    // ensure no trailing slash
+    const cleaned = base.replace(/\/$/, "");
+    // if provided base does not include /api, append it
+    return cleaned.includes("/api") ? cleaned : `${cleaned}/api`;
+  })();
 
   useEffect(() => {
     let isMounted = true;

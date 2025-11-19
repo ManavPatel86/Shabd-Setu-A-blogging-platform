@@ -52,6 +52,11 @@ app.use(
     })
 )
 
+// Health check route for quick connectivity tests
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 
 
 app.use('/api/auth', AuthRoute)

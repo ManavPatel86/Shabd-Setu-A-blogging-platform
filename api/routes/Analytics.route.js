@@ -36,12 +36,26 @@ router.get("/", authenticate, async (req, res) => {
       comments: b.comments,
     }));
 
-    const aiInsight = `Your blogs received ${totalLikes} likes and ${totalComments} comments so far. Engagement rate: ${engagementRate}%.`;
+    // Pick top blog by views for a simple insight
+    const topBlog = blogs.reduce((best, b) => {
+      if (!best) return b;
+      return (b.views || 0) > (best.views || 0) ? b : best;
+    }, null);
+
+    const aiInsight = topBlog
+      ? `Your blogs received ${totalLikes} likes and ${totalComments} comments so far. Engagement rate: ${engagementRate}%. Top performing post: "${topBlog.title}" with ${topBlog.views || 0} views.`
+      : `Your blogs received ${totalLikes} likes and ${totalComments} comments so far. Engagement rate: ${engagementRate}%.`;
+
+    // Provide a small `topBlog` summary to help frontend show a highlighted post
+    const topBlogSummary = topBlog
+      ? { _id: topBlog._id, title: topBlog.title, views: topBlog.views || 0, slug: topBlog.slug }
+      : null;
 
     res.json({
       overview: { views: totalViews, uniqueViews, likes: totalLikes, comments: totalComments, engagementRate },
       trends,
       aiInsight,
+      topBlog: topBlogSummary,
     });
   } catch (err) {
     console.error("Error generating analytics:", err);
