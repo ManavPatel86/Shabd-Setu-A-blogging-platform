@@ -16,8 +16,26 @@ router.get("/", authenticate, async (req, res) => {
   try {
     const userId = req.user._id;
 
+    console.log(`[/api/analytics] request by user: ${userId}`);
+
     const blogs = await Blog.find({ author: userId }).select("_id title slug views likes comments createdAt");
+    console.log(`[/api/analytics] found ${blogs.length} blogs for user ${userId}`);
     const blogIds = blogs.map((b) => mongoose.Types.ObjectId(b._id));
+
+    // If the user has no blogs, return a tidy empty analytics response early.
+    if (!blogIds.length) {
+      return res.json({
+        overview: { views: 0, uniqueViews: 0, likes: 0, comments: 0, engagementRate: 0 },
+        breakdown: {
+          uniqueViews: { followers: 0, nonFollowers: 0 },
+          likes: { followers: 0, nonFollowers: 0 },
+          comments: { followers: 0, nonFollowers: 0 },
+        },
+        trends: [],
+        aiInsight: 'No posts yet',
+        topBlog: null,
+      });
+    }
 
     // Totals
     const totalLikes = await BlogLike.countDocuments({ blogid: { $in: blogIds } });
@@ -103,8 +121,8 @@ router.get("/", authenticate, async (req, res) => {
       topBlog: topBlog ? { _id: topBlog._id, title: topBlog.title, views: topBlog.views || 0, slug: topBlog.slug } : null,
     });
   } catch (err) {
-    console.error("Error generating analytics:", err);
-    res.status(500).json({ message: "Error generating analytics" });
+    console.error("Error generating analytics:", err, err.stack);
+    res.status(500).json({ message: "Error generating analytics", error: err?.message });
   }
 });
 

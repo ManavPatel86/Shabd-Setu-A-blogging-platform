@@ -8,6 +8,7 @@ import {
     RouteBlogEdit,
     RouteIndex,
     RouteProfile,
+    RouteAnalytics,
     RouteProfileView,
     RouteSignIn,
     RouteSignUp,

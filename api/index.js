@@ -17,6 +17,7 @@ import SaveRoute from './routes/save.route.js'
 import NotificationRoute from './routes/notification.route.js'
 import ModerationRoute from './routes/moderation.route.js'
 import ReportsRoute from './routes/reports.route.js'
+import AnalyticsRoute from './routes/Analytics.route.js'
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
@@ -86,6 +87,7 @@ app.use('/api/save', SaveRoute)
 app.use('/api/notifications', NotificationRoute)
 app.use('/api/moderate', ModerationRoute)
 app.use('/api/report', ReportsRoute)
+app.use('/api/analytics', AnalyticsRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})

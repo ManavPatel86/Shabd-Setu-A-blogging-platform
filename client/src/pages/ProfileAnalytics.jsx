@@ -21,17 +21,37 @@ const ProfileAnalytics = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const apiBase = useMemo(() => {
-    const raw = getEnv('VITE_API_BASE_URL') || 'http://localhost:5000'
-    const cleaned = raw.replace(/\/$/, '')
-    return cleaned.includes('/api') ? cleaned : `${cleaned}/api`
-  }, [])
+  const apiBase = import.meta.env.VITE_API_BASE_URL || getEnv('VITE_API_BASE_URL')
+  // Fallback backend to try when the configured API base points to the Vite frontend server
+  // (common when env was set to http://localhost:3000/api). We default to port 5000.
+  const fallback = (() => {
+    try {
+      if (!apiBase) return 'http://localhost:5000/api'
+      if (apiBase.includes(':3000')) return apiBase.replace(':3000', ':5000')
+      return 'http://localhost:5000/api'
+    } catch (e) {
+      return 'http://localhost:5000/api'
+    }
+  })()
+
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true)
       try {
-        const res = await axios.get(`${apiBase}/analytics`, { withCredentials: true })
+        // Try primary apiBase first. If it points to the frontend (vite) server
+        // or returns 404, attempt a sensible backend fallback (localhost:5000).
+        let res
+        try {
+          res = await axios.get(`${apiBase}/analytics`, { withCredentials: true })
+        } catch (err) {
+      
+          try {
+            res = await axios.get(`${fallback}/analytics`, { withCredentials: true })
+          } catch (err2) {
+            throw err2 || err
+          }
+        }
         setData(res.data)
       } catch (err) {
         setError(err?.message || 'Failed to load analytics')
