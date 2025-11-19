@@ -30,6 +30,7 @@ import Index from "./Pages/Index";
 import SignIn from "./Pages/SignIn";
 import SignUp from "./Pages/SignUp";
 import Profile from "./Pages/Profile";
+import ProfileAnalytics from './pages/ProfileAnalytics';
 import Comments from "./Pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";
@@ -84,6 +85,7 @@ function App() {
                         {/* Comments */}
                         <Route path={RouteCommentDetails} element={<Comments />} />
                         <Route path={RouteSaved} element={<Saved />} />
+                        <Route path={RouteAnalytics} element={<ProfileAnalytics />} />
                         <Route path={RouteUser} element={<ManageUsers />} />
                         <Route path={RouteAdminReports} element={<AdminReports />} />
 
