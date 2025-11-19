@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import User from '../models/user.model.js'
 import { handleError } from '../helpers/handleError.js'
 
+
 export const authenticate = async (req, res, next) => {
     try {
         const token = req.cookies.access_token

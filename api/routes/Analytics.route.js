@@ -3,28 +3,27 @@ import Blog from "../models/blog.model.js";
 import BlogLike from "../models/bloglike.model.js";
 import Comment from "../models/comment.model.js";
 import View from "../models/view.model.js"; 
+import { authenticate } from "../middleware/authenticate.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
   try {
-    const userId = req.user?._id; 
+    const userId = req.user._id;
 
-    
     const blogs = await Blog.find({ author: userId });
-
-    const blogIds = blogs.map(b => b._id);
+    const blogIds = blogs.map((b) => b._id);
 
     const totalLikes = await BlogLike.countDocuments({ blogid: { $in: blogIds } });
-
     const totalComments = await Comment.countDocuments({ blogid: { $in: blogIds } });
-
-    let totalViews = 0;
-    try {
-      totalViews = await View.countDocuments({ blogid: { $in: blogIds } });
-    } catch (err) {
-      console.log("No views collection found, skipping view count.");
-    }
+    // The app increments `Blog.views` when a view is recorded (see view.controller.addView)
+    // but we don't create a View document there. Counting View documents will return 0
+    // if views weren't stored in the `views` collection. Use the Blog.documents' `views`
+    // field instead to compute total views.
+    const totalViews = blogs.reduce((acc, b) => acc + (b.views || 0), 0);
+    // Count unique views tracked in the `views` collection (one per user per blog).
+    // If you don't want unique view counts, clients can still rely on `totalViews`.
+    const uniqueViews = await View.countDocuments({ blogId: { $in: blogIds } });
 
     const engagementRate = totalViews
       ? (((totalLikes + totalComments) / totalViews) * 100).toFixed(2)
@@ -32,16 +31,15 @@ router.get("/", async (req, res) => {
 
     const trends = blogs.map((b) => ({
       date: b.createdAt.toISOString().split("T")[0],
-      views: b.views || 0,
-      likes: b.likes || 0,
-      comments: b.comments || 0,
+      views: b.views,
+      likes: b.likes,
+      comments: b.comments,
     }));
-
 
     const aiInsight = `Your blogs received ${totalLikes} likes and ${totalComments} comments so far. Engagement rate: ${engagementRate}%.`;
 
     res.json({
-      overview: { views: totalViews, likes: totalLikes, comments: totalComments, engagementRate },
+      overview: { views: totalViews, uniqueViews, likes: totalLikes, comments: totalComments, engagementRate },
       trends,
       aiInsight,
     });
@@ -50,5 +48,4 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "Error generating analytics" });
   }
 });
-
-export default router;
+export default router; 
