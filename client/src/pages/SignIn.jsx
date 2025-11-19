@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from "../components/ui/form";
 import { Link, useNavigate } from "react-router-dom";
-import { RouteSignUp, RouteIndex } from "@/helpers/RouteName";
+import { RouteSignUp, RouteIndex, RouteForgotPassword } from "@/helpers/RouteName";
 import { CiMail } from "react-icons/ci";
 import { showToast } from "@/helpers/showToast";
 import { getEnv } from "@/helpers/getEnv";
@@ -201,12 +201,12 @@ const SignIn = () => {
               </Button>
 
               <div className="text-center">
-                <button
-                  type="button"
+                <Link
+                  to={RouteForgotPassword}
                   className="text-sm font-semibold text-[#6C5CE7] hover:text-[#4c3ebb] transition-colors"
                 >
                   Forgot your password?
-                </button>
+                </Link>
               </div>
             </form>
           </Form>

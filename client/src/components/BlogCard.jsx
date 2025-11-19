@@ -211,7 +211,7 @@ const BlogCard = ({ blog, className = "" }) => {
         className={`
           flex h-full flex-col
           rounded-[26px] border border-slate-100 bg-white/95
-          p-4 shadow-[0_20px_48px_-32px_rgba(15,23,42,0.45)] backdrop-blur-sm
+          p-4 sm:p-5 shadow-[0_20px_48px_-32px_rgba(15,23,42,0.45)] backdrop-blur-sm
           transition-all duration-300 cursor-pointer
           hover:-translate-y-1 hover:shadow-xl
           ${className}
@@ -222,7 +222,7 @@ const BlogCard = ({ blog, className = "" }) => {
           <img
             src={featuredImage || "/placeholder.jpg"}
             alt={title}
-            className="h-40 w-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className="object-cover w-full h-48 transition-transform duration-700 sm:h-44 md:h-40 group-hover:scale-110"
           />
 
           {/* Category Badges */}
@@ -234,7 +234,7 @@ const BlogCard = ({ blog, className = "" }) => {
         </div>
 
         {/* AUTHOR + DATE */}
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <button
             type="button"
             onClick={(e) => {
@@ -245,7 +245,7 @@ const BlogCard = ({ blog, className = "" }) => {
           >
             <img
               src={author?.avatar || "/default-avatar.png"}
-              className="h-10 w-10 rounded-full border border-slate-100 object-cover shadow-sm"
+              className="object-cover w-10 h-10 border rounded-full shadow-sm border-slate-100"
               alt={author?.name || "Author avatar"}
             />
 
@@ -259,7 +259,7 @@ const BlogCard = ({ blog, className = "" }) => {
             </div>
           </button>
 
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-slate-50 text-slate-600">
             <Clock size={12} /> {moment(createdAt).format("MMM D, YYYY")}
           </span>
         </div>
@@ -272,13 +272,13 @@ const BlogCard = ({ blog, className = "" }) => {
         </h2>
 
         {/* EXCERPT */}
-        <p className="mb-2 text-[12.5px] leading-relaxed text-slate-500 line-clamp-[3]">
+        <p className="mb-3 text-[13px] leading-relaxed text-slate-500 line-clamp-3">
           {cleanDescription || getBlogExcerpt(blog?.blogContent)}
         </p>
 
         {/* ACTION BUTTONS */}
-        <div className="mt-auto space-y-3 pt-2">
-          <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="pt-2 mt-auto space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -302,14 +302,14 @@ const BlogCard = ({ blog, className = "" }) => {
           {/* ACTION BAR */}
           <div
             className="
-              blog-actions flex w-full items-center gap-2 overflow-x-auto
-              rounded-[20px] border border-slate-100 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm
+              blog-actions flex w-full flex-wrap items-center gap-2
+              rounded-[20px] border border-slate-100 bg-white px-3 py-1.5 text-[11px] sm:text-xs text-slate-600 shadow-sm
             "
           >
             <LikeCount
               blogid={_id}
               variant="chip"
-              className="transition text-xs"
+              className="text-xs transition"
             />
 
             <button

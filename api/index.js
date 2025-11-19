@@ -17,6 +17,7 @@ import SaveRoute from './routes/save.route.js'
 import NotificationRoute from './routes/notification.route.js'
 import ModerationRoute from './routes/moderation.route.js'
 import ReportsRoute from './routes/reports.route.js'
+import AnalyticsRoute from './routes/Analytics.route.js'
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
@@ -46,7 +47,11 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
-const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
+const defaultOrigins = [
+  'https://shabdsetu.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
 const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
@@ -86,6 +91,7 @@ app.use('/api/save', SaveRoute)
 app.use('/api/notifications', NotificationRoute)
 app.use('/api/moderate', ModerationRoute)
 app.use('/api/report', ReportsRoute)
+app.use('/api/analytics', AnalyticsRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
