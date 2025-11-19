@@ -354,7 +354,7 @@ const AddBlog = () => {
             const uniqueSuggested = Array.from(new Set(suggestedIds))
             const limitedSuggested = uniqueSuggested.slice(0, MAX_CATEGORIES)
             if (uniqueSuggested.length > MAX_CATEGORIES) {
-                showToast('info', `AI suggested more than ${MAX_CATEGORIES} categories. Using the first ${MAX_CATEGORIES} (max).`)
+                showToast('info', `AI suggested more than ${MAX_CATEGORIES} categories. Using the first ${MAX_CATEGORIES}.`)
             }
 
             form.setValue('categories', limitedSuggested, {
@@ -455,7 +455,7 @@ const AddBlog = () => {
                   titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   return
                 }
-            showToast('success', data.message)
+              }
               if (lineNum === 2) {
                 const slugInput = document.querySelector('input[name="slug"]')
                 if (slugInput) {
