@@ -271,60 +271,6 @@ export const Login = async (req, res, next) => {
 
         await ensureUserHasUsername(user, user.name || normalizedEmail);
 
-        if (!requiresTwoFactor) {
-            const safeUser = issueAuthCookie(res, user);
-            return res.status(200).json({
-                success: true,
-                user: safeUser,
-                message: "Login successful.",
-                requiresTwoFactor: false,
-            });
-        }
-
-        const { twoFactorToken } = await createTwoFactorChallenge(user);
-
-        return res.status(200).json({
-            success: true,
-            requiresTwoFactor: true,
-            twoFactorToken,
-            message: "Enter the verification code sent to your email.",
-        });
-    } catch (error) {
-        if (typeof next === 'function') return next(handleError(500, error.message));
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-export const verifyTwoFactor = async (req, res, next) => {
-    try {
-        const { token, code } = req.body;
-        if (!token || !code) {
-            return next(handleError(400, "Two-factor token and code are required."));
-        }
-
-        let payload;
-        try {
-            payload = jwt.verify(token, process.env.JWT_SECRET);
-        } catch (error) {
-            return next(handleError(401, "Two-factor challenge expired. Please sign in again."));
-        }
-
-        if (payload?.type !== "two-factor" || !payload?.userId) {
-            return next(handleError(400, "Invalid two-factor token."));
-        }
-
-        await verifyCodeForPurpose({
-            email: payload.email,
-            purpose: VERIFICATION_PURPOSES.TWO_FACTOR_LOGIN,
-            code,
-        });
-
-        const user = await User.findById(payload.userId);
-        if (!user) {
-            return next(handleError(404, "Account not found."));
-        }
-
-        await ensureUserHasUsername(user);
         const safeUser = issueAuthCookie(res, user);
         return res.status(200).json({
             success: true,
@@ -332,10 +278,10 @@ export const verifyTwoFactor = async (req, res, next) => {
             message: "Login successful.",
         });
     } catch (error) {
-        return next(handleError(500, error.message));
+        if (typeof next === 'function') return next(handleError(500, error.message));
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 
 export const GoogleLogin = async (req, res, next) => {
     try {

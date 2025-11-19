@@ -1,12 +1,12 @@
 import React, { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import { getEnv } from "@/helpers/getEnv";
 import Loading from "@/components/Loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import FollowButton from "@/components/FollowButton";
-import { BookOpen, Eye, Feather, Heart, MessageCircle, Sparkles, Tag, Users } from "lucide-react";
-import { RouteBlog, RouteBlogDetails } from "@/helpers/RouteName";
+import { BookOpen, Eye, Feather, Sparkles, Tag, Users } from "lucide-react";
+import BlogCard from "@/components/BlogCard";
 
 const ProfileView = () => {
   const { userId } = useParams();
@@ -96,7 +96,7 @@ const ProfileView = () => {
         title: "Stories",
         value: blogs.length,
         helper: "published pieces",
-        accent: "from-indigo-50 v ia-white to-white",
+        accent: "from-indigo-50 via-white to-white",
         tone: "text-indigo-900",
         icon: BookOpen,
       },
@@ -147,32 +147,14 @@ const ProfileView = () => {
     );
   }
 
-  const getBlogPreview = (blog) => {
-    const raw = blog?.description || blog?.blogContent || "";
-    const text = raw
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!text) return "No preview available yet.";
-    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
-  };
-
-  const getCategoryLabel = (blog) => {
-    if (Array.isArray(blog?.categories) && blog.categories.length > 0) {
-      return blog.categories[0]?.name;
-    }
-    if (blog?.category) return blog.category?.name;
-    return "Uncategorized";
-  };
-
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50/30 to-white">
       <div className="max-w-6xl px-4 py-10 mx-auto space-y-10 sm:px-8 lg:px-12">
-        <section className="relative overflow-hidden rounded-[32px] bg-linear-to-r from-[#6C5CE7] to-[#8F7CF1] px-6 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
+        <section className="relative overflow-hidden rounded-4xl bg-linear-to-r from-[#6C5CE7] to-[#8F7CF1] px-6 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
           <div className="absolute inset-y-0 right-0 hidden w-64 rounded-full translate-x-1/4 bg-white/10 blur-3xl md:block" />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 md:flex-row md:items-center">
-              <div className="relative flex-shrink-0 mx-auto md:mx-0">
+              <div className="relative shrink-0 mx-auto md:mx-0">
                 <div className="absolute inset-0 translate-x-1 -translate-y-1 rounded-full bg-white/20 blur-xl" />
                 <Avatar className="relative w-24 h-24 border-4 border-white shadow-2xl sm:h-28 sm:w-28">
                   <AvatarImage src={profile.avatar || undefined} alt={profile.name} />
@@ -232,7 +214,7 @@ const ProfileView = () => {
           {statCards.map((card) => (
             <div
               key={card.title}
-              className={`rounded-3xl border border-slate-100 bg-gradient-to-br ${card.accent} px-6 py-5 shadow-[0_20px_60px_-50px_rgba(15,23,42,0.8)]`}
+              className={`rounded-3xl border border-slate-100 bg-linear-to-br ${card.accent} px-6 py-5 shadow-[0_20px_60px_-50px_rgba(15,23,42,0.8)]`}
             >
               <div className="flex items-center gap-3">
                 <card.icon className="h-10 w-10 text-[#6C5CE7]" />
@@ -290,92 +272,10 @@ const ProfileView = () => {
               <p className="mt-2 text-sm text-slate-500">Check back soon for fresh writing from {profile.name}.</p>
             </div>
           ) : (
-            <div className="space-y-5">
-              {blogs.map((blog) => {
-                const primaryCategory = getCategoryLabel(blog);
-                const blogDate = blog?.createdAt
-                  ? new Date(blog.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : "";
-                const likeCount = formatNumber(blog?.likeCount || 0);
-                const viewCount = formatNumber(blog?.views || 0);
-                const comments = formatNumber(
-                  blog?.commentStats?.totalComments ||
-                    blog?.commentsCount ||
-                    blog?.commentCount ||
-                    (Array.isArray(blog?.comments) ? blog.comments.length : 0)
-                );
-                const blogSlug = blog?.slug || blog?._id;
-                const categorySlug = blog?.category?.slug || blog?.categories?.[0]?.slug;
-
-                return (
-                  <article
-                    key={blog._id || blog.id}
-                    className="flex flex-col gap-4 rounded-[28px] border border-slate-100 bg-white/95 p-4 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.8)] backdrop-blur-sm md:flex-row"
-                  >
-                    <div className="overflow-hidden rounded-2xl md:max-w-[220px] md:flex-shrink-0">
-                      <img
-                        src={blog?.featuredImage || "/placeholder.jpg"}
-                        alt={blog?.title}
-                        className="h-48 w-full object-cover transition duration-500 hover:scale-[1.02] md:h-full"
-                      />
-                    </div>
-                    <div className="flex flex-col flex-1 gap-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                        <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] tracking-[0.3em] text-slate-600">
-                          {primaryCategory}
-                        </span>
-                        {blogDate && <span className="text-[10px] text-slate-400">{blogDate}</span>}
-                      </div>
-                      <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">
-                        {blog?.title}
-                      </h3>
-                      <p className="text-sm leading-relaxed text-slate-500 line-clamp-3">
-                        {getBlogPreview(blog)}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                        <span className="inline-flex items-center gap-1">
-                          <Eye className="h-4 w-4 text-[#6C5CE7]" />
-                          {viewCount} views
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Heart className="h-4 w-4 text-[#6C5CE7]" />
-                          {likeCount} likes
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MessageCircle className="h-4 w-4 text-[#6C5CE7]" />
-                          {comments} comments
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-3 pt-2">
-                        <Link
-                          to={
-                            categorySlug && blogSlug
-                              ? RouteBlogDetails(categorySlug, blogSlug)
-                              : RouteBlog
-                          }
-                          className="inline-flex items-center gap-2 rounded-full bg-[#6C5CE7] px-5 py-2 text-sm font-semibold text-white shadow-[0_15px_40px_-25px_rgba(108,92,231,0.9)] transition hover:bg-[#5b4bc4]"
-                        >
-                          Read article
-                        </Link>
-                        <Link
-                          to={
-                            categorySlug && blogSlug
-                              ? RouteBlogDetails(categorySlug, blogSlug)
-                              : RouteBlog
-                          }
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
-                        >
-                          View details
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {blogs.map((blog) => (
+                <BlogCard key={blog._id || blog.id} blog={blog} />
+              ))}
             </div>
           )}
         </section>

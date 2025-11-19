@@ -23,7 +23,6 @@ import {
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
-    RouteAnalytics,
     RouteAdminReports,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";
@@ -32,7 +31,7 @@ import Index from "./Pages/Index";
 import SignIn from "./Pages/SignIn";
 import SignUp from "./Pages/SignUp";
 import Profile from "./Pages/Profile";
-import ProfileAnalytics from './pages/ProfileAnalytics';
+import ProfileAnalytics from './Pages/ProfileAnalytics';
 import Comments from "./Pages/Comments";
 import ProfileView from "./Pages/ProfileView";
 import Following from "./Pages/Following";

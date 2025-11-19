@@ -20,7 +20,7 @@ router.get("/", authenticate, async (req, res) => {
 
     const blogs = await Blog.find({ author: userId }).select("_id title slug views likes comments createdAt");
     console.log(`[/api/analytics] found ${blogs.length} blogs for user ${userId}`);
-    const blogIds = blogs.map((b) => mongoose.Types.ObjectId(b._id));
+    const blogIds = blogs.map((b) => b._id);
 
     // If the user has no blogs, return a tidy empty analytics response early.
     if (!blogIds.length) {

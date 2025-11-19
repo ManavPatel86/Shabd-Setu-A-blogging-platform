@@ -21,6 +21,9 @@ import ModerationErrorList from '@/components/ModerationErrorList'
 import ModerationErrorDisplay from '@/components/ModerationErrorDisplay'
 
 
+const MAX_CATEGORIES = 5
+
+
 const AddBlog = () => {
 
         const user=useSelector((state) => state.user)
@@ -48,7 +51,10 @@ const AddBlog = () => {
       }) 
 
     const formSchema = z.object({
-                categories: z.array(z.string().min(1)).optional().default([]),
+                categories: z.array(z.string().min(1))
+                    .max(MAX_CATEGORIES, { message: `Select max ${MAX_CATEGORIES} categories.` })
+                    .optional()
+                    .default([]),
                 title: z.string().optional().default(''),
                 blogContent: z.string().optional().default(''),
                 description: z.string().optional().default(''),
@@ -318,7 +324,7 @@ const AddBlog = () => {
                 body: JSON.stringify({
                     title,
                     content: blogContent,
-                    maxCategories: 3,
+                    maxCategories: MAX_CATEGORIES,
                 }),
             })
 
@@ -345,13 +351,19 @@ const AddBlog = () => {
                 return
             }
 
-            form.setValue('categories', Array.from(new Set(suggestedIds)), {
+            const uniqueSuggested = Array.from(new Set(suggestedIds))
+            const limitedSuggested = uniqueSuggested.slice(0, MAX_CATEGORIES)
+            if (uniqueSuggested.length > MAX_CATEGORIES) {
+                showToast('info', `AI suggested more than ${MAX_CATEGORIES} categories. Using the first ${MAX_CATEGORIES} (max).`)
+            }
+
+            form.setValue('categories', limitedSuggested, {
                 shouldDirty: true,
                 shouldValidate: true,
             })
 
             // Cache the result and content signature
-            setCachedCategories(Array.from(new Set(suggestedIds)))
+            setCachedCategories(limitedSuggested)
             setLastCategorizedContent(contentSignature)
 
             showToast('success', 'Categories updated using AI suggestions.')
@@ -443,7 +455,7 @@ const AddBlog = () => {
                   titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   return
                 }
-              }
+            showToast('success', data.message)
               if (lineNum === 2) {
                 const slugInput = document.querySelector('input[name="slug"]')
                 if (slugInput) {
@@ -463,7 +475,7 @@ const AddBlog = () => {
         )}
 
         <div className='mb-8'>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">Create New Blog Post</h1>
+          <h1 className="text-3xl font-bold bg-linear-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-2">Create New Blog Post</h1>
           <p className="text-gray-600 dark:text-gray-400">Share your thoughts and stories with the world</p>
           {lastSaved && (
             <p className="text-sm text-gray-500 mt-2">
@@ -516,7 +528,7 @@ const AddBlog = () => {
                                         <Sparkles className="h-5 w-5 text-violet-600" />
                                         <CardTitle>Categories *</CardTitle>
                                     </div>
-                                    <CardDescription>Select relevant categories for your blog post</CardDescription>
+                                    <CardDescription>Select max {MAX_CATEGORIES} categories for your blog post</CardDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -567,8 +579,14 @@ const AddBlog = () => {
                                                                     onChange={(event) => {
                                                                         const checked = event.target.checked
                                                                         const current = Array.isArray(field.value) ? field.value : []
+                                                                        if (checked && current.length >= MAX_CATEGORIES) {
+                                                                            showToast('error', `You can select up to ${MAX_CATEGORIES} categories.`)
+                                                                            event.preventDefault()
+                                                                            event.target.checked = false
+                                                                            return
+                                                                        }
                                                                         const next = checked
-                                                                            ? [...current, category._id]
+                                                                            ? Array.from(new Set([...current, category._id])).slice(0, MAX_CATEGORIES)
                                                                             : current.filter((id) => id !== category._id)
                                                                         field.onChange(next)
                                                                     }}
@@ -586,6 +604,7 @@ const AddBlog = () => {
                                             </div>
                                         </FormControl>
                                         <FormMessage />
+                                        <p className="pt-2 text-xs text-gray-500">You can assign up to {MAX_CATEGORIES} categories.</p>
                                     </FormItem>
                                 )}
                             />

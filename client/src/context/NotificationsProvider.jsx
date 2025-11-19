@@ -37,8 +37,16 @@ export default function NotificationsProvider({ currentUser, children }) {
     try {
       const parsed = new URL(apiBase);
       socketUrl = parsed.origin;
+      // If the API url is pointing to the Vite dev server (port 3000), prefer the
+      // backend port (5000) which typically hosts socket.io during development.
+      if (socketUrl.includes(':3000')) {
+        socketUrl = socketUrl.replace(':3000', ':5000');
+      }
     } catch (error) {
       socketUrl = apiBase?.replace(/\/?api\/?$/, '') || window.location.origin;
+      if (socketUrl.includes(':3000')) {
+        socketUrl = socketUrl.replace(':3000', ':5000');
+      }
     }
 
     let socket;

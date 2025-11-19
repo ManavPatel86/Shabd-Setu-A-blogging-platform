@@ -104,10 +104,10 @@ const Topbar = () => {
           </div>
 
           <Link to={RouteIndex} className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-br from-[#6C5CE7] to-[#8E7CF3] text-white shadow-lg shadow-indigo-200/80">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl">
               <svg
-                width="20"
-                height="20"
+                width="80"
+                height="80"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -115,7 +115,7 @@ const Topbar = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                <image href="../src/assets/images/logo.png" x="0" y="0" width="24" height="24" />
               </svg>
             </div>
             <div className="flex-col hidden md:flex">

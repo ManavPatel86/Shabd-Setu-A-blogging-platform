@@ -87,7 +87,7 @@ const SearchResult = () => {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col space-y-10 px-4 py-10 text-slate-900 sm:px-8 lg:px-12">
-      <section className="relative overflow-hidden rounded-4xl bg-linear-to-r from-[#6C5CE7] to-[#8A74F7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
+      <section className="relative overflow-hidden rounded-4xl bg-gradient-to-r from-[#6C5CE7] to-[#8A74F7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
         <div className="absolute inset-y-0 right-0 h-full w-64 translate-x-1/3 rounded-full bg-white/15 blur-3xl" />
         <div className="relative space-y-4">
           <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Discover</p>

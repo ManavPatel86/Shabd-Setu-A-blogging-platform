@@ -53,6 +53,11 @@ const BlogCard = ({ blog, className = "" }) => {
     : [];
 
   const primaryCategory = categories[0];
+  const hasExtraCategories = categories.length > 1;
+  const primaryCategoryName = primaryCategory?.name || 'Uncategorized';
+  const displayCategoryLabel = hasExtraCategories
+    ? `${primaryCategoryName}…`
+    : primaryCategoryName;
 
   // -------- Comment Count (UI branch logic) --------
   const commentCount =
@@ -228,7 +233,7 @@ const BlogCard = ({ blog, className = "" }) => {
           {/* Category Badges */}
           <div className="absolute top-3 left-3">
             <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
-              {(categories.length > 0 ? categories : [{ name: "Uncategorized" }])[0]?.name || "Uncategorized"}
+              {displayCategoryLabel}
             </span>
           </div>
         </div>

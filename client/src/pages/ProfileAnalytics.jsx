@@ -62,11 +62,24 @@ const ProfileAnalytics = () => {
     fetch()
   }, [apiBase])
 
-  if (loading) return <div className="p-6">Loading analytics...</div>
-  if (error) return <div className="p-6 text-red-600">{error}</div>
-  if (!data) return null
+  const { overview = {}, breakdown = {}, trends = [], aiInsight, topBlog } = data || {}
 
-  const { overview, breakdown, trends, aiInsight, topBlog } = data
+  const engagementTrend = useMemo(() => {
+    if (!Array.isArray(trends)) return []
+    return trends.map((point) => {
+      const views = Number(point?.views) || 0
+      const likes = Number(point?.likes) || 0
+      const comments = Number(point?.comments) || 0
+      const engagement = views > 0 ? Number((((likes + comments) / views) * 100).toFixed(2)) : 0
+      return { date: point?.date, engagement }
+    })
+  }, [trends])
+
+  const averageEngagement = useMemo(() => {
+    if (!engagementTrend.length) return 0
+    const total = engagementTrend.reduce((sum, point) => sum + point.engagement, 0)
+    return Number((total / engagementTrend.length).toFixed(2))
+  }, [engagementTrend])
 
   const pieFor = (metricKey, title) => {
     const m = breakdown && breakdown[metricKey]
@@ -92,6 +105,10 @@ const ProfileAnalytics = () => {
     )
   }
 
+  if (loading) return <div className="p-6">Loading analytics...</div>
+  if (error) return <div className="p-6 text-red-600">{error}</div>
+  if (!data) return null
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -106,39 +123,46 @@ const ProfileAnalytics = () => {
         <Stat label="Total Comments" value={overview.comments || 0} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
         {pieFor('uniqueViews', 'Unique Views: Followers vs Non-followers')}
-        {pieFor('likes', 'Likes: Followers vs Non-followers')}
-        {pieFor('comments', 'Comments: Followers vs Non-followers')}
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl shadow mb-6">
-        <h3 className="text-lg font-semibold mb-3">Engagement Trends (last 30 days)</h3>
-        <div style={{ width: '100%', height: 320 }}>
-          <ResponsiveContainer>
-            <LineChart data={trends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="views" stroke="#6C5CE7" strokeWidth={2} />
-              <Line type="monotone" dataKey="likes" stroke="#ef4444" strokeWidth={2} />
-              <Line type="monotone" dataKey="comments" stroke="#10b981" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="xl:col-span-2 bg-white p-4 rounded-2xl shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+                <div className="text-sm text-slate-600">Engagement Trends (last 30 days)</div>
+                  <div className="text-xs text-slate-400">Daily views, likes, and comments</div>
+            </div>
+          </div>
+          {trends && trends.length ? (
+            <div style={{ width: '100%', height: 200 }}>
+              <ResponsiveContainer>
+                <LineChart data={trends} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="views" stroke="#6C5CE7" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="likes" stroke="#ef4444" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="comments" stroke="#10b981" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-40 items-center justify-center text-sm text-slate-500">Not enough data to chart engagement yet.</div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 bg-white p-6 rounded-2xl shadow">
-          <h3 className="text-lg font-semibold mb-2">AI Insights</h3>
+          <h3 className="text-lg font-semibold mb-2">Insights</h3>
           <p className="text-slate-700">{aiInsight}</p>
           {topBlog ? <p className="mt-3 text-sm text-slate-500">Top post: {topBlog.title} — {topBlog.views} views</p> : null}
         </div>
         <div className="bg-white p-6 rounded-2xl shadow">
-          <h4 className="text-sm text-slate-500 mb-3">Engagement Rate</h4>
-          <div className="text-3xl font-bold">{overview.engagementRate}%</div>
+          <h4 className="text-sm text-slate-500 mb-1">Engagement Rate</h4>
+          <div className="text-3xl font-bold text-[#6C5CE7]">{overview.engagementRate}%</div>
+          <p className="mt-2 text-xs text-slate-500">Average (30-day): {averageEngagement}%</p>
         </div>
       </div>
     </div>
