@@ -54,7 +54,7 @@ const SignUp = () => {
   const [otp, setOtp] = useState("");
 
   // resend otp timer
-  const resendMinutes = Number(import.meta.env.VITE_OTP_RESEND_INTERVAL_MINUTES || 5);
+  const resendMinutes = Number(import.meta.env.VITE_OTP_RESEND_INTERVAL_MINUTES) || 1;
   const RESEND_INTERVAL = resendMinutes * 60;
 
   const [resendDisabled, setResendDisabled] = useState(false);

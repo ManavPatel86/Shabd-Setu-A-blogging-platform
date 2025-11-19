@@ -22,6 +22,7 @@ import {
     RouteCategoryFeed,
     RouteUser,
     RouteLanding,
+    RouteAnalytics,
     RouteAdminReports,
 } from "./helpers/RouteName";
 import AddBlog from "./Pages/Blog/AddBlog";

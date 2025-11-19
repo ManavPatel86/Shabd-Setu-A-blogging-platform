@@ -1,7 +1,7 @@
 import OtpCode from "../models/OtpCode.model.js";
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
-const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES || 5);
+const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES) || 1;
 
 const minutesToMs = mins => mins * 60 * 1000;
 

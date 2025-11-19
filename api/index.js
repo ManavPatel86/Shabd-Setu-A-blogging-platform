@@ -46,7 +46,11 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
-const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
+const defaultOrigins = [
+  'https://shabdsetu.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
 const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))

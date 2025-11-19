@@ -86,16 +86,6 @@ export const Verification_Email_Template = wrapTemplate(
   `
 );
 
-export const TwoFactor_Email_Template = wrapTemplate(
-  "Your Login Verification Code",
-  `
-      <p>Hello,</p>
-      <p>We detected a sign-in attempt to your ShabdSetu account. Use the code below to finish signing in:</p>
-      <span class="verification-code">{verificationCode}</span>
-      <p>This code expires in a few minutes. If you did not attempt to sign in, please reset your password immediately.</p>
-  `
-);
-
 export const Password_Reset_Email_Template = wrapTemplate(
   "Reset Your Password",
   `
@@ -104,14 +94,4 @@ export const Password_Reset_Email_Template = wrapTemplate(
       <span class="verification-code">{verificationCode}</span>
       <p>If you did not request a password reset, you can safely ignore this email.</p>
   `
-);
-
-export const TwoFactor_Setup_Email_Template = wrapTemplate(
-    "Confirm Your Security Change",
-    `
-            <p>Hello,</p>
-            <p>Someone requested to {actionDescription} two-step verification on your ShabdSetu account. Enter the code below in the app to confirm this change:</p>
-            <span class="verification-code">{verificationCode}</span>
-            <p>If this wasn&apos;t you, secure your account immediately and reset your password.</p>
-    `
 );
