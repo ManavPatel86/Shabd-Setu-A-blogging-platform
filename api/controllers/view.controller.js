@@ -51,11 +51,20 @@ export const addView = async (req, res, next) => {
     if (error?.code === 11000) {
       const { blogId } = req.body || {};
       const fallback = await Blog.findById(blogId).select("views");
-      return res.status(200).json({
-        success: true,
-        viewCount: fallback?.views || 0,
-        alreadyCounted: true,
-      });
+      if (fallback && fallback.views) {
+        res.status(200).json({
+          success: true,
+          viewCount: fallback.views,
+          alreadyCounted: true,
+        });
+      } else {
+        res.status(200).json({
+          success: true,
+          viewCount: 0,
+          alreadyCounted: true,
+        });
+      }
+      return;
     }
     next(handleError(500, error.message));
   }

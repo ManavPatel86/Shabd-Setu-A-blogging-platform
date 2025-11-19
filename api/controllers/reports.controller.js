@@ -67,7 +67,35 @@ export const reportBlog = async (req, res) => {
  */
 export const listReports = async (req, res) => {
   try {
-    const reports = await Report.find().populate('blogId reporterId').sort({ createdAt: -1 });
+    // Try to populate blog and reporter with key fields. Sometimes populate may not attach nested fields
+    // (if blog was saved as a plain string id or other edge cases). We'll populate and then defensively
+    // fetch the blog when needed so the client always receives an object with `title` and `slug`.
+    const reports = await Report.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'blogId',
+        select: 'title slug categories',
+        populate: { path: 'categories', select: 'slug' },
+      })
+      .populate({ path: 'reporterId', select: 'name email' });
+
+    // Defensive fallback: ensure every report has a blog object with title/slug when possible
+    for (let i = 0; i < reports.length; i++) {
+      const r = reports[i];
+      // If blogId is missing or doesn't have a title/slug, try to fetch it directly
+      if (!r.blogId || !r.blogId.title) {
+        try {
+          const blog = await Blog.findById(r.blogId).select('title slug');
+          if (blog) {
+            // Attach the plain blog doc to report.blogId for the client
+            r.blogId = blog;
+          }
+        } catch (err) {
+          console.error('Failed to fetch blog for report fallback:', (err && err.message) || err);
+        }
+      }
+    }
+
     res.json(reports);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch reports.' });
@@ -79,21 +107,6 @@ export const listReports = async (req, res) => {
  * Admin: update report status
  * Expects: { status }
  */
-export const updateReportStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    if (!['pending','resolved','safe','removed','banned'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status.' });
-    }
-    const report = await Report.findByIdAndUpdate(id, { status }, { new: true });
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
-    res.json(report);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to update report.' });
-  }
-};
-
 /**
  * Admin action: mark report as SAFE
  * PATCH /api/report/admin/report/:id/safe
@@ -141,7 +154,7 @@ export const adminRemoveReport = async (req, res) => {
     if (!blog) return res.status(400).json({ error: 'Blog not found for this report.' });
 
     const blogId = blog._id;
-    
+
     // Extract authorId properly - handle both ObjectId and populated object
     let authorId = blog.author;
     if (authorId && typeof authorId === 'object' && authorId._id) {
@@ -157,13 +170,12 @@ export const adminRemoveReport = async (req, res) => {
       return res.status(400).json({ error: 'Blog author not found or invalid.' });
     }
 
-    // Soft delete the blog (mark as removed instead of hard delete)
+    const blogTitle = blog.title;
+    const blogSlug = blog.slug;
+
+    // Permanently delete the blog document
     try {
-      await Blog.findByIdAndUpdate(blogId, {
-        removed: true,
-        removedAt: new Date(),
-        removedBy: req.user._id // Admin who removed it
-      }, { new: true });
+      await Blog.findByIdAndDelete(blogId);
 
       // Notify blog author about removal with warning
       try {
@@ -171,11 +183,11 @@ export const adminRemoveReport = async (req, res) => {
           recipientId: authorId,
           senderId: req.user._id,
           type: 'report', // Using 'report' type - the notification will use the custom message from extra
-          link: `/blog/${blog.slug}`,
+          link: `/blog/${blogSlug}`,
           extra: {
             senderName: 'Admin',
-            blogTitle: blog.title,
-            message: `Your blog "${blog.title}" has been removed due to violations. Please review our community guidelines.`
+            blogTitle: blogTitle,
+            message: `Your blog "${blogTitle}" has been removed due to violations. Please review our community guidelines.`
           }
         });
         console.log(`Removal notification sent to author: ${authorId}`);
@@ -300,24 +312,3 @@ export const adminBanReport = async (req, res) => {
   }
 };
 
-/**
- * Admin action: resolve report without action
- * PATCH /api/report/admin/report/:id/resolve
- */
-export const adminResolveReport = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validate ObjectId format
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Invalid report ID format.' });
-    }
-    
-    const report = await Report.findByIdAndUpdate(id, { status: 'resolved' }, { new: true }).populate('blogId reporterId');
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
-    return res.json(report);
-  } catch (err) {
-    console.error('adminResolveReport error:', err);
-    return res.status(500).json({ error: 'Failed to resolve report.' });
-  }
-};

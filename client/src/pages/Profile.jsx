@@ -263,44 +263,43 @@ const Profile = () => {
     const topicsPreview = topCategories.slice(0, 3)
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-purple-50/30">
-            <div className="max-w-6xl px-4 py-10 mx-auto space-y-8 sm:px-6 lg:px-12">
-                <section className="relative overflow-hidden rounded-[32px] bg-[#6C5CE7] px-5 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-8">
-                    <div className="absolute top-0 right-0 -translate-y-1/2 rounded-full h-80 w-80 translate-x-1/3 bg-white/10 blur-3xl" />
-                    <div className="absolute bottom-0 w-56 h-56 translate-y-1/2 rounded-full left-6 bg-purple-300/40 blur-3xl" />
-                    <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                            <div className="relative">
-                                <div className="absolute inset-0 translate-x-2 -translate-y-2 rounded-full bg-white/25 blur-2xl" />
-                                <Avatar className="relative w-24 h-24 border-4 border-white shadow-xl sm:h-28 sm:w-28">
-                                    <AvatarImage src={profileUser?.avatar || defaultAvatar} alt={profileUser?.name} />
-                                    <AvatarFallback>
-                                        {profileUser?.name?.charAt(0)?.toUpperCase() || 'U'}
-                                    </AvatarFallback>
-                                </Avatar>
-                                {usernameHandle && (
-                                    <button
-                                        type="button"
-                                        onClick={() => handleCopyUsername(profileUser?.username)}
-                                        className="absolute -bottom-3 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/80 transition hover:bg-white/25"
-                                    >
-                                        {copiedUsername ? 'Copied' : usernameHandle}
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-4 text-white">
-                                <div className="space-y-3">
-                                    <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.35em] text-white/70">
-                                        <Sparkles className="w-4 h-4" />
-                                        Creator cockpit
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <h1 className="text-2xl font-black leading-tight sm:text-3xl">
-                                            {displayHeading || 'Your profile'}
-                                        </h1>
-                                        {profileUser?.role && (
-                                            <span className="rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-white/80">
-                                                {profileUser.role}
+        <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-8 lg:px-12">
+            <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
+                <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+                <div className="absolute bottom-0 left-12 h-64 w-64 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />
+                <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                        <div className="relative flex flex-col items-center">
+                            <div className="absolute inset-0 -translate-y-2 translate-x-2 rounded-full bg-white/25 blur-2xl" />
+                            <Avatar className="relative h-28 w-28 border-4 border-white shadow-xl">
+                                <AvatarImage src={profileUser?.avatar || defaultAvatar} alt={profileUser?.name} />
+                                <AvatarFallback>
+                                    {profileUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </AvatarFallback>
+                            </Avatar>
+                            {usernameHandle && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleCopyUsername(profileUser?.username)}
+                                    className="relative z-10 mt-4 w-max rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/85 transition hover:bg-white/30"
+                                >
+                                    {copiedUsername ? 'Copied' : usernameHandle}
+                                </button>
+                            )}
+                        </div>
+                        <div className="space-y-4 text-white">
+                            <div className="space-y-3">
+                                <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.4em] text-white/70">
+                                    <Sparkles className="h-4 w-4" />
+                                    Creator cockpit
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h1 className="text-3xl font-black leading-tight sm:text-4xl">
+                                        {displayHeading || 'Your profile'}
+                                    </h1>
+                                    {profileUser?.role && (
+                                        <span className="rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-white/80">
+                                            {profileUser.role}
                                             </span>
                                         )}
                                     </div>
@@ -320,6 +319,7 @@ const Profile = () => {
                                     {topicsPreview.length > 0 && (
                                         <span className="px-4 py-1 border rounded-full border-white/25 bg-white/10">
                                             Top topic · {topicsPreview[0].name}
+
                                         </span>
                                     )}
                                 </div>
@@ -355,14 +355,11 @@ const Profile = () => {
                             </div>
                         </div>
                     </div>
-                </section>
-
-                <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-                    <section className="rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-[0_25px_70px_-55px_rgba(15,23,42,0.7)] space-y-6">
-                        <div>
-                            <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Account settings</p>
-                            <h2 className="text-2xl font-semibold text-slate-900">Personalize your profile</h2>
-                            <p className="text-sm text-slate-500">Update your details and avatar to keep your public page on-brand.</p>
+                    </section>
+                    <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
+                        <div className="rounded-[28px] border border-white/25 bg-white/10 px-8 py-6 text-center shadow-[0_20px_60px_-35px_rgba(15,23,42,0.8)]">
+                            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Published Blogs</p>
+                            <p className="text-4xl font-black text-white">{totalBlogsThisPeriod}</p>
                         </div>
                         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end">
                             <Dropzone onDrop={(acceptedFiles) => handleFileSelection(acceptedFiles)}>

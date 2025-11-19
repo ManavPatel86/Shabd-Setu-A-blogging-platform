@@ -10,7 +10,7 @@ import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
 import { moderateBlog } from "../utils/moderation.js";
 import Follow from "../models/follow.model.js";
 
-const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizeSlug = (value = '') => {
     const trimmed = typeof value === 'string' ? value.trim() : ''
@@ -86,9 +86,14 @@ const buildBlogResponse = (blog) => ({
 })
 
 const publishedOnlyQuery = () => ({
-    $or: [
-        { status: { $exists: false } },
-        { status: 'published' }
+    $and: [
+        {
+            $or: [
+                { status: { $exists: false } },
+                { status: 'published' }
+            ]
+        },
+        { removed: { $ne: true } }
     ]
 })
 export const addBlog = async (req, res, next) => {
@@ -104,25 +109,23 @@ export const addBlog = async (req, res, next) => {
 
         const normalizedCategories = normalizeCategories(data.categories ?? data.category)
         if (isPublished && !normalizedCategories.length) {
-            return next(handleError(400, 'At least one category is required to publish a blog.'))
+            return next(handleError(400, 'At least one category is required.'))
         }
 
         let featuredImage = ''
         if (req.file) {
-            const uploadResult = await cloudinary.uploader
-                .upload(req.file.path, {
-                    folder: 'Shabd-Setu-A-blogging-platform',
+            let uploadResult;
+            try {
+                uploadResult = await cloudinary.uploader.upload(req.file.path, {
+                    folder: 'yt-mern-blog',
                     resource_type: 'auto'
-                })
-                .catch((error) => {
-                    next(handleError(500, error.message))
-                })
-
-            if (!uploadResult) {
-                return
+                });
+            } catch (error) {
+                return next(handleError(500, error.message));
             }
 
-            featuredImage = uploadResult.secure_url
+            if (!uploadResult) return;
+            featuredImage = uploadResult.secure_url;
         }
 
         if (isPublished && !featuredImage) {
@@ -186,7 +189,7 @@ export const addBlog = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: isPublished ? 'Blog published successfully.' : 'Draft saved successfully.',
+            message: 'Blog added successfully.',
             blog: buildBlogResponse(blog),
         })
     } catch (error) {
@@ -226,7 +229,7 @@ export const updateBlog = async (req, res, next) => {
 
         const categories = normalizeCategories(data.categories ?? data.category)
         if (isPublishing && !categories.length) {
-            return next(handleError(400, 'At least one category is required to publish a blog.'))
+            return next(handleError(400, 'At least one category is required.'))
         }
 
         // AI Moderation: block unsafe blogs, show errors
@@ -250,20 +253,18 @@ export const updateBlog = async (req, res, next) => {
 
         let featuredImage = blog.featuredImage
         if (req.file) {
-            const uploadResult = await cloudinary.uploader
-                .upload(req.file.path, {
-                    folder: 'Shabd-Setu-A-blogging-platform',
+            let uploadResult;
+            try {
+                uploadResult = await cloudinary.uploader.upload(req.file.path, {
+                    folder: 'yt-mern-blog',
                     resource_type: 'auto'
-                })
-                .catch((error) => {
-                    next(handleError(500, error.message))
-                })
-
-            if (!uploadResult) {
-                return
+                });
+            } catch (error) {
+                return next(handleError(500, error.message));
             }
 
-            featuredImage = uploadResult.secure_url
+            if (!uploadResult) return;
+            featuredImage = uploadResult.secure_url;
         }
 
         if (isPublishing && !featuredImage) {
@@ -314,7 +315,7 @@ export const updateBlog = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: isPublishing ? 'Blog published successfully.' : 'Draft saved successfully.',
+            message: isPublishing ? 'Blog updated successfully.' : 'Draft saved successfully.',
             blog: buildBlogResponse(blog),
         })
 

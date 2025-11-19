@@ -96,7 +96,7 @@ const ProfileView = () => {
         title: "Stories",
         value: blogs.length,
         helper: "published pieces",
-        accent: "from-indigo-50 via-white to-white",
+        accent: "from-indigo-50 v ia-white to-white",
         tone: "text-indigo-900",
         icon: BookOpen,
       },
