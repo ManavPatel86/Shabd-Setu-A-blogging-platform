@@ -498,7 +498,7 @@ export const generateBlogDescription = async (req, res, next) => {
       ? `${plainContent.slice(0, MAX_CONTENT_LENGTH)}...`
       : plainContent
 
-    const prompt = ChatPromptTemplate.fromMessages([
+    const prompt = deps.ChatPromptTemplate.fromMessages([
       [
         'system',
         'You are a professional blog editor. Generate a concise, engaging 2-4 line description (max 300 characters) '
@@ -530,14 +530,14 @@ export const generateBlogDescription = async (req, res, next) => {
 
     for (const modelId of candidateModels) {
       try {
-        const model = new ChatGoogleGenerativeAI({
+        const model = new deps.ChatGoogleGenerativeAI({
           apiKey: process.env.GEMINI_API_KEY,
           model: modelId,
           temperature: 0.7,
           maxOutputTokens: 256,
         })
 
-        const chain = prompt.pipe(model).pipe(new StringOutputParser())
+        const chain = prompt.pipe(model).pipe(new deps.StringOutputParser())
 
         modelOutput = await chain.invoke({
           title: rawTitle || 'Untitled Blog Post',

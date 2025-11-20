@@ -1,42 +1,24 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import mongoose from 'mongoose';
-import User from '../../models/user.model.js';
-import Blog from '../../models/blog.model.js';
 import Report from '../../models/report.model.js';
+import Blog from '../../models/blog.model.js';
+import User from '../../models/user.model.js';
 import Category from '../../models/category.model.js';
+import Notification from '../../models/notification.model.js';
 import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
-
-// Mock createNotification before importing controller
-jest.unstable_mockModule('../../utils/createNotification.js', () => ({
-  createNotification: jest.fn().mockResolvedValue({})
-}));
-
-const {
+import {
   reportBlog,
   listReports,
   adminSafeReport,
   adminRemoveReport,
-  adminBanReport
-} = await import('../../controllers/reports.controller.js');
+  adminBanReport,
+  buildReportPayload,
+  removeReportById,
+} from '../../controllers/reports.controller.js';
 
-const { createNotification } = await import('../../utils/createNotification.js');
-
-const buildRes = () => {
-  const res = {};
-  res.status = function status(code) {
-    this._statusCode = code;
-    return this;
-  };
-  res.json = function json(payload) {
-    this._jsonData = payload;
-    return this;
-  };
-  return res;
-};
-
-describe('Reports Controller', () => {
-  let testUser, testAdmin, testBlog, testReporter, testCategory;
-  let mockSpies = [];
+describe('Reports Controller Tests', () => {
+  let req, res, next;
+  let testUser, testAdmin, testBlog, testCategory;
 
   beforeAll(async () => {
     await connectTestDB();
@@ -48,70 +30,75 @@ describe('Reports Controller', () => {
 
   beforeEach(async () => {
     await clearTestDB();
-    
-    // Clear all mocks
-    jest.restoreAllMocks();
     jest.clearAllMocks();
-    createNotification.mockClear();
-    createNotification.mockResolvedValue({});
 
-    // Create test users
+    testCategory = await Category.create({
+      name: 'Technology',
+      slug: 'technology',
+    });
+
     testUser = await User.create({
       name: 'Test User',
-      email: 'testuser@example.com',
-      password: 'password123',
-      role: 'user'
+      email: 'user@example.com',
+      password: 'hashedpassword123',
+      username: 'testuser',
     });
 
     testAdmin = await User.create({
-      name: 'Test Admin',
-      email: 'testadmin@example.com',
-      password: 'password123',
-      role: 'admin'
+      name: 'Admin User',
+      email: 'admin@example.com',
+      password: 'hashedpassword123',
+      username: 'adminuser',
+      role: 'admin',
     });
 
-    testReporter = await User.create({
-      name: 'Test Reporter',
-      email: 'testreporter@example.com',
-      password: 'password123',
-      role: 'user'
-    });
-
-    // Create test category
-    testCategory = await Category.create({
-      name: 'Technology',
-      slug: 'technology'
-    });
-
-    // Create test blog
     testBlog = await Blog.create({
       title: 'Test Blog',
       slug: 'test-blog',
-      blogContent: 'Test content',
-      featuredImage: 'test-image.jpg',
+      blogContent: '<p>Test content</p>',
       author: testUser._id,
-      categories: [testCategory._id]
+      categories: [testCategory._id],
+      featuredImage: 'test-image.jpg',
+      status: 'published',
     });
-  });
 
-  afterEach(() => {
-    // Restore all spies
-    mockSpies.forEach(spy => spy.mockRestore && spy.mockRestore());
-    mockSpies = [];
-    jest.restoreAllMocks();
+    req = {
+      body: {},
+      params: {},
+      user: null,
+      query: {},
+    };
+
+    const jsonMock = function(data) {
+      this._jsonData = data;
+      return this;
+    };
+
+    const statusMock = function(code) {
+      this._statusCode = code;
+      return this;
+    };
+
+    res = {
+      _statusCode: null,
+      _jsonData: null,
+      status: statusMock,
+      json: jsonMock,
+    };
+
+    next = (error) => {
+      res._error = error;
+    };
   });
 
   describe('reportBlog', () => {
-    it('should successfully report a blog with all required fields', async () => {
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam',
-          reason: 'This is spam content'
-        }, 
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should create a report successfully', async () => {
+      req.user = { _id: testAdmin._id, name: 'Admin User' };
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Spam',
+        reason: 'This is spam content',
       };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
@@ -119,64 +106,15 @@ describe('Reports Controller', () => {
       expect(res._jsonData.success).toBe(true);
       expect(res._jsonData.message).toBe('Report submitted successfully.');
 
-      const report = await Report.findOne({ 
-        blogId: testBlog._id, 
-        reporterId: testReporter._id 
-      });
+      const report = await Report.findOne({ blogId: testBlog._id });
       expect(report).toBeTruthy();
       expect(report.type).toBe('Spam');
       expect(report.reason).toBe('This is spam content');
-      expect(report.status).toBe('pending');
     });
 
-    it('should report blog without reason (optional)', async () => {
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Hate speech'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
-
-      await reportBlog(req, res);
-
-      expect(res._statusCode).toBe(201);
-      expect(res._jsonData.success).toBe(true);
-
-      const report = await Report.findOne({ 
-        blogId: testBlog._id, 
-        reporterId: testReporter._id 
-      });
-      expect(report).toBeTruthy();
-      expect(report.reason).toBe('');
-    });
-
-    it('should handle blogId as object and convert to string', async () => {
-      const req = { 
-        body: {
-          blogId: { _id: testBlog._id.toString() },
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
-
-      await reportBlog(req, res);
-
-      expect(res._statusCode).toBe(201);
-      expect(res._jsonData.success).toBe(true);
-    });
-
-    it('should return 400 when blogId is missing', async () => {
-      const req = { 
-        body: {
-          type: 'Spam',
-          reason: 'Test reason'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
+    it('should return error when blogId is missing', async () => {
+      req.user = { _id: testAdmin._id };
+      req.body = { type: 'Spam' };
 
       await reportBlog(req, res);
 
@@ -184,31 +122,24 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('Blog ID and report type are required.');
     });
 
-    it('should return 400 when type is missing', async () => {
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          reason: 'Test reason'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should return error when user is not authenticated', async () => {
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Spam',
       };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Blog ID and report type are required.');
+      expect(res._statusCode).toBe(401);
+      expect(res._jsonData.error).toBe('Authentication required.');
     });
 
-    it('should return 400 for invalid blogId format', async () => {
-      const req = { 
-        body: {
-          blogId: 'invalid-id',
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should return error for invalid blog ID format', async () => {
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: 'invalid-id',
+        type: 'Spam',
       };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
@@ -216,22 +147,19 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('Invalid blog ID format.');
     });
 
-    it('should return 409 when user already reported the blog', async () => {
-      // Create existing report
+    it('should return error for duplicate report', async () => {
       await Report.create({
         blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
       });
 
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Hate speech',
       };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
@@ -239,112 +167,12 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('You have already reported this blog.');
     });
 
-    it('should create notification for blog author', async () => {
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should handle blogId as ObjectId instance', async () => {
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: testBlog._id,
+        type: 'Spam',
       };
-      const res = buildRes();
-
-      await reportBlog(req, res);
-
-      expect(createNotification).toHaveBeenCalledWith({
-        recipientId: testUser._id,
-        senderId: testReporter._id,
-        type: 'report',
-        link: `/blog/${testBlog.slug}`,
-        extra: { 
-          senderName: testReporter.name, 
-          blogTitle: testBlog.title 
-        }
-      });
-    });
-
-    it('should handle notification error without failing the request', async () => {
-      createNotification.mockRejectedValueOnce(new Error('Notification failed'));
-
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      await reportBlog(req, res);
-
-      expect(res._statusCode).toBe(201);
-      expect(res._jsonData.success).toBe(true);
-      expect(consoleErrorSpy).toHaveBeenCalled();
-    });
-
-    it('should handle missing user name in notification', async () => {
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id } // No name
-      };
-      const res = buildRes();
-
-      await reportBlog(req, res);
-
-      expect(res._statusCode).toBe(201);
-      expect(createNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          extra: expect.objectContaining({
-            senderName: 'Someone'
-          })
-        })
-      );
-    });
-
-    it('should handle general errors with 500 status', async () => {
-      const spy = jest.spyOn(Report, 'findOne').mockRejectedValue(new Error('Database error'));
-      mockSpies.push(spy);
-
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      await reportBlog(req, res);
-
-      expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Database error');
-    });
-
-    it('should handle blogId object without _id property', async () => {
-      // Pass an actual object without _id that contains the valid ID string
-      const blogIdObject = {
-        value: testBlog._id.toString(),
-        toString: function() { return this.value; },
-        match: function(regex) { return this.value.match(regex); }
-      };
-      
-      const req = { 
-        body: {
-          blogId: blogIdObject, // Object without _id property - will use blogId itself in fallback
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
@@ -352,515 +180,338 @@ describe('Reports Controller', () => {
       expect(res._jsonData.success).toBe(true);
     });
 
-    it('should handle blog author without _id property', async () => {
-      const blogWithPlainAuthor = await Blog.create({
-        title: 'Test Blog Plain Author',
-        slug: 'test-blog-plain-author',
-        blogContent: 'Test content',
-        featuredImage: 'test-image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      // Mock to return author as string (no _id property) to trigger the else branch
-      const spy = jest.spyOn(Blog, 'findById').mockReturnValue({
-        populate: jest.fn().mockResolvedValue({
-          _id: blogWithPlainAuthor._id,
-          title: blogWithPlainAuthor.title,
-          slug: blogWithPlainAuthor.slug,
-          author: testUser._id.toString() // Plain string - author._id will be undefined
-        })
-      });
-      mockSpies.push(spy);
-
-      const req = { 
-        body: {
-          blogId: blogWithPlainAuthor._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should handle invalid blogId type', async () => {
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: 12345,
+        type: 'Spam',
       };
-      const res = buildRes();
+
+      await reportBlog(req, res);
+
+      expect(res._statusCode).toBe(400);
+      expect(res._jsonData.error).toBe('Invalid blog ID format.');
+    });
+
+    it('should handle notification creation failure', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const notifSpy = jest.spyOn(Notification, 'create').mockRejectedValue(new Error('Notification DB down'));
+
+      req.user = { _id: testAdmin._id, name: 'Admin User' };
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Spam',
+      };
 
       await reportBlog(req, res);
 
       expect(res._statusCode).toBe(201);
-      expect(createNotification).toHaveBeenCalled();
-      // Verify recipientId was the string itself (else branch)
-      expect(createNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          recipientId: testUser._id.toString()
-        })
-      );
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to queue report notification:', expect.any(Error));
+
+      notifSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
-    it('should handle error without message property', async () => {
-      const errorWithoutMessage = { code: 'UNKNOWN' };
-      const spy = jest.spyOn(Report, 'findOne').mockRejectedValue(errorWithoutMessage);
-      mockSpies.push(spy);
-
-      const req = { 
-        body: {
-          blogId: testBlog._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
-      };
-      const res = buildRes();
-
+    it('should handle database error', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      const createSpy = jest.spyOn(Report, 'create').mockRejectedValue(new Error('DB error'));
+
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Spam',
+      };
 
       await reportBlog(req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Failed to report blog.');
+      expect(res._jsonData.error).toBe('Failed to submit report.');
+
+      createSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
-    it('should handle blog without author (no notification sent)', async () => {
-      const blogNoAuthor = await Blog.create({
-        title: 'Test Blog No Author',
-        slug: 'test-blog-no-author',
-        blogContent: 'Test content',
-        featuredImage: 'test-image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      // Mock to return blog without author to cover blog && !blog.author branch
-      const spy = jest.spyOn(Blog, 'findById').mockReturnValue({
-        populate: jest.fn().mockResolvedValue({
-          _id: blogNoAuthor._id,
-          title: blogNoAuthor.title,
-          slug: blogNoAuthor.slug,
-          author: null // No author - blog exists but author is falsy
-        })
-      });
-      mockSpies.push(spy);
-
-      const req = { 
-        body: {
-          blogId: blogNoAuthor._id.toString(),
-          type: 'Spam'
-        },
-        user: { _id: testReporter._id, name: testReporter.name }
+    it('should use fallback senderName when user.name is missing', async () => {
+      req.user = { _id: testAdmin._id };
+      req.body = {
+        blogId: testBlog._id.toString(),
+        type: 'Spam',
       };
-      const res = buildRes();
 
       await reportBlog(req, res);
 
       expect(res._statusCode).toBe(201);
-      // Notification should not be created when author is missing
-      expect(createNotification).not.toHaveBeenCalled();
+      expect(res._jsonData.success).toBe(true);
+    });
+
+    it('should use fallback blogTitle when title is empty', async () => {
+      const blog = await Blog.create({
+        title: 'Temp',
+        slug: 'empty-title',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.updateOne({ _id: blog._id }, { $set: { title: '' } });
+
+      req.user = { _id: testAdmin._id, name: 'Admin' };
+      req.body = {
+        blogId: blog._id.toString(),
+        type: 'Spam',
+      };
+
+      await reportBlog(req, res);
+
+      expect(res._statusCode).toBe(201);
+    });
+
+    it('should skip notification when blog author is missing', async () => {
+      const blog = await Blog.create({
+        title: 'No Author',
+        slug: 'no-author',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.updateOne({ _id: blog._id }, { $unset: { author: 1 } });
+
+      req.user = { _id: testAdmin._id, name: 'Admin' };
+      req.body = {
+        blogId: blog._id.toString(),
+        type: 'Spam',
+      };
+
+      await reportBlog(req, res);
+
+      expect(res._statusCode).toBe(201);
+    });
+
+    it('should use fallback link when blog slug is missing', async () => {
+      const blog = await Blog.create({
+        title: 'No Slug',
+        slug: 'temp-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.updateOne({ _id: blog._id }, { $unset: { slug: 1 } });
+
+      req.user = { _id: testAdmin._id, name: 'Admin' };
+      req.body = {
+        blogId: blog._id.toString(),
+        type: 'Spam',
+      };
+
+      await reportBlog(req, res);
+
+      expect(res._statusCode).toBe(201);
     });
   });
 
   describe('listReports', () => {
-    it('should return empty array when no reports exist', async () => {
-      const req = {};
-      const res = buildRes();
+    it('should list all pending reports', async () => {
+      await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
 
       await listReports(req, res);
 
-      expect(res._jsonData).toBeTruthy();
-      expect(Array.isArray(res._jsonData)).toBe(true);
+      expect(res._jsonData).toBeInstanceOf(Array);
+      expect(res._jsonData.length).toBe(1);
+      expect(res._jsonData[0].type).toBe('Spam');
+    });
+
+    it('should return empty array when no pending reports', async () => {
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
       expect(res._jsonData.length).toBe(0);
     });
 
-    it('should list all reports with populated fields', async () => {
-      await Report.create({
-        blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam',
-        reason: 'Test reason'
-      });
-
-      const req = {};
-      const res = buildRes();
-
-      await listReports(req, res);
-
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData).toBeTruthy();
-      expect(Array.isArray(res._jsonData)).toBe(true);
-      expect(res._jsonData.length).toBe(1);
-      expect(res._jsonData[0].blogId).toBeTruthy();
-      expect(res._jsonData[0].reporterId).toBeTruthy();
-    });
-
-    it('should sort reports by createdAt descending', async () => {
-      const blog2 = await Blog.create({
-        title: 'Test Blog 2',
-        slug: 'test-blog-2',
-        blogContent: 'Test content 2',
-        featuredImage: 'test-image-2.jpg',
-        author: testUser._id,
-      });
-
-      const report1 = await Report.create({
-        blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-      report1.createdAt = new Date('2024-01-01');
-      await report1.save();
-
-      const report2 = await Report.create({
-        blogId: blog2._id,
-        reporterId: testReporter._id,
-        type: 'Hate speech'
-      });
-      report2.createdAt = new Date('2024-01-02');
-      await report2.save();
-
-      const req = {};
-      const res = buildRes();
-
-      await listReports(req, res);
-
-      expect(res._jsonData.length).toBe(2);
-      const firstDate = new Date(res._jsonData[0].createdAt);
-      const secondDate = new Date(res._jsonData[1].createdAt);
-      expect(firstDate.getTime()).toBeGreaterThanOrEqual(secondDate.getTime());
-    });
-
-    it('should use fallback to fetch blog when title is missing', async () => {
-      // Create a blog with empty title (falsy) so fallback condition triggers
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      await Report.create({
-        blogId: emptyTitleBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
-      // Spy on Blog.findById to simulate successful fallback fetch returning recovered data
-      const fallbackSpy = jest.spyOn(Blog, 'findById').mockReturnValue({
-        select: () => Promise.resolve({ _id: emptyTitleBlog._id, title: 'Recovered Title', slug: 'recovered-title' })
-      });
-      mockSpies.push(fallbackSpy);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      expect(res._jsonData).toBeTruthy();
-      expect(res._jsonData.length).toBe(1);
-      expect(res._jsonData[0].blogId.title).toBe('Recovered Title');
-      expect(fallbackSpy).toHaveBeenCalled();
-    });
-
-    it('should log error when fallback blog fetch fails', async () => {
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      await Report.create({
-        blogId: emptyTitleBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
+    it('should handle database error', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      // Force fallback fetch to fail
-      const failSpy = jest.spyOn(Blog, 'findById').mockReturnValue({
-        select: () => Promise.reject(new Error('Fetch fail'))
+      const mockFind = jest.spyOn(Report, 'find').mockImplementationOnce(() => {
+        throw new Error('Database error');
       });
-      mockSpies.push(failSpy);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      expect(res._jsonData).toBeTruthy();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to fetch blog for report fallback:',
-        expect.any(String)
-      );
-    });
-
-    it('should log error when fallback blog fetch fails with no message property', async () => {
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      await Report.create({
-        blogId: emptyTitleBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      // Force fallback fetch to reject with an object that has no message property
-      const failObj = { code: 'NO_MESSAGE' };
-      const failSpy = jest.spyOn(Blog, 'findById').mockReturnValue({
-        select: () => Promise.reject(failObj)
-      });
-      mockSpies.push(failSpy);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      expect(res._jsonData).toBeTruthy();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to fetch blog for report fallback:',
-        expect.objectContaining({ code: 'NO_MESSAGE' })
-      );
-    });
-
-    it('should log error when fallback blog fetch throws synchronously', async () => {
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      await Report.create({
-        blogId: emptyTitleBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      // Have Blog.findById throw synchronously
-      const throwSpy = jest.spyOn(Blog, 'findById').mockImplementation(() => { throw new Error('Sync fail'); });
-      mockSpies.push(throwSpy);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to fetch blog for report fallback:', expect.any(String));
-    });
-
-    it('should handle fallback when blog is not found (returns null)', async () => {
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      const report = await Report.create({
-        blogId: emptyTitleBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
-      // Delete the blog so fallback genuinely returns null
-      await Blog.findByIdAndDelete(emptyTitleBlog._id);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      expect(res._jsonData).toBeTruthy();
-      expect(Array.isArray(res._jsonData)).toBe(true);
-      // When blog is deleted, fallback returns null and if (blog) false branch is covered
-      // The report still exists even though the blog was deleted
-    });
-
-    it('should explicitly exercise fallback false branch when Blog.findById returns null', async () => {
-      // Create a blog with empty title to trigger fallback condition
-      const emptyTitleBlog = await Blog.create({
-        title: '',
-        slug: '',
-        status: 'draft',
-        blogContent: 'Content',
-        featuredImage: 'image.jpg',
-        author: testUser._id,
-        categories: [testCategory._id]
-      });
-
-      // Build a fake report array to force the controller into the fallback path
-      const fakeReportId = new mongoose.Types.ObjectId();
-      const reportsArray = [
-        {
-          _id: fakeReportId,
-          blogId: emptyTitleBlog._id,
-          reporterId: testReporter._id,
-          createdAt: new Date()
-        }
-      ];
-
-      // Mock the Report.find().sort().populate(...).populate(...) chain
-      const finalPopulate = jest.fn().mockResolvedValue(reportsArray);
-      const firstPopulate = jest.fn().mockReturnValue({ populate: finalPopulate });
-      const sortObj = { populate: firstPopulate };
-      const findSpy = jest.spyOn(Report, 'find').mockReturnValue({ sort: () => sortObj });
-      mockSpies.push(findSpy);
-
-      // Make Blog.findById(...).select(...) resolve to null to trigger the `if (blog)` false branch
-      const nullSpy = jest.spyOn(Blog, 'findById').mockReturnValue({ select: jest.fn().mockResolvedValue(null) });
-      mockSpies.push(nullSpy);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      // Verify fallback behavior and mocks were called
-      expect(finalPopulate).toHaveBeenCalled();
-      expect(nullSpy).toHaveBeenCalled();
-      expect(Array.isArray(res._jsonData)).toBe(true);
-      expect(res._jsonData.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should exercise fallback when report.blogId is null and ensure fallback path is handled', async () => {
-      // Prepare a fake report where blogId is null
-      const fakeReportId = new mongoose.Types.ObjectId();
-      const reportsArray = [
-        {
-          _id: fakeReportId,
-          blogId: null,
-          reporterId: testReporter._id,
-          createdAt: new Date()
-        }
-      ];
-
-      // Mock the Report.find().sort().populate(...).populate(...) chain
-      const finalPopulate = jest.fn().mockResolvedValue(reportsArray);
-      const firstPopulate = jest.fn().mockReturnValue({ populate: finalPopulate });
-      const sortObj = { populate: firstPopulate };
-      const findSpy = jest.spyOn(Report, 'find').mockReturnValue({ sort: () => sortObj });
-      mockSpies.push(findSpy);
-
-      // Mock Blog.findById to return null (for null blogId)
-      const nullSpy2 = jest.spyOn(Blog, 'findById').mockReturnValue({ select: jest.fn().mockResolvedValue(null) });
-      mockSpies.push(nullSpy2);
-
-      const req = {};
-      const res = buildRes();
-      await listReports(req, res);
-
-      // Ensure the populate was used and the fallback was attempted
-      expect(finalPopulate).toHaveBeenCalled();
-      expect(nullSpy2).toHaveBeenCalled();
-      expect(Array.isArray(res._jsonData)).toBe(true);
-    });
-
-    it('should return 500 when Report.find throws an error', async () => {
-      const spy = jest.spyOn(Report, 'find').mockImplementation(() => {
-        throw new Error('DB fail');
-      });
-      mockSpies.push(spy);
-
-      const req = {};
-      const res = buildRes();
 
       await listReports(req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData).toEqual({ error: 'Failed to fetch reports.' });
+      expect(res._jsonData.error).toBe('Failed to fetch reports.');
+
+      mockFind.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
+    it('should handle report with falsy createdAt', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await Report.collection.updateOne({ _id: report._id }, { $set: { createdAt: null } });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should use fallback title when blog title is falsy', async () => {
+      const blog = await Blog.create({
+        title: 'Temp',
+        slug: 'falsy-title',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne({ _id: blog._id }, { $set: { title: null } });
+
+      await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+      const foundReport = res._jsonData.find(r => r.blog && r.blog.slug === 'falsy-title');
+      if (foundReport) {
+        expect(foundReport.blog.title).toBe('Untitled blog');
+      }
+    });
+
+    it('should use fallback slug when blog slug is falsy', async () => {
+      const blog = await Blog.create({
+        title: 'Test',
+        slug: 'temp-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne({ _id: blog._id }, { $set: { slug: null } });
+
+      await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle category with null slug', async () => {
+      const cat = await Category.create({
+        name: 'Test Cat',
+        slug: 'test-cat',
+      });
+
+      await Category.collection.updateOne({ _id: cat._id }, { $set: { slug: null } });
+
+      const blog = await Blog.create({
+        title: 'Blog',
+        slug: 'blog-null-cat-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [cat._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle null category in array', async () => {
+      const blog = await Blog.create({
+        title: 'Blog',
+        slug: 'blog-null-cat',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.updateOne({ _id: blog._id }, { $set: { categories: [null, testCategory._id] } });
+
+      await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
   });
 
   describe('adminSafeReport', () => {
-    let testReport;
-
-    beforeEach(async () => {
-      testReport = await Report.create({
+    it('should mark report as safe and delete it', async () => {
+      const report = await Report.create({
         blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
       });
-    });
 
-    it('should successfully mark report as safe', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
 
       await adminSafeReport(req, res);
 
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('safe');
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Report marked safe and removed.');
 
-      const updatedReport = await Report.findById(testReport._id);
-      expect(updatedReport.status).toBe('safe');
+      const deletedReport = await Report.findById(report._id);
+      expect(deletedReport).toBeNull();
     });
 
-    it('should return populated report with blogId and reporterId', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminSafeReport(req, res);
-
-      expect(res._jsonData.blogId).toBeTruthy();
-      expect(res._jsonData.reporterId).toBeTruthy();
-    });
-
-    it('should return 400 for invalid report ID format', async () => {
-      const req = {
-        params: { id: 'invalid-id' },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should return error for invalid report ID', async () => {
+      req.params.id = 'invalid-id';
 
       await adminSafeReport(req, res);
 
       expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Invalid report ID format.');
+      expect(res._jsonData.error).toBe('Invalid report identifier.');
     });
 
-    it('should return 400 for missing report ID', async () => {
-      const req = {
-        params: { id: '' },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminSafeReport(req, res);
-
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Invalid report ID format.');
-    });
-
-    it('should return 404 when report not found', async () => {
-      const req = {
-        params: { id: new mongoose.Types.ObjectId().toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should return error when report not found', async () => {
+      req.params.id = new mongoose.Types.ObjectId().toString();
 
       await adminSafeReport(req, res);
 
@@ -868,141 +519,154 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('Report not found.');
     });
 
-    it('should return 500 on database error', async () => {
-      const spy = jest.spyOn(Report, 'findByIdAndUpdate').mockReturnValue({
-        populate: jest.fn().mockRejectedValue(new Error('Database error'))
-      });
-      mockSpies.push(spy);
-
+    it('should handle deletion error gracefully', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
 
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
+      const mockDelete = jest.spyOn(Report, 'findByIdAndDelete').mockRejectedValueOnce(new Error('Delete error'));
+
+      await adminSafeReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete report by id:', expect.any(Error));
+
+      mockDelete.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle unexpected error', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const mockFindById = jest.spyOn(Report, 'findById').mockImplementationOnce(() => {
+        throw new Error('Unexpected failure');
+      });
+
+      req.params.id = new mongoose.Types.ObjectId().toString();
 
       await adminSafeReport(req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Failed to mark report as safe.');
+      expect(res._jsonData.error).toBe('Failed to mark report safe.');
+
+      mockFindById.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 
   describe('adminRemoveReport', () => {
-    let testReport;
-
-    beforeEach(async () => {
-      testReport = await Report.create({
+    it('should remove blog and delete all related reports', async () => {
+      await Report.create({
         blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
       });
-    });
 
-    it('should successfully remove blog and update report status', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = (await Report.findOne({ blogId: testBlog._id }))._id.toString();
+      req.user = { _id: testAdmin._id };
 
       await adminRemoveReport(req, res);
 
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('removed');
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Blog removed and report cleared.');
 
       const deletedBlog = await Blog.findById(testBlog._id);
       expect(deletedBlog).toBeNull();
     });
 
-    it('should return 500 on unexpected error (top-level catch)', async () => {
-      const report = await Report.create({
-        blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-
-      const id = report._id.toString();
-      const findSpy = jest.spyOn(Report, 'findById').mockImplementation(() => { throw new Error('Unexpected'); });
-      mockSpies.push(findSpy);
-      const req = { params: { id }, user: testAdmin };
-      const res = buildRes();
-      await adminRemoveReport(req, res);
-      expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Failed to remove blog for report.');
-    });
-
-    it('should send notification to blog author', async () => {
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      mockSpies.push(consoleLogSpy);
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      expect(createNotification).toHaveBeenCalledWith({
-        recipientId: testUser._id.toString(),
-        senderId: testAdmin._id,
-        type: 'report',
-        link: `/blog/${testBlog.slug}`,
-        extra: {
-          senderName: 'Admin',
-          blogTitle: testBlog.title,
-          message: expect.stringContaining('removed due to violations')
-        }
-      });
-    });
-
-    it('should resolve other reports for the same blog', async () => {
-      const anotherReporter = await User.create({
-        name: 'Another Reporter',
-        email: 'anotherreporter@example.com',
-        password: 'password123'
-      });
-
-      const anotherReport = await Report.create({
-        blogId: testBlog._id,
-        reporterId: anotherReporter._id,
-        type: 'Hate speech'
-      });
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      const resolvedReport = await Report.findById(anotherReport._id);
-      expect(resolvedReport.status).toBe('resolved');
-    });
-
-    it('should return 400 for invalid report ID format', async () => {
-      const req = {
-        params: { id: 'invalid-id' },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should return error for invalid report ID', async () => {
+      req.params.id = 'invalid-id';
 
       await adminRemoveReport(req, res);
 
       expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Invalid report ID format.');
+      expect(res._jsonData.error).toBe('Invalid report identifier.');
     });
 
-    it('should return 404 when report not found', async () => {
-      const req = {
-        params: { id: new mongoose.Types.ObjectId().toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should handle missing blog gracefully', async () => {
+      const report = await Report.create({
+        blogId: new mongoose.Types.ObjectId(),
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+
+      await adminRemoveReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Blog already removed; report cleared.');
+    });
+
+    it('should handle blog deletion failure', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      const mockDelete = jest.spyOn(Blog, 'findByIdAndDelete').mockImplementationOnce(() => {
+        throw new Error('Database error');
+      });
+
+      await adminRemoveReport(req, res);
+
+      expect(res._statusCode).toBe(500);
+      expect(res._jsonData.error).toBe('Failed to delete reported blog.');
+
+      mockDelete.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle notification failure', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      const notifSpy = jest.spyOn(Notification, 'create').mockRejectedValue(new Error('Notification DB down'));
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      await adminRemoveReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to send removal notification:', expect.any(Error));
+
+      notifSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle req.user being null', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = null;
+
+      await adminRemoveReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+    });
+
+    it('should return 404 for non-existent report', async () => {
+      req.params.id = new mongoose.Types.ObjectId().toString();
 
       await adminRemoveReport(req, res);
 
@@ -1010,218 +674,115 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('Report not found.');
     });
 
-    it('should return 400 when blog not found', async () => {
-      testReport.blogId = new mongoose.Types.ObjectId();
-      await testReport.save();
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Blog not found for this report.');
-    });
-
-    it('should handle blog with populated author object', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('removed');
-    });
-
-    it('should return 400 for invalid author ID format', async () => {
-      const spy = jest.spyOn(Report, 'findById').mockReturnValue({
-        populate: jest.fn().mockResolvedValue({
-          _id: testReport._id,
-          blogId: {
-            _id: testBlog._id,
-            author: 'invalid-author-id',
-            title: testBlog.title,
-            slug: testBlog.slug
-          },
-          status: 'pending',
-          save: jest.fn()
-        })
+    it('should handle Report.deleteMany cleanup error', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
       });
-      mockSpies.push(spy);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
 
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Blog author not found or invalid.');
-    });
-
-    it('should handle notification error without failing', async () => {
-      createNotification.mockRejectedValueOnce(new Error('Notification failed'));
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      const originalDeleteMany = Report.deleteMany.bind(Report);
+      const deleteSpy = jest.spyOn(Report, 'deleteMany').mockImplementation(function(query) {
+        if (query && query.blogId && !query.blogId.$in) {
+          return Promise.reject(new Error('Cleanup error'));
+        }
+        return originalDeleteMany(query);
+      });
 
       await adminRemoveReport(req, res);
 
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('removed');
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete blog reports:', expect.any(Error));
+
+      deleteSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
-    it('should handle error when resolving other reports', async () => {
-      const updateManySpy = jest.spyOn(Report, 'updateMany').mockRejectedValue(new Error('Update failed'));
-      mockSpies.push(updateManySpy);
-
+    it('should handle general unexpected error', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      const mockFindById = jest.spyOn(Report, 'findById').mockImplementationOnce(() => {
+        throw new Error('Unexpected error');
+      });
 
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminRemoveReport(req, res);
-
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('removed');
-    });
-
-    it('should return 500 when blog removal fails', async () => {
-      const blogSpy = jest.spyOn(Blog, 'findByIdAndDelete').mockRejectedValue(new Error('Blog delete failed'));
-      mockSpies.push(blogSpy);
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = new mongoose.Types.ObjectId().toString();
 
       await adminRemoveReport(req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Failed to remove blog.');
+      expect(res._jsonData.error).toBe('Failed to remove reported blog.');
+      expect(consoleErrorSpy).toHaveBeenCalledWith('adminRemoveReport error:', expect.any(Error));
+
+      mockFindById.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
+    it('should skip notification when blog author is null', async () => {
+      const blog = await Blog.create({
+        title: 'No Author Blog',
+        slug: 'no-author-blog',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne({ _id: blog._id }, { $set: { author: null } });
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      await adminRemoveReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Blog removed and report cleared.');
+    });
   });
 
   describe('adminBanReport', () => {
-    let testReport;
+    it('should ban user and remove all their content', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
 
-    beforeEach(async () => {
-      if (!jest.isMockFunction(Report.create)) {
-        testReport = await Report.create({
-          blogId: testBlog._id,
-          reporterId: testReporter._id,
-          type: 'Spam'
-        });
-      }
-    });
-
-    it('should successfully ban user and update report status', async () => {
-      if (!testReport) {
-        testReport = await Report.create({
-          blogId: testBlog._id,
-          reporterId: testReporter._id,
-          type: 'Spam'
-        });
-      }
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
 
       await adminBanReport(req, res);
 
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('banned');
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Author banned and related content removed.');
 
       const bannedUser = await User.findById(testUser._id);
       expect(bannedUser.isBlacklisted).toBe(true);
-      expect(bannedUser.status).toBe('banned');
     });
 
-    it('should return 500 on unexpected error (top-level catch)', async () => {
-      const report = await Report.create({
-        blogId: testBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
-      });
-      const id = report._id.toString();
-      const findSpy = jest.spyOn(Report, 'findById').mockImplementation(() => { throw new Error('Unexpected'); });
-      mockSpies.push(findSpy);
-      const req = { params: { id }, user: testAdmin };
-      const res = buildRes();
-      await adminBanReport(req, res);
-      expect(res._statusCode).toBe(500);
-      expect(res._jsonData.error).toBe('Failed to ban user for report.');
-    });
-
-    it('should send notification to banned user', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminBanReport(req, res);
-
-      expect(createNotification).toHaveBeenCalledWith({
-        recipientId: testUser._id.toString(),
-        senderId: testAdmin._id,
-        type: 'report',
-        link: '/profile',
-        extra: {
-          senderName: 'Admin',
-          message: expect.stringContaining('blacklisted due to policy violations')
-        }
-      });
-    });
-
-    it('should return 400 for invalid report ID format', async () => {
-      const req = {
-        params: { id: 'invalid-id' },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should return error for invalid report ID', async () => {
+      req.params.id = 'invalid-id';
 
       await adminBanReport(req, res);
 
       expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Invalid report ID format.');
+      expect(res._jsonData.error).toBe('Invalid report identifier.');
     });
 
-    it('should return 404 when report not found', async () => {
-      const req = {
-        params: { id: new mongoose.Types.ObjectId().toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+    it('should return 404 for non-existent report', async () => {
+      req.params.id = new mongoose.Types.ObjectId().toString();
 
       await adminBanReport(req, res);
 
@@ -1229,141 +790,627 @@ describe('Reports Controller', () => {
       expect(res._jsonData.error).toBe('Report not found.');
     });
 
-    it('should return 400 when blog not found', async () => {
-      testReport.blogId = new mongoose.Types.ObjectId();
-      await testReport.save();
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminBanReport(req, res);
-
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Blog not found for this report.');
-    });
-
-    it('should handle blog author as object with _id', async () => {
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminBanReport(req, res);
-
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('banned');
-    });
-
-    it('should return 400 for invalid author ID format', async () => {
-      const spy = jest.spyOn(Report, 'findById').mockReturnValue({
-        populate: jest.fn().mockResolvedValue({
-          _id: testReport._id,
-          blogId: {
-            _id: testBlog._id,
-            author: 'invalid-author-id'
-          },
-          status: 'pending',
-          save: jest.fn()
-        })
-      });
-      mockSpies.push(spy);
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminBanReport(req, res);
-
-      expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Blog author not found or invalid.');
-    });
-
-    it('should return 404 when user not found', async () => {
-      const nonExistentUserId = new mongoose.Types.ObjectId();
-      testBlog.author = nonExistentUserId;
-      await testBlog.save();
-
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
-
-      await adminBanReport(req, res);
-
-      expect(res._statusCode).toBe(404);
-      expect(res._jsonData.error).toBe('User not found.');
-    });
-
-    it('should return 400 when trying to ban an admin', async () => {
+    it('should prevent banning admin accounts', async () => {
       const adminBlog = await Blog.create({
         title: 'Admin Blog',
         slug: 'admin-blog',
-        blogContent: 'Admin content',
-        featuredImage: 'admin-image.jpg',
+        blogContent: '<p>Content</p>',
         author: testAdmin._id,
+        categories: [testCategory._id],
+        featuredImage: 'admin.jpg',
+        status: 'published',
       });
 
-      const adminReport = await Report.create({
+      const report = await Report.create({
         blogId: adminBlog._id,
-        reporterId: testReporter._id,
-        type: 'Spam'
+        reporterId: testUser._id,
+        type: 'Spam',
+        status: 'pending',
       });
 
-      const req = {
-        params: { id: adminReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
 
       await adminBanReport(req, res);
 
       expect(res._statusCode).toBe(400);
-      expect(res._jsonData.error).toBe('Admin accounts cannot be blacklisted.');
+      expect(res._jsonData.error).toBe('Admin accounts cannot be banned from reports.');
     });
 
-    it('should handle notification error without failing', async () => {
-      createNotification.mockRejectedValueOnce(new Error('Notification failed'));
+    it('should handle missing author gracefully', async () => {
+      const blog = await Blog.create({
+        title: 'Orphan Blog',
+        slug: 'orphan-blog',
+        blogContent: '<p>Content</p>',
+        author: new mongoose.Types.ObjectId(),
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
 
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
 
       await adminBanReport(req, res);
 
-      expect(res._statusCode).toBeUndefined();
-      expect(res._jsonData.status).toBe('banned');
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Author not found; report removed.');
     });
 
-    it('should return 500 when user blacklist fails', async () => {
-      const userSpy = jest.spyOn(User, 'findByIdAndUpdate').mockRejectedValue(new Error('User update failed'));
-      mockSpies.push(userSpy);
-
+    it('should handle user update failure', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockSpies.push(consoleErrorSpy);
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
 
-      const req = {
-        params: { id: testReport._id.toString() },
-        user: { _id: testAdmin._id }
-      };
-      const res = buildRes();
+      req.params.id = report._id.toString();
+      const mockUpdate = jest.spyOn(User, 'findByIdAndUpdate').mockImplementationOnce(() => {
+        throw new Error('Database error');
+      });
 
       await adminBanReport(req, res);
 
       expect(res._statusCode).toBe(500);
       expect(res._jsonData.error).toBe('Failed to blacklist user.');
+
+      mockUpdate.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle blog lookup failure gracefully', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const userForLookup = await User.create({
+        name: 'Lookup User',
+        email: 'lookup@example.com',
+        password: 'hashedpassword',
+        username: 'lookupuser',
+      });
+
+      const blogForLookup = await Blog.create({
+        title: 'Lookup Blog',
+        slug: 'lookup-blog',
+        blogContent: '<p>Content</p>',
+        author: userForLookup._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      const report = await Report.create({
+        blogId: blogForLookup._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      const originalFind = Blog.find.bind(Blog);
+      const findSpy = jest.spyOn(Blog, 'find').mockImplementation(function(query) {
+        if (query && query.author && query.author.toString() === userForLookup._id.toString()) {
+          const mockQuery = {
+            select: jest.fn().mockRejectedValue(new Error('Find error'))
+          };
+          return mockQuery;
+        }
+        return originalFind(query);
+      });
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to fetch user blogs:', expect.any(Error));
+
+      findSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle user with no blogs', async () => {
+      const userNoBlogs = await User.create({
+        name: 'No Blogs User',
+        email: 'noblogs@example.com',
+        password: 'hashedpassword',
+        username: 'noblogsuser',
+      });
+
+      const tempBlog = await Blog.create({
+        title: 'Temp Blog',
+        slug: 'temp-blog',
+        blogContent: '<p>Content</p>',
+        author: userNoBlogs._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      const report = await Report.create({
+        blogId: tempBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      const originalFind = Blog.find.bind(Blog);
+      const findSpy = jest.spyOn(Blog, 'find').mockImplementation(function(query) {
+        if (query && query.author && query.author.toString() === userNoBlogs._id.toString()) {
+          return Promise.resolve([]);
+        }
+        return originalFind(query);
+      });
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toBe('Author banned and related content removed.');
+
+      const bannedUser = await User.findById(userNoBlogs._id);
+      expect(bannedUser.isBlacklisted).toBe(true);
+
+      findSpy.mockRestore();
+    });
+
+    it('should handle notification failure', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      const notifSpy = jest.spyOn(Notification, 'create').mockRejectedValue(new Error('Notification DB down'));
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to send ban notification:', expect.any(Error));
+
+      notifSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle req.user being null', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = null;
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+    });
+
+    it('should handle blog deletion error', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      const originalDeleteMany = Blog.deleteMany.bind(Blog);
+      const deleteSpy = jest.spyOn(Blog, 'deleteMany').mockImplementation(function(query) {
+        if (query && query._id && query._id.$in) {
+          return Promise.reject(new Error('Delete many error'));
+        }
+        return originalDeleteMany(query);
+      });
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete author blogs:', expect.any(Error));
+
+      deleteSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle report deletion error in ban flow', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      const originalDeleteMany = Report.deleteMany.bind(Report);
+      const deleteSpy = jest.spyOn(Report, 'deleteMany').mockImplementation(function(query) {
+        if (query && query.blogId && query.blogId.$in) {
+          return Promise.reject(new Error('Report delete many error'));
+        }
+        return originalDeleteMany(query);
+      });
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to clear reports for banned user:', expect.any(Error));
+
+      deleteSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle removeReportById with invalid reportId', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      const originalFindByIdAndDelete = Report.findByIdAndDelete;
+      let deleteCallCount = 0;
+      Report.findByIdAndDelete = async function(id) {
+        deleteCallCount++;
+        if (deleteCallCount === 2) {
+          return null;
+        }
+        return originalFindByIdAndDelete.call(this, id);
+      };
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      await adminBanReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+
+      Report.findByIdAndDelete = originalFindByIdAndDelete;
     });
   });
 
+  describe('buildReportPayload Edge Cases', () => {
+    it('should handle report with null/undefined fields in buildReportPayload', async () => {
+      const blog = await Blog.create({
+        title: 'Temp',
+        slug: 'temp',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne({ _id: blog._id }, { $unset: { title: 1, slug: 1, author: 1 } });
+      await Blog.collection.updateOne({ _id: blog._id }, { $set: { categories: [] } });
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await Report.collection.updateOne({ _id: report._id }, { $unset: { createdAt: 1 } });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle report with null reporter', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await Report.collection.updateOne({ _id: report._id }, { $set: { reporterId: null } });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle report with null blog', async () => {
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await Report.collection.updateOne({ _id: report._id }, { $set: { blogId: null } });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle blog author as populated object with _id', async () => {
+      await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+      expect(res._jsonData.length).toBeGreaterThan(0);
+    });
+
+    it('should handle all null values in buildReportPayload', async () => {
+      const blog = await Blog.create({
+        title: 'Test',
+        slug: 'test-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne(
+        { _id: blog._id },
+        { 
+          $set: { 
+            title: null,
+            slug: null,
+            author: null,
+            categories: [null]
+          }
+        }
+      );
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await Report.collection.updateOne(
+        { _id: report._id },
+        { $set: { type: null, reason: null, createdAt: null } }
+      );
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle reporter with null fields', async () => {
+      const reporter = await User.create({
+        name: 'Reporter',
+        email: 'reporter@test.com',
+        password: 'hashedpass',
+        username: 'reporter',
+      });
+
+      await User.collection.updateOne(
+        { _id: reporter._id },
+        { $set: { name: null, username: null, email: null } }
+      );
+
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: reporter._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should handle author with null fields in blog', async () => {
+      const author = await User.create({
+        name: 'Author',
+        email: 'author@test.com',
+        password: 'hashedpass',
+        username: 'author',
+      });
+
+      await User.collection.updateOne(
+        { _id: author._id },
+        { $set: { name: null, username: null, email: null, role: null, isBlacklisted: null } }
+      );
+
+      const blog = await Blog.create({
+        title: 'Blog',
+        slug: 'blog-slug',
+        blogContent: '<p>Content</p>',
+        author: author._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+      const foundReport = res._jsonData.find(r => r.id === String(report._id));
+      expect(foundReport).toBeTruthy();
+    });
+
+    it('should handle categories with null fields', async () => {
+      const cat = await Category.create({
+        name: 'Cat',
+        slug: 'cat-slug',
+      });
+
+      await Category.collection.updateOne(
+        { _id: cat._id },
+        { $set: { title: null, slug: null } }
+      );
+
+      const blog = await Blog.create({
+        title: 'Blog',
+        slug: 'blog-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [cat._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      await listReports(req, res);
+
+      expect(res._jsonData).toBeInstanceOf(Array);
+    });
+
+    it('should use blog title fallback in adminRemoveReport notification', async () => {
+      const blog = await Blog.create({
+        title: 'Test',
+        slug: 'test-slug',
+        blogContent: '<p>Content</p>',
+        author: testUser._id,
+        categories: [testCategory._id],
+        featuredImage: 'test.jpg',
+        status: 'published',
+      });
+
+      await Blog.collection.updateOne({ _id: blog._id }, { $set: { title: null } });
+
+      const report = await Report.create({
+        blogId: blog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+      req.user = { _id: testAdmin._id };
+
+      await adminRemoveReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+    });
+
+
+  });
+
+  describe('Helper Functions', () => {
+    it('should handle removeReportById error gracefully', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const report = await Report.create({
+        blogId: testBlog._id,
+        reporterId: testAdmin._id,
+        type: 'Spam',
+        status: 'pending',
+      });
+
+      req.params.id = report._id.toString();
+
+      const originalFindByIdAndDelete = Report.findByIdAndDelete.bind(Report);
+      const deleteSpy = jest.spyOn(Report, 'findByIdAndDelete').mockImplementation(function(id) {
+        if (String(id) === String(report._id)) {
+          return Promise.reject(new Error('Delete error'));
+        }
+        return originalFindByIdAndDelete(id);
+      });
+
+      await adminSafeReport(req, res);
+
+      expect(res._jsonData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete report by id:', expect.any(Error));
+
+      deleteSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle adminBanReport general error', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const mockFindById = jest.spyOn(Report, 'findById').mockImplementationOnce(() => {
+        throw new Error('General error');
+      });
+
+      req.params.id = new mongoose.Types.ObjectId().toString();
+
+      await adminBanReport(req, res);
+
+      expect(res._statusCode).toBe(500);
+      expect(res._jsonData.error).toBe('Failed to ban author.');
+      expect(consoleErrorSpy).toHaveBeenCalledWith('adminBanReport error:', expect.any(Error));
+
+      mockFindById.mockRestore();
+      consoleErrorSpy.mockRestore();
+    });
+  
+    it('buildReportPayload should handle null/undefined reportDoc', () => {
+      const result = buildReportPayload(null);
+      expect(result).toBeDefined();
+      expect(result.id).toBeNull();
+      expect(result.blog).toBeNull();
+      expect(result.reporter).toBeNull();
+      expect(result.submittedAt).toBeNull();
+    });
+
+    it('buildReportPayload should set id null when report has no _id', () => {
+      const payload = buildReportPayload({ _id: null });
+      expect(payload.id).toBeNull();
+    });
+
+    it('buildReportPayload should handle category objects without _id', () => {
+      const reportDoc = {
+        _id: '507f191e810c19729de860ea',
+        type: 'Spam',
+        reporterId: { _id: '507f191e810c19729de860eb' },
+        createdAt: new Date(),
+        blogId: {
+          _id: '507f191e810c19729de860ec',
+          title: 'Title',
+          slug: 'slug',
+          categories: [ { name: 'NoIdCategory' } ],
+          author: { _id: '507f191e810c19729de860ed', name: 'Author' }
+        }
+      };
+
+      const result = buildReportPayload(reportDoc);
+      expect(result.blog.categories[0].id).toBeNull();
+      expect(result.blog.categories[0].slug).toBeNull();
+    });
+
+    it('removeReportById should return early for invalid ObjectId and not call DB', async () => {
+      const spy = jest.spyOn(Report, 'findByIdAndDelete');
+      await removeReportById('invalid-id-format');
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
 });

@@ -98,14 +98,13 @@ function detectProhibitedContent(line) {
         case 'sexual_content': issues.add('Explicit sexual content'); break;
         case 'profanity_vulgar': issues.add('Profanity or vulgar language'); break;
         case 'spam_scam': issues.add('Spam or scam content'); break;
-        default: issues.add('Unsafe content detected');
       }
     }
   });
 
   const category = matchedCategories[0] || null;
   const isSevere = matchedCategories.some(cat => SEVERE_CATEGORIES.has(cat));
-  const suggestion = category ? (CATEGORY_SUGGESTIONS[category] || DEFAULT_SUGGESTION) : DEFAULT_SUGGESTION;
+  const suggestion = CATEGORY_SUGGESTIONS[category] || DEFAULT_SUGGESTION;
 
   return { issues: Array.from(issues), category, isSevere, suggestion };
 }

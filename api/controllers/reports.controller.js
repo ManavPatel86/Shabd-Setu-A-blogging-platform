@@ -12,7 +12,9 @@ const { Types } = mongoose;
 const normalizeObjectId = (value) => {
   if (!value) return null;
   if (typeof value === 'string') return value.trim();
-  if (Types.ObjectId.isValid(value)) return String(value);
+  // Check if it's already an ObjectId instance first
+  if (value instanceof Types.ObjectId) return value.toString();
+  // Then check if it's an object with _id property (like a populated document)
   if (typeof value === 'object' && value._id) return normalizeObjectId(value._id);
   return null;
 };
@@ -109,8 +111,8 @@ export const reportBlog = async (req, res) => {
 
       if (blog?.author?._id) {
         await createNotification({
-          recipientId: blog.author._id,
-          senderId: reporterId,
+          recipientId: String(blog.author._id),
+          senderId: String(reporterId),
           type: 'report',
           link: blog.slug ? `/blog/${blog.slug}` : '/blog',
           extra: {
@@ -217,7 +219,7 @@ export const adminRemoveReport = async (req, res) => {
       try {
         await createNotification({
           recipientId: blogAuthorId,
-          senderId: req.user?._id,
+          senderId: req.user?._id ? String(req.user._id) : null,
           type: 'report',
           link: '/dashboard/reports',
           extra: {
@@ -302,7 +304,7 @@ export const adminBanReport = async (req, res) => {
     try {
       await createNotification({
         recipientId: authorId,
-        senderId: req.user?._id,
+        senderId: req.user?._id ? String(req.user._id) : null,
         type: 'report',
         link: '/profile',
         extra: {
@@ -322,4 +324,7 @@ export const adminBanReport = async (req, res) => {
     return res.status(500).json({ error: 'Failed to ban author.' });
   }
 };
+
+// Export helper functions for testing purposes
+export { buildReportPayload, removeReportById };
 

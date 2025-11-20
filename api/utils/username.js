@@ -24,16 +24,25 @@ const buildUsernameBase = (seed = "") => {
     return base.slice(0, 15);
 };
 
-export const generateUniqueUsername = async (seed = "") => {
+// Export buildUsernameBase for unit tests
+export { buildUsernameBase };
+
+// Internal helper to generate candidate with specific suffix (exposed for testing)
+export const generateCandidateWithSuffix = (base, suffix) => {
+    if (suffix === 0) return base;
+    const suffixStr = suffix.toString();
+    const trimmedBase = base.slice(0, Math.max(3, 20 - suffixStr.length));
+    return `${trimmedBase}${suffixStr}`;
+};
+
+export const generateUniqueUsername = async (seed = "", _startingSuffix = 0) => {
     let base = buildUsernameBase(seed);
-    let candidate = base;
-    let suffix = 0;
+    let suffix = _startingSuffix;
+    let candidate = generateCandidateWithSuffix(base, suffix);
 
     while (await User.exists({ username: candidate })) {
         suffix += 1;
-        const suffixStr = suffix.toString();
-        const trimmedBase = base.slice(0, Math.max(3, 20 - suffixStr.length));
-        candidate = `${trimmedBase}${suffixStr}`;
+        candidate = generateCandidateWithSuffix(base, suffix);
     }
 
     if (!isValidUsername(candidate)) {

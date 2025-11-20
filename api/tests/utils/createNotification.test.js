@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals'
 import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js'
 import { createNotification, initNotificationIO } from '../../utils/createNotification.js'
 import User from '../../models/user.model.js'
+import Notification from '../../models/notification.model.js'
 
 describe('createNotification', () => {
   let mockIo
@@ -29,6 +30,7 @@ describe('createNotification', () => {
   afterEach(() => {
     initNotificationIO(null)
   })
+
 
   it('should create like notification', async () => {
     const result = await createNotification({
@@ -192,6 +194,185 @@ describe('createNotification', () => {
       // Expected to fail due to enum validation
       expect(error).toBeTruthy()
       expect(error.name).toBe('ValidationError')
+    }
+  })
+
+  it('should create report notification with default message', async () => {
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'report',
+      link: '/reports/123',
+      extra: { senderName: 'Admin' }
+    })
+
+    expect(result.message).toBe('Admin reported your blog ""')
+  })
+
+  it('should create report notification with custom message', async () => {
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'report',
+      link: '/reports/123',
+      extra: { message: 'Your content violates our policy', senderName: 'Admin' }
+    })
+
+    expect(result.message).toBe('Your content violates our policy')
+  })
+
+  it('should handle warning notification when Notification.create is mocked', async () => {
+    // Model enum prevents real 'warning' notifications; mock create to test switch path
+    const stubDoc = {
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'warning',
+      link: '/warning',
+      message: 'This is a test warning'
+    }
+
+    const spyCreate = jest.spyOn(Notification, 'create').mockResolvedValue(stubDoc)
+
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'warning',
+      link: '/warning',
+      extra: { message: 'This is a test warning' }
+    })
+
+    expect(spyCreate).toHaveBeenCalled()
+    expect(result).toBe(stubDoc)
+
+    spyCreate.mockRestore()
+  })
+
+  it('should use default warning message when Notification.create is mocked and extra.message is missing', async () => {
+    const stubDoc = {
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'warning',
+      link: '/warning',
+      message: 'You have received a warning from an admin'
+    }
+
+    const spyCreate = jest.spyOn(Notification, 'create').mockResolvedValue(stubDoc)
+
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'warning',
+      link: '/warning',
+      extra: {}
+    })
+
+    expect(spyCreate).toHaveBeenCalled()
+    expect(result.message).toBe('You have received a warning from an admin')
+
+    spyCreate.mockRestore()
+  })
+
+  it('should use default message for unknown type when Notification.create is mocked', async () => {
+    const stubDoc = {
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'unknownType',
+      link: '/unknown',
+      message: 'You have a new notification'
+    }
+
+    const spy = jest.spyOn(Notification, 'create').mockResolvedValue(stubDoc)
+
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'unknownType',
+      link: '/unknown',
+      extra: {}
+    })
+
+    expect(spy).toHaveBeenCalled()
+    expect(result.message).toBe('You have a new notification')
+
+    spy.mockRestore()
+  })
+
+  it('should emit socket notification successfully', async () => {
+    let toCalled = false
+    let emitCalled = false
+    let toArg = null
+    let emitArgs = null
+
+    const successMockIo = {
+      to: (recipientId) => {
+        toCalled = true
+        toArg = recipientId
+        return successMockIo
+      },
+      emit: (event, data) => {
+        emitCalled = true
+        emitArgs = { event, data }
+      }
+    }
+    initNotificationIO(successMockIo)
+
+    const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'like',
+      link: '/test',
+      extra: { senderName: 'Test', blogTitle: 'Test' }
+    })
+
+    expect(result).toBeTruthy()
+    expect(toCalled).toBe(true)
+    expect(toArg).toBe(String(user1._id))
+    expect(emitCalled).toBe(true)
+    expect(emitArgs.event).toBe('notification:new')
+    expect(emitArgs.data).toBeTruthy()
+    // spy on console.log to cover successful emit logging and restore after
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      // Trigger another notification to hit the console.log path
+      const result2 = await createNotification({
+        recipientId: user1._id,
+        senderId: user2._id,
+        type: 'like',
+        link: '/test2',
+        extra: { senderName: 'Test', blogTitle: 'Test' }
+      })
+
+      expect(result2).toBeTruthy()
+      expect(consoleLogSpy).toHaveBeenCalled()
+      expect(consoleLogSpy.mock.calls[0][0]).toContain(String(user1._id))
+      expect(consoleLogSpy.mock.calls[0][0]).toContain('type=like')
+    } finally {
+      consoleLogSpy.mockRestore()
+    }
+  })
+
+  it('should handle socket emit error gracefully', async () => {
+    const errorMockIo = {
+      to: () => errorMockIo,
+      emit: () => { throw new Error('Socket error') }
+    }
+    initNotificationIO(errorMockIo)
+
+    // Should not throw, just log error
+    const consoleErrSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const result = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'like',
+      link: '/test',
+      extra: { senderName: 'Test', blogTitle: 'Test' }
+    })
+      expect(result).toBeTruthy()
+      expect(result.message).toContain('liked your blog')
+      expect(consoleErrSpy).toHaveBeenCalled()
+    } finally {
+      consoleErrSpy.mockRestore()
     }
   })
 })

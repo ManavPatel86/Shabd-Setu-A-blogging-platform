@@ -3,6 +3,7 @@ import bcryptjs from "bcryptjs";
 import { handleError } from "../helpers/handleError.js";
 import jwt from "jsonwebtoken";
 import * as mailer from "../utils/mailer.js";
+import { sendPasswordResetEmail } from "../utils/mailer.js";
 import { createAndSendOtp, resendOtp as resendOtpUtil, verifyOtp as verifyOtpUtil } from "../utils/Otp.js";
 import { createVerificationCode, resendVerificationCode, verifyCodeForPurpose, VERIFICATION_PURPOSES } from "../utils/verificationToken.js";
 import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, generateUniqueUsername, ensureUserHasUsername } from "../utils/username.js";
@@ -77,23 +78,24 @@ export const Register = async (req, res, next) => {
             return next(handleError(409, "User already registered."));
         }
 
-        if (normalizedUsername) {
-            const usernameTaken = await User.findOne({ username: normalizedUsername });
+        let finalUsername = normalizedUsername;
+        if (finalUsername) {
+            const usernameTaken = await User.findOne({ username: finalUsername });
             if (usernameTaken) {
                 return next(handleError(409, "Username is already taken. Please choose another."));
             }
         } else {
             const seed = (typeof name === "string" && name.trim()) || normalizedEmail;
-            normalizedUsername = await generateUniqueUsername(seed);
+            finalUsername = await generateUniqueUsername(seed);
         }
 
         const hashedPassword = bcryptjs.hashSync(password);
-        const pendingDisplayName = typeof name === "string" && name.trim() ? name.trim() : normalizedUsername;
+        const pendingDisplayName = typeof name === "string" && name.trim() ? name.trim() : finalUsername;
 
         await createAndSendOtp({
             email: normalizedEmail,
             pendingUser: {
-                username: normalizedUsername,
+                username: finalUsername,
                 name: pendingDisplayName,
                 passwordHash: hashedPassword,
                 role: "user"
@@ -431,3 +433,5 @@ export const resetPassword = async (req, res, next) => {
         return next(handleError(500, error.message));
     }
 };
+
+export { sanitizeUser };
