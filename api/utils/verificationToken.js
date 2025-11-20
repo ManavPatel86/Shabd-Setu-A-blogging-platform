@@ -13,6 +13,8 @@ const generateNumericCode = (digits = 6) => {
   const max = Math.pow(10, digits) - 1;
   return Math.floor(min + Math.random() * (max - min)).toString();
 };
+// Export for tests to allow direct coverage of default-arg behavior
+export { generateNumericCode };
 
 export const createVerificationCode = async ({
   email,

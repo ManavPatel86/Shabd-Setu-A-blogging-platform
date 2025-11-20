@@ -129,6 +129,34 @@ describe('User Controller Tests', () => {
       expect(res._jsonData.user.password).toBeUndefined();
     });
 
+    it('should return error when updating to an email that already exists', async () => {
+      // Create two users
+      const existingUser = await User.create({
+        name: 'Existing User',
+        email: 'existing@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      const user = await User.create({
+        name: 'Current User',
+        email: 'current@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 'Current User',
+        email: 'existing@example.com', // Try to use existing user's email
+        bio: '',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(409);
+      expect(res._error.message).toBe('Another account already uses this email.');
+    });
+
     it('should update password when valid password provided (8+ chars)', async () => {
       const user = await User.create({
         name: 'User',
@@ -178,6 +206,31 @@ describe('User Controller Tests', () => {
       // Password should remain unchanged
       const updatedUser = await User.findById(user._id);
       expect(updatedUser.password).toBe(oldHash);
+    });
+
+    it('should not update name or bio when they are not strings', async () => {
+      const user = await User.create({
+        name: 'Original Name',
+        email: 'user@example.com',
+        password: bcryptjs.hashSync('password123'),
+        bio: 'Original bio',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        name: 123, // Not a string
+        email: 'user@example.com',
+        bio: null, // Not a string
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+
+      // Name and bio should remain unchanged
+      const updatedUser = await User.findById(user._id);
+      expect(updatedUser.name).toBe('Original Name');
+      expect(updatedUser.bio).toBe('Original bio');
     });
 
     it('should handle database errors in updateUser', async () => {

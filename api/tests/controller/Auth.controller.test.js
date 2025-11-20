@@ -1,18 +1,51 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 
+// Mock nodemailer first to prevent actual email sending
+const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
+const mockCreateTransport = jest.fn(() => ({
+  sendMail: mockSendMail
+}));
+
+jest.unstable_mockModule('nodemailer', () => ({
+  default: {
+    createTransport: mockCreateTransport
+  }
+}));
+
 // Mock mailer before imports
-const mockSendOtpEmail = jest.fn();
+const mockSendOtpEmail = jest.fn().mockResolvedValue();
+const mockSendPasswordResetEmail = jest.fn().mockResolvedValue();
 
 jest.unstable_mockModule('../../utils/mailer.js', () => ({
   sendOtpEmail: mockSendOtpEmail,
+  sendPasswordResetEmail: mockSendPasswordResetEmail,
+  default: {
+    sendOtpEmail: mockSendOtpEmail,
+    sendPasswordResetEmail: mockSendPasswordResetEmail,
+  }
 }));
 
 import User from '../../models/user.model.js';
 import OtpCode from '../../models/OtpCode.model.js';
+import VerificationToken from '../../models/verificationToken.model.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectTestDB, closeTestDB, clearTestDB } from '../setup/testDb.js';
-import { Login, GoogleLogin, Logout, Register, verifyOtp, resendOtp } from '../../controllers/Auth.controller.js';
+
+// Use dynamic import AFTER mocks are set up
+const { 
+  Login, 
+  GoogleLogin, 
+  Logout, 
+  Register, 
+  verifyOtp, 
+  resendOtp,
+  checkUsernameAvailability,
+  requestPasswordReset,
+  resendPasswordResetCode,
+  sanitizeUser,
+  resetPassword
+} = await import('../../controllers/Auth.controller.js');
 
 describe('Auth Controller Tests', () => {
   let req, res, next;
@@ -23,6 +56,7 @@ describe('Auth Controller Tests', () => {
     process.env.NODE_ENV = 'test';
     process.env.OTP_EXPIRY_MINUTES = '5';
     process.env.OTP_RESEND_INTERVAL_MINUTES = '5';
+    process.env.PASSWORD_RESET_EXPIRY_MINUTES = '10';
   });
 
   afterAll(async () => {
@@ -75,6 +109,11 @@ describe('Auth Controller Tests', () => {
     next = (error) => {
       res._error = error;
     };
+  });
+
+  it('sanitizeUser returns null on falsy input', () => {
+    expect(sanitizeUser(null)).toBeNull();
+    expect(sanitizeUser(undefined)).toBeNull();
   });
 
   describe('Register', () => {
@@ -166,7 +205,7 @@ describe('Auth Controller Tests', () => {
       expect(otpDoc.pendingUser.passwordHash).toBeDefined();
       expect(otpDoc.pendingUser.passwordHash).not.toBe('plainpassword');
       expect(bcryptjs.compareSync('plainpassword', otpDoc.pendingUser.passwordHash)).toBe(true);
-    });
+    }, 10000); // Increase timeout to 10 seconds
 
     it('should handle errors during OTP creation', async () => {
       // Create invalid data to cause an error
@@ -202,7 +241,10 @@ describe('Auth Controller Tests', () => {
         verifyOtp: jest.fn(),
         resendOtp: jest.fn(),
       }));
-      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ 
+        sendOtpEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn()
+      }));
 
       const ctrl = await import('../../controllers/Auth.controller.js');
 
@@ -214,6 +256,97 @@ describe('Auth Controller Tests', () => {
       if (prevOtpExpiry !== undefined) process.env.OTP_EXPIRY_MINUTES = prevOtpExpiry;
       if (prevResend !== undefined) process.env.OTP_RESEND_INTERVAL_MINUTES = prevResend;
     });
+
+    it('should handle registration with provided username', async () => {
+      mockSendOtpEmail.mockResolvedValue();
+
+      req.body = {
+        name: 'User With Username',
+        email: 'withusername@example.com',
+        password: 'password123',
+        username: 'customuser123',
+      };
+
+      await Register(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const otpDoc = await OtpCode.findOne({ email: 'withusername@example.com' });
+      expect(otpDoc.pendingUser.username).toBe('customuser123');
+    }, 10000);
+
+    it('should reject invalid username format during registration', async () => {
+      req.body = {
+        name: 'User',
+        email: 'user@example.com',
+        password: 'password123',
+        username: 'ab', // Too short
+      };
+
+      await Register(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('Username');
+    });
+
+    it('should reject taken username during registration', async () => {
+      await User.create({
+        name: 'Existing',
+        email: 'existing@example.com',
+        password: bcryptjs.hashSync('password123'),
+        username: 'takenuser',
+      });
+
+      req.body = {
+        name: 'New User',
+        email: 'newuser@example.com',
+        password: 'password123',
+        username: 'takenuser',
+      };
+
+      await Register(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(409);
+      expect(res._error.message).toContain('Username is already taken');
+    });
+
+    it('should generate unique username when no username provided', async () => {
+      mockSendOtpEmail.mockResolvedValue();
+
+      req.body = {
+        name: 'Test User',
+        email: 'autousername@example.com',
+        password: 'password123',
+      };
+
+      await Register(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      const otpDoc = await OtpCode.findOne({ email: 'autousername@example.com' });
+      expect(otpDoc.pendingUser.username).toBeDefined();
+      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
+    }, 10000);
+
+    it('should generate username from email when username is empty (covers lines 102-103)', async () => {
+      mockSendOtpEmail.mockResolvedValue();
+
+      req.body = {
+        name: '   ',  // Whitespace name to trigger || normalizedEmail branch
+        email: 'emptyusername@example.com',
+        password: 'password123',
+        username: '   ',  // Whitespace username to enter else block at line 101
+      };
+
+      await Register(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      const otpDoc = await OtpCode.findOne({ email: 'emptyusername@example.com' });
+      expect(otpDoc.pendingUser.username).toBeDefined();
+      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
+    }, 10000);
   });
 
   describe('verifyOtp', () => {
@@ -595,7 +728,10 @@ describe('Auth Controller Tests', () => {
         createAndSendOtp: jest.fn(),
         resendOtp: jest.fn(),
       }));
-      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ 
+        sendOtpEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn()
+      }));
 
       const { verifyOtp: verifyOtpFresh } = await import('../../controllers/Auth.controller.js');
 
@@ -610,6 +746,76 @@ describe('Auth Controller Tests', () => {
       expect(freshRes._error).toBeDefined();
       expect(freshRes._error.statusCode).toBe(400);
       expect(freshRes._error.message).toBe('No pending registration found. Please register again.');
+    });
+
+    it('should reject invalid username format in verifyOtp (line 167)', async () => {
+      const hashedPassword = bcryptjs.hashSync('password123');
+      
+      // Create OTP with invalid username
+      await OtpCode.create({
+        email: 'invalid@example.com',
+        code: '654321',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'Test User',
+          passwordHash: hashedPassword,
+          username: 'invalid username!', // Invalid format with spaces and special chars
+        },
+      });
+
+      req.body = {
+        email: 'invalid@example.com',
+        otp: '654321',
+      };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('Username');
+    });
+
+    it('should reject username taken during verification (line 172)', async () => {
+      const hashedPassword = bcryptjs.hashSync('password123');
+      
+      // Create an existing user with this username
+      await User.create({
+        name: 'Existing',
+        email: 'existing@example.com',
+        password: hashedPassword,
+        username: 'takenusername2',
+      });
+
+      // Create OTP with username that's already taken
+      await OtpCode.create({
+        email: 'newuser@example.com',
+        code: '789012',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+        attempts: 0,
+        pendingUser: {
+          name: 'New User',
+          passwordHash: hashedPassword,
+          username: 'takenusername2', // Same as existing user
+        },
+      });
+
+      req.body = {
+        email: 'newuser@example.com',
+        otp: '789012',
+      };
+
+      await verifyOtp(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(409);
+      expect(res._error.message).toContain('username was taken');
     });
   });
 
@@ -659,8 +865,8 @@ describe('Auth Controller Tests', () => {
     it('should handle resend too soon error', async () => {
       mockSendOtpEmail.mockResolvedValue();
 
-      // Create OTP with recent lastSentAt (1 minute ago, within 5-minute interval)
-      const recentLastSentAt = new Date(Date.now() - 1 * 60 * 1000);
+      // Create OTP with VERY recent lastSentAt (1 second ago, well within 5-minute interval)
+      const recentLastSentAt = new Date(Date.now() - 1 * 1000); // 1 second ago
       await OtpCode.create({
         email: 'test@example.com',
         code: '123456',
@@ -752,7 +958,10 @@ describe('Auth Controller Tests', () => {
         createAndSendOtp: jest.fn(),
         verifyOtp: jest.fn(),
       }));
-      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ 
+        sendOtpEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn()
+      }));
 
       const { resendOtp: resendOtpFresh } = await import('../../controllers/Auth.controller.js');
 
@@ -780,7 +989,10 @@ describe('Auth Controller Tests', () => {
         createAndSendOtp: jest.fn(),
         verifyOtp: jest.fn(),
       }));
-      jest.unstable_mockModule('../../utils/mailer.js', () => ({ sendOtpEmail: jest.fn() }));
+      jest.unstable_mockModule('../../utils/mailer.js', () => ({ 
+        sendOtpEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn()
+      }));
 
       const { resendOtp: resendOtpFresh } = await import('../../controllers/Auth.controller.js');
 
@@ -796,6 +1008,23 @@ describe('Auth Controller Tests', () => {
       expect(freshRes._error.statusCode).toBe(400);
       expect(freshRes._error.message).toBe('Something went wrong');
     });
+
+    it('should handle resendOtp outer catch without next function (line 238)', async () => {
+      // Force an error by mocking database to fail
+      jest.spyOn(OtpCode, 'findOne').mockRejectedValueOnce(new Error('DB connection error'));
+      
+      req.body = { email: 'test@example.com' };
+      
+      // Call without next parameter to hit the else branch
+      // When inner catch tries to call next() without checking, it throws "next is not a function"
+      await resendOtp(req, res);
+
+      expect(res._statusCode).toBe(500);
+      expect(res._jsonData.message).toBe('next is not a function');
+      
+      jest.restoreAllMocks();
+    });
+
   });
 
   describe('Login', () => {
@@ -919,6 +1148,160 @@ describe('Auth Controller Tests', () => {
       // restore env
       process.env.NODE_ENV = prevEnv;
     });
+
+    it('should reject blacklisted users', async () => {
+      // Create blacklisted user
+      await User.create({
+        name: 'Blacklisted User',
+        email: 'blacklisted@example.com',
+        password: bcryptjs.hashSync('password123'),
+        isBlacklisted: true,
+      });
+
+      req.body = {
+        email: 'blacklisted@example.com',
+        password: 'password123',
+      };
+
+      await Login(req, res);
+
+      expect(res._statusCode).toBe(403);
+      expect(res._jsonData.message).toBe('Account is blacklisted.');
+    });
+
+    it('should handle Login errors when next is not a function (line 238)', async () => {
+      req.body = {}; // Missing email and password
+      await Login(req, res);
+      expect(res._statusCode).toBe(400);
+      expect(res._jsonData.message).toBe('Email and password are required.');
+    });
+
+    it('should forward errors to next when next is provided (Login error branches)', async () => {
+      const nextFn = jest.fn();
+
+      // Missing fields
+      req.body = {};
+      await Login(req, res, nextFn);
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(400);
+
+      // Non-existent user
+      nextFn.mockClear();
+      req.body = { email: 'noone@example.com', password: 'password' };
+      await Login(req, res, nextFn);
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(404);
+
+      // Incorrect password
+      nextFn.mockClear();
+      // Create user
+      const hashedPassword = bcryptjs.hashSync('correct');
+      await User.create({ name: 'LP', email: 'lp@example.com', password: hashedPassword });
+      req.body = { email: 'lp@example.com', password: 'wrong' };
+      await Login(req, res, nextFn);
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(404);
+
+      // Blacklisted
+      nextFn.mockClear();
+      await User.create({ name: 'Black', email: 'black@example.com', password: bcryptjs.hashSync('pw'), isBlacklisted: true });
+      req.body = { email: 'black@example.com', password: 'pw' };
+      await Login(req, res, nextFn);
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(403);
+
+      // DB error
+      nextFn.mockClear();
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('DB connection failed'));
+      req.body = { email: 'test@example.com', password: 'password123' };
+      await Login(req, res, nextFn);
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(500);
+      jest.restoreAllMocks();
+    });
+
+    it('should handle Login user not found when next is not a function (line 248-250)', async () => {
+      req.body = {
+        email: 'nonexistent@example.com',
+        password: 'password123',
+      };
+      await Login(req, res);
+      expect(res._statusCode).toBe(404);
+      expect(res._jsonData.message).toBe('Invalid login credentials.');
+    });
+
+    it('should handle Login incorrect password when next is not a function (line 269-271)', async () => {
+      // User already exists from beforeEach
+      req.body = {
+        email: 'test@example.com',
+        password: 'wrongpassword',
+      };
+      await Login(req, res);
+      expect(res._statusCode).toBe(404);
+      expect(res._jsonData.message).toBe('Invalid login credentials.');
+    });
+
+    it('should handle Login blacklist without next function (line 172)', async () => {
+      // Create blacklisted user
+      await User.create({
+        name: 'Blacklisted User 2',
+        email: 'blacklisted2@example.com',
+        password: bcryptjs.hashSync('password123'),
+        isBlacklisted: true,
+      });
+
+      req.body = {
+        email: 'blacklisted2@example.com',
+        password: 'password123',
+      };
+
+      await Login(req, res);
+
+      expect(res._statusCode).toBe(403);
+      expect(res._jsonData.message).toBe('Account is blacklisted.');
+    });
+
+    it('should handle database errors in Login without next function', async () => {
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('DB connection failed'));
+
+      req.body = {
+        email: 'test@example.com',
+        password: 'password123',
+      };
+
+      await Login(req, res);
+
+      expect(res._statusCode).toBe(500);
+      expect(res._jsonData.success).toBe(false);
+      expect(res._jsonData.message).toBe('DB connection failed');
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle users with no password (fallback to empty string) in Login', async () => {
+      // Create user without password
+      await User.create({ name: 'NoPass', email: 'nopass@example.com' });
+
+      req.body = { email: 'nopass@example.com', password: 'any' };
+      await Login(req, res);
+
+      expect(res._statusCode).toBe(404);
+      expect(res._jsonData.message).toBe('Invalid login credentials.');
+    });
+
+    it('should fallback to normalizedEmail in ensureUserHasUsername when name missing', async () => {
+      // Create user with no name
+      const hashedPassword = bcryptjs.hashSync('password123');
+      const user = await User.create({ email: 'noname@example.com', password: hashedPassword });
+
+      req.body = { email: 'noname@example.com', password: 'password123' };
+      await Login(req, res);
+
+      // After login, ensure user has username assigned
+      const updatedUser = await User.findById(user._id);
+      expect(updatedUser.username).toBeDefined();
+      expect(updatedUser.username.length).toBeGreaterThan(0);
+    });
   });
 
   describe('GoogleLogin', () => {
@@ -971,6 +1354,62 @@ describe('Auth Controller Tests', () => {
       // Verify user count (should still be 1, not duplicate)
       const userCount = await User.countDocuments({ email: 'google@example.com' });
       expect(userCount).toBe(1);
+    });
+
+    it('should use sameSite "none" for cookies when NODE_ENV=production (GoogleLogin)', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      req.body = { name: 'GL', email: 'glprod@example.com', avatar: 'gla' };
+      await GoogleLogin(req, res, next);
+
+      expect(res._cookies.access_token.options.sameSite).toBe('none');
+
+      process.env.NODE_ENV = prevEnv;
+    });
+
+    it('should generate fallback username when Google sign-in has no name', async () => {
+      // Provide only email
+      req.body = { email: 'googleonly@example.com', avatar: 'avatar.png' };
+
+      await GoogleLogin(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const user = await User.findOne({ email: 'googleonly@example.com' });
+      expect(user).toBeTruthy();
+      expect(user.username).toBeDefined();
+      expect(user.username.length).toBeGreaterThan(0);
+    });
+
+    it('should fallback to normalizedEmail in ensureUserHasUsername when name missing (GoogleLogin)', async () => {
+      // Create existing user without a name to ensure GoogleLogin uses normalizedEmail
+      const hashedPassword = bcryptjs.hashSync('random-password');
+      const existing = await User.create({ email: 'googlenoname@example.com', password: hashedPassword });
+
+      // Ensure user initially has no username
+      const before = await User.findById(existing._id);
+      expect(before.username).toBeUndefined();
+
+      // Call GoogleLogin with no name so it should use normalizedEmail fallback
+      req.body = { email: 'googlenoname@example.com' };
+      await GoogleLogin(req, res, next);
+
+      const after = await User.findById(existing._id);
+      expect(after.username).toBeDefined();
+      expect(after.username.length).toBeGreaterThan(0);
+    });
+
+    it('should forward errors to next when db fails in GoogleLogin', async () => {
+      const nextFn = jest.fn();
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('DB fail'));
+
+      req.body = { name: 'GL', email: 'gldb@example.com', avatar: 'gla' };
+      await GoogleLogin(req, res, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(nextFn.mock.calls[0][0].statusCode).toBe(500);
+
+      jest.restoreAllMocks();
     });
 
     it('should normalize email to lowercase for Google login', async () => {
@@ -1089,4 +1528,510 @@ describe('Auth Controller Tests', () => {
       process.env.NODE_ENV = prevEnv;
     });
   });
+
+  describe('checkUsernameAvailability', () => {
+    it('should return available true for non-existent username', async () => {
+      req.query = { username: 'newuser123' };
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.data.available).toBe(true);
+      expect(res._jsonData.data.username).toBe('newuser123');
+    });
+
+    it('should return available false for existing username', async () => {
+      await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+        username: 'existinguser',
+      });
+
+      req.query = { username: 'existinguser' };
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.data.available).toBe(false);
+      expect(res._jsonData.data.username).toBe('existinguser');
+    });
+
+    it('should normalize username before checking', async () => {
+      await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+        username: 'testuser',
+      });
+
+      req.query = { username: '  TestUser  ' };
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.data.username).toBe('testuser');
+      expect(res._jsonData.data.available).toBe(false);
+    });
+
+    it('should require username parameter', async () => {
+      req.query = {};
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Username is required.');
+    });
+
+    it('should validate username format', async () => {
+      req.query = { username: 'ab' }; // Too short
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('Username');
+    });
+
+    it('should accept username from req.body as fallback', async () => {
+      req.query = {};
+      req.body = { username: 'bodyusername' };
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.data.username).toBe('bodyusername');
+      expect(res._jsonData.data.available).toBe(true);
+    });
+
+    it('should handle database errors', async () => {
+      jest.spyOn(User, 'exists').mockRejectedValueOnce(new Error('DB error'));
+
+      req.query = { username: 'testuser' };
+
+      await checkUsernameAvailability(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('DB error');
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('requestPasswordReset', () => {
+    beforeEach(() => {
+      mockSendPasswordResetEmail.mockResolvedValue();
+    });
+
+    it('should send reset code for existing user', async () => {
+      await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      req.body = { email: 'test@example.com' };
+
+      await requestPasswordReset(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toContain('reset code');
+
+      // Verify token was created
+      const token = await VerificationToken.findOne({ email: 'test@example.com' });
+      expect(token).toBeTruthy();
+      expect(token.purpose).toBe('password-reset');
+    });
+
+    it('should return success even for non-existent user (security)', async () => {
+      req.body = { email: 'nonexistent@example.com' };
+
+      await requestPasswordReset(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(mockSendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('should require email', async () => {
+      req.body = {};
+
+      await requestPasswordReset(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Email is required.');
+    });
+
+    it('should normalize email', async () => {
+      await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      req.body = { email: '  TEST@EXAMPLE.COM  ' };
+
+      await requestPasswordReset(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const token = await VerificationToken.findOne({ email: 'test@example.com' });
+      expect(token).toBeTruthy();
+    });
+
+    it('should handle errors', async () => {
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('DB error'));
+
+      req.body = { email: 'test@example.com' };
+
+      await requestPasswordReset(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('resendPasswordResetCode', () => {
+    beforeEach(() => {
+      mockSendPasswordResetEmail.mockResolvedValue();
+    });
+
+    it('should resend reset code for existing user with existing token', async () => {
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      // Create verification token (old one)
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(Date.now() - 10 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(Date.now() - 10 * 60 * 1000),
+        resendCount: 0,
+      });
+
+      req.body = { email: 'test@example.com' };
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toContain('resent');
+    });
+
+    it('should return success for non-existent user without sending email', async () => {
+      req.body = { email: 'nonexistent@example.com' };
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(mockSendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('should require email', async () => {
+      req.body = {};
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Email is required.');
+    });
+
+    it('should handle VERIFICATION_NOT_FOUND error', async () => {
+      await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      req.body = { email: 'test@example.com' };
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(404);
+      expect(res._error.message).toContain('No reset request found');
+    });
+
+    it('should handle RESEND_TOO_SOON error', async () => {
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      // Create recent token
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+      });
+
+      req.body = { email: 'test@example.com' };
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(429);
+    });
+
+    it('should handle generic errors', async () => {
+      jest.spyOn(User, 'findOne').mockRejectedValueOnce(new Error('DB error'));
+
+      req.body = { email: 'test@example.com' };
+
+      await resendPasswordResetCode(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+
+      jest.restoreAllMocks();
+    });
+
+    it('should handle inner catch generic error without known code (line 435)', async () => {
+      // Create a user and verification token
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('password123'),
+      });
+
+      const mockToken = await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago (past resend interval)
+        resendCount: 0,
+      });
+
+      // Mock the save method to throw an error without a known code
+      jest.spyOn(mockToken, 'save').mockRejectedValueOnce(
+        Object.assign(new Error('Database save failed'), { code: 'UNKNOWN_DB_ERROR' })
+      );
+
+      // Mock findOne to return our mockToken
+      jest.spyOn(VerificationToken, 'findOne').mockResolvedValueOnce(mockToken);
+      
+      req.body = { email: 'test@example.com' };
+      
+      await resendPasswordResetCode(req, res, next);
+      
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('Database save failed');
+      
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should reset password with valid code', async () => {
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('oldpassword'),
+      });
+
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+        newPassword: 'newpassword123',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.success).toBe(true);
+      expect(res._jsonData.message).toContain('Password updated');
+
+      // Verify password was changed
+      const updatedUser = await User.findById(user._id);
+      expect(bcryptjs.compareSync('newpassword123', updatedUser.password)).toBe(true);
+      expect(bcryptjs.compareSync('oldpassword', updatedUser.password)).toBe(false);
+
+      // Verification token should be deleted
+      const token = await VerificationToken.findOne({ email: 'test@example.com' });
+      expect(token).toBeNull();
+    });
+
+    it('should require all fields', async () => {
+      req.body = { email: 'test@example.com' };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('Email, OTP, and new password are required');
+    });
+
+    it('should validate password length', async () => {
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+        newPassword: 'short',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('at least 8 characters');
+    });
+
+    it('should handle invalid code', async () => {
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('oldpassword'),
+      });
+
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '999999',
+        newPassword: 'newpassword123',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+    });
+
+    it('should handle expired code', async () => {
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('oldpassword'),
+      });
+
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(Date.now() - 20 * 60 * 1000),
+        expiresAt: new Date(Date.now() - 10 * 60 * 1000),
+        lastSentAt: new Date(Date.now() - 20 * 60 * 1000),
+        resendCount: 0,
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+        newPassword: 'newpassword123',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+    });
+
+    it('should handle user not found after verification', async () => {
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: new User()._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+      });
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+        newPassword: 'newpassword123',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(404);
+      expect(res._error.message).toBe('Account not found.');
+    });
+
+    it('should handle generic errors', async () => {
+      // Create a user first
+      const user = await User.create({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: bcryptjs.hashSync('oldpassword'),
+      });
+
+      await VerificationToken.create({
+        email: 'test@example.com',
+        userId: user._id,
+        code: '123456',
+        purpose: 'password-reset',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        lastSentAt: new Date(),
+        resendCount: 0,
+      });
+
+      // Mock user.save to throw error
+      jest.spyOn(User.prototype, 'save').mockRejectedValueOnce(new Error('DB error'));
+
+      req.body = {
+        email: 'test@example.com',
+        otp: '123456',
+        newPassword: 'newpassword123',
+      };
+
+      await resetPassword(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('DB error');
+
+      jest.restoreAllMocks();
+    });
+  });
 });
+

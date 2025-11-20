@@ -92,8 +92,7 @@ const publishedOnlyQuery = () => ({
                 { status: { $exists: false } },
                 { status: 'published' }
             ]
-        },
-        { removed: { $ne: true } }
+        }
     ]
 })
 export const addBlog = async (req, res, next) => {

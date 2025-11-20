@@ -19,7 +19,7 @@ jest.unstable_mockModule('dotenv', () => ({
   }
 }))
 
-const { sendOtpEmail } = await import('../../utils/mailer.js')
+const { sendOtpEmail, sendPasswordResetEmail } = await import('../../utils/mailer.js')
 
 describe('Mailer Utils', () => {
   beforeEach(() => {
@@ -68,6 +68,45 @@ describe('Mailer Utils', () => {
 
       const callArgs = mockSendMail.mock.calls[0][0]
       expect(callArgs.html).toContain(code)
+    })
+  })
+
+  describe('sendPasswordResetEmail', () => {
+    it('should send password reset email with correct parameters', async () => {
+      mockSendMail.mockResolvedValue({ messageId: 'reset-id' })
+
+      const to = 'reset@example.com'
+      const code = '654321'
+
+      await sendPasswordResetEmail({ to, code })
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1)
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to,
+          subject: expect.stringContaining('Password reset'),
+          html: expect.stringContaining(code)
+        })
+      )
+    })
+
+    it('should handle password reset email sending errors', async () => {
+      mockSendMail.mockRejectedValue(new Error('SMTP Connection Failed'))
+
+      await expect(
+        sendPasswordResetEmail({ to: 'fail@test.com', code: '111222' })
+      ).rejects.toThrow('SMTP Connection Failed')
+    })
+
+    it('should replace verification code in password reset template', async () => {
+      mockSendMail.mockResolvedValue({ messageId: 'reset-id' })
+
+      const code = '777888'
+      await sendPasswordResetEmail({ to: 'reset@test.com', code })
+
+      const callArgs = mockSendMail.mock.calls[0][0]
+      expect(callArgs.html).toContain(code)
+      expect(callArgs.subject).toContain('Password reset')
     })
   })
 })
