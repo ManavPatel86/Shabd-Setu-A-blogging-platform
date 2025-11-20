@@ -25,32 +25,32 @@ import {
     RouteLanding,
     RouteAdminReports,
 } from "./helpers/RouteName";
-import AddBlog from "./Pages/Blog/AddBlog";
-import EditBlog from "./Pages/Blog/EditBlog";
-import Index from "./Pages/Index";
-import SignIn from "./Pages/SignIn";
-import SignUp from "./Pages/SignUp";
-import Profile from "./Pages/Profile";
-import ProfileAnalytics from './Pages/ProfileAnalytics';
-import Comments from "./Pages/Comments";
-import ProfileView from "./Pages/ProfileView";
-import Following from "./Pages/Following";
-import Help from "./Pages/Help";
-import Followers from "./Pages/Followers";
-import Saved from "./Pages/Saved";
-import ManageUsers from "./Pages/ManageUsers";
-import AdminReports from "./Pages/AdminReports";
-import AddCategory from './Pages/Category/AddCategory'
-import CategoryDetails from './Pages/Category/CategoryDetails'
-import EditCategory from './Pages/Category/EditCategory'
+import AddBlog from "./pages/Blog/AddBlog";
+import EditBlog from "./pages/Blog/EditBlog";
+import Index from "./pages/Index";
+import SignIn from "./pages/SignIn";
+import SignUp from "./pages/SignUp";
+import Profile from "./pages/Profile";
+import ProfileAnalytics from './pages/ProfileAnalytics';
+import Comments from "./pages/Comments";
+import ProfileView from "./pages/ProfileView";
+import Following from "./pages/Following";
+import Help from "./pages/Help";
+import Followers from "./pages/Followers";
+import Saved from "./pages/Saved";
+import ManageUsers from "./pages/ManageUsers";
+import AdminReports from "./pages/AdminReports";
+import AddCategory from './pages/Category/AddCategory'
+import CategoryDetails from './pages/Category/CategoryDetails'
+import EditCategory from './pages/Category/EditCategory'
 import { RouteCategoryDetails, RouteEditCategory } from "./helpers/RouteName";
 
-import BlogDetails from "./Pages/Blog/BlogDetails";
-import SingleBlogDetails from "./Pages/SingleBlogDetails";
-import SearchResult from "./Pages/SearchResult";
-import CategoryFeed from "./Pages/CategoryFeed";
-import Landing from "./Pages/Landing";
-import ForgotPassword from "./Pages/ForgotPassword";
+import BlogDetails from "./pages/Blog/BlogDetails";
+import SingleBlogDetails from "./pages/SingleBlogDetails";
+import SearchResult from "./pages/SearchResult";
+import CategoryFeed from "./pages/CategoryFeed";
+import Landing from "./pages/Landing";
+import ForgotPassword from "./pages/ForgotPassword";
 
 import NotificationsProvider from './context/NotificationsProvider';
 import { useSelector } from 'react-redux';
