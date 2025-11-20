@@ -30,6 +30,7 @@ const ActivityHeatmap = ({
     contributions = [],
     totalBlogs = 0,
     range,
+    __testWeeks,
 }) => {
     const normalized = useMemo(() => {
         if (!Array.isArray(contributions)) {
@@ -61,6 +62,10 @@ const ActivityHeatmap = ({
     }, [])
 
     const weeks = useMemo(() => {
+        if (Array.isArray(__testWeeks)) {
+            return __testWeeks
+        }
+
         if (!normalized.length) {
             return []
         }
@@ -91,7 +96,7 @@ const ActivityHeatmap = ({
         }
 
         return chunked
-    }, [normalized, resolveBucket])
+    }, [normalized, resolveBucket, __testWeeks])
 
     const monthLabels = useMemo(() => {
         let lastRenderedMonth = ''

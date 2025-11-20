@@ -19,7 +19,7 @@ describe("SearchBox", () => {
 
   it("navigates to the generic search route when the input is empty", () => {
     render(<SearchBox />);
-    const input = screen.getByPlaceholderText("Search blogs, authors...");
+    const input = screen.getByPlaceholderText("Search topic or writer...");
 
     fireEvent.change(input, { target: { value: "    " } });
     fireEvent.submit(input.closest("form"));
@@ -30,7 +30,7 @@ describe("SearchBox", () => {
 
   it("navigates with an encoded query when the input has a value", () => {
     render(<SearchBox />);
-    const input = screen.getByPlaceholderText("Search blogs, authors...");
+    const input = screen.getByPlaceholderText("Search topic or writer...");
 
     fireEvent.change(input, { target: { value: "React Hooks" } });
     fireEvent.submit(input.closest("form"));

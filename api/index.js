@@ -21,8 +21,6 @@ import AnalyticsRoute from './routes/Analytics.route.js'
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
-import { log } from 'console';
-import Blog from './models/blog.model.js';
 
 dotenv.config()
 
@@ -48,6 +46,7 @@ app.use(cookieParser());
 app.use(express.json());
 
 const defaultOrigins = [
+  'https://shabdsetu-git-deployment-manav-patels-projects-9e6ba397.vercel.app',
   'https://shabdsetu.vercel.app',
   'http://localhost:5173',
   'http://localhost:5174',
@@ -99,7 +98,7 @@ mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
     .catch(err=>console.log('Database connection failed.',err))
 
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 })
 
 app.use((err, req, res, next) => {

@@ -149,4 +149,60 @@ describe("LikeCount", () => {
     expect(screen.getByText("0")).toBeInTheDocument();
     expect(mockShowToast).not.toHaveBeenCalled();
   });
+
+  it("renders with pill variant correctly", () => {
+    mockState = {
+      user: { isLoggedIn: true, user: { _id: "user-123" } },
+    };
+
+    mockUseFetch.mockReturnValue({
+      data: { likecount: 10, isUserliked: false },
+      loading: false,
+      error: null,
+    });
+
+    render(<LikeCount blogid="blog-1" variant="pill" />);
+
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("Appreciate")).toBeInTheDocument();
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("rounded-2xl");
+  });
+
+  it("renders with clean variant correctly", () => {
+    mockState = {
+      user: { isLoggedIn: true, user: { _id: "user-123" } },
+    };
+
+    mockUseFetch.mockReturnValue({
+      data: { likecount: 7, isUserliked: true },
+      loading: false,
+      error: null,
+    });
+
+    render(<LikeCount blogid="blog-1" variant="clean" />);
+
+    expect(screen.getByText("7")).toBeInTheDocument();
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("rounded-xl");
+    expect(button.className).toContain("bg-gray-50");
+  });
+
+  it("renders with chip variant correctly", () => {
+    mockState = {
+      user: { isLoggedIn: true, user: { _id: "user-123" } },
+    };
+
+    mockUseFetch.mockReturnValue({
+      data: { likecount: 15, isUserliked: false },
+      loading: false,
+      error: null,
+    });
+
+    render(<LikeCount blogid="blog-1" variant="chip" />);
+
+    expect(screen.getByText("15")).toBeInTheDocument();
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("rounded-full");
+  });
 });

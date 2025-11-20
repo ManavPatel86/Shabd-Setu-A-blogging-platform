@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useNotifications } from '../../context/NotificationsProvider';
-import { markAllAsRead, markNotificationAsRead, deleteNotification } from '../../api/notificationsApi';
+import { markAllAsRead, markNotificationAsRead, deleteNotification } from '../../services/notifications';
 import { Button } from "../ui/button";
 import { Link } from 'react-router-dom';
 import { Heart, MessageSquare, UserPlus, FileText, Bell } from 'lucide-react';

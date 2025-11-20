@@ -48,7 +48,6 @@ export async function createNotification({ recipientId, senderId, type, link, ex
   if (io && recipientId) {
     try {
       io.to(String(recipientId)).emit("notification:new", doc);
-      console.log(`Notification emitted to ${String(recipientId)} type=${type}`);
     } catch (emitErr) {
       console.error('Failed to emit notification via socket:', emitErr);
     }

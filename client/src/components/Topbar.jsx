@@ -30,6 +30,7 @@ import { Users, UserPlus, PenTool } from "lucide-react";
 import { removeUser } from "@/redux/user/user.slice";
 import { showToast } from "@/helpers/showToast";
 import { getEnv } from "@/helpers/getEnv";
+import logo from "@/assets/images/logo.png";
 
 export const TOPBAR_HEIGHT_PX = 88;
 
@@ -105,18 +106,7 @@ const Topbar = () => {
 
           <Link to={RouteIndex} className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl">
-              <svg
-                width="80"
-                height="80"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <image href="../src/assets/images/logo.png" x="0" y="0" width="24" height="24" />
-              </svg>
+              <img src={logo} alt="Shabd Setu" className="h-full w-full object-contain" />
             </div>
             <div className="flex-col hidden md:flex">
               <span className="text-xl font-semibold text-slate-900">ShabdSetu</span>

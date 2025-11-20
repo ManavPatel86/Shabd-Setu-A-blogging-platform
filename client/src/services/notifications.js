@@ -4,6 +4,7 @@ const API_URL = `${getEnv('VITE_API_BASE_URL')}/notifications`;
 
 async function request(url, options = {}) {
   const { body, headers, ...rest } = options;
+
   const response = await fetch(url, {
     credentials: 'include',
     headers: {
@@ -26,12 +27,15 @@ async function request(url, options = {}) {
 
 export async function fetchNotifications() {
   const data = await request(API_URL, { method: 'GET' });
+
   if (Array.isArray(data)) {
     return data;
   }
+
   if (Array.isArray(data?.notifications)) {
     return data.notifications;
   }
+
   return [];
 }
 

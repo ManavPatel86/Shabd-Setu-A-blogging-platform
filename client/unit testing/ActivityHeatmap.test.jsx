@@ -47,7 +47,7 @@ describe("ActivityHeatmap", () => {
 
     expect(screen.getByText("Activity in the selected range")).toBeInTheDocument();
     expect(screen.getByText("Total posts:")).toBeInTheDocument();
-    expect(container.querySelectorAll('[title="0"]').length).toBeGreaterThan(0); // legend still renders
+    expect(container.querySelectorAll('[title="0"]').length).toBeGreaterThan(0);
     expect(screen.queryByTitle(/ - \d+ posts?/)).toBeNull();
   });
 
@@ -98,5 +98,79 @@ describe("ActivityHeatmap", () => {
     expect(monthLabels.includes("Feb")).toBe(true);
 
     expect(screen.getByText("Activity in the selected range")).toBeInTheDocument();
+  });
+
+  it("uses fallback bucket when count does not match any defined bucket", () => {
+    render(
+      <ActivityHeatmap
+        contributions={[
+          { date: "2025-01-01", count: 1 },
+          { date: "2025-01-02", count: 100 },
+        ]}
+        totalBlogs={2}
+        range={{ start: "2025-01-01", end: "2025-01-02" }}
+      />
+    );
+
+    const highCountTile = screen.getByTitle(/ - 100 posts$/);
+    expect(highCountTile).toHaveStyle({ backgroundColor: "#166534" });
+  });
+
+  it("handles weeks with all padding days", () => {
+    render(
+      <ActivityHeatmap
+        contributions={[
+          { date: "2025-01-06", count: 5 },
+        ]}
+        totalBlogs={1}
+        range={{ start: "2025-01-06", end: "2025-01-06" }}
+      />
+    );
+
+    expect(screen.getByTitle(/ - 5 posts$/)).toBeInTheDocument();
+    expect(screen.getByText("Jan")).toBeInTheDocument();
+  });
+
+  it("omits month label when a week only contains padding cells", () => {
+    const testWeeks = [
+      Array.from({ length: 7 }, () => ({ isPadding: true })),
+      [
+        {
+          isPadding: false,
+          date: new Date("2025-01-06"),
+          dateString: "2025-01-06",
+          count: 3,
+          bucket: { color: "#dcfce7" },
+        },
+        ...Array.from({ length: 6 }, () => ({ isPadding: true })),
+      ],
+    ];
+
+    const { container } = render(
+      <ActivityHeatmap
+        contributions={[]}
+        totalBlogs={1}
+        __testWeeks={testWeeks}
+      />
+    );
+
+    const monthCells = Array.from(
+      container.querySelectorAll("div.flex.h-4.w-3.shrink-0.items-center.justify-center")
+    );
+
+    expect(monthCells[0].textContent?.trim()).toBe("");
+    expect(monthCells.some((cell) => cell.textContent?.trim() === "Jan")).toBe(true);
+  });
+
+  it("handles empty weeks array properly", () => {
+    render(
+      <ActivityHeatmap
+        contributions={[]}
+        totalBlogs={0}
+      />
+    );
+
+    expect(screen.getByText("Activity in the selected range")).toBeInTheDocument();
+    expect(screen.getByText("Total posts:")).toBeInTheDocument();
   });
 });
