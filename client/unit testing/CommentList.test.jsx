@@ -304,4 +304,103 @@ describe("CommentList", () => {
       expect(mockShowToast).toHaveBeenCalledWith("success", "Comment deleted");
     });
   });
+
+  it("ignores deletion attempts without a valid comment ID", async () => {
+    mockState = { user: { user: { _id: "user-1" } } };
+
+    mockUseFetch.mockReturnValue({
+      data: {
+        comments: [
+          {
+            _id: "",
+            comment: "Great post!",
+            createdAt: "2025-01-01T00:00:00Z",
+            user: { _id: "user-1", name: "Alice" },
+          },
+        ],
+      },
+      loading: false,
+      error: null,
+    });
+
+    render(<CommentList blogid="blog-1" />);
+
+    const button = await screen.findByRole("button", { name: "Delete comment" });
+
+    fireEvent.click(button);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("shows default error message when error has no message property", async () => {
+    mockState = { user: { user: { _id: "user-1" } } };
+
+    mockUseFetch.mockReturnValue({
+      data: {
+        comments: [
+          {
+            _id: "comment-1",
+            comment: "Great post!",
+            createdAt: "2025-01-01T00:00:00Z",
+            user: { _id: "user-1", name: "Alice" },
+          },
+        ],
+      },
+      loading: false,
+      error: null,
+    });
+
+    const errorWithoutMessage = new Error();
+    delete errorWithoutMessage.message;
+
+    global.fetch.mockRejectedValueOnce(errorWithoutMessage);
+
+    render(<CommentList blogid="blog-1" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Delete comment" })
+    );
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith(
+        "error",
+        "Error deleting comment"
+      );
+    });
+  });
+
+  it("handles data without comments property", () => {
+    mockUseFetch.mockReturnValue({
+      data: {},
+      loading: false,
+      error: null,
+    });
+
+    render(<CommentList blogid="blog-1" />);
+
+    expect(
+      screen.getByText("No comments yet. Be the first to comment!")
+    ).toBeInTheDocument();
+  });
+
+  it("refreshes comments when refreshComments event is dispatched", async () => {
+    mockUseFetch.mockClear();
+    const mockRefetch = vi.fn();
+    mockUseFetch.mockReturnValue({
+      data: { comments: [] },
+      loading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<CommentList blogid="blog-1" />);
+
+    const initialCallCount = mockUseFetch.mock.calls.length;
+
+    window.dispatchEvent(new Event('refreshComments'));
+
+    await waitFor(() => {
+      expect(mockUseFetch.mock.calls.length).toBeGreaterThan(initialCallCount);
+    });
+  });
 });

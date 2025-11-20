@@ -111,4 +111,95 @@ describe("ViewCount", () => {
     expect(global.fetch).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
+
+  it("resets hasAddedViewRef when blogId changes", async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ viewCount: 5 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ viewCount: 10 }),
+      });
+
+    const { rerender } = render(<ViewCount blogId="blog-1" addView />);
+
+    await waitFor(() => {
+      expect(screen.getByText("5")).toBeInTheDocument();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    rerender(<ViewCount blogId="blog-2" addView />);
+
+    await waitFor(() => {
+      expect(screen.getByText("10")).toBeInTheDocument();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      3,
+      "https://api.example.com/view/add-view",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("handles non-ok response from view count fetch", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: "Not found" }),
+    });
+
+    render(<ViewCount blogId="blog-xyz" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("0")).toBeInTheDocument();
+    });
+  });
+
+  it("handles missing viewCount in response", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
+
+    render(<ViewCount blogId="blog-xyz" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("0")).toBeInTheDocument();
+    });
+  });
+
+  it("prevents state updates after unmount", async () => {
+    let resolveFetch;
+    const fetchPromise = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+
+    global.fetch.mockReturnValue(fetchPromise);
+
+    const { unmount } = render(<ViewCount blogId="blog-xyz" />);
+
+    expect(screen.getByText("...")).toBeInTheDocument();
+
+    unmount();
+
+    resolveFetch({
+      ok: true,
+      json: () => Promise.resolve({ viewCount: 42 }),
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
 });

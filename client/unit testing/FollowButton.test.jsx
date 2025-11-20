@@ -201,4 +201,24 @@ describe("FollowButton", () => {
       );
     });
   });
+
+  it("handles non-ok response from follow status check", async () => {
+    mockState = { user: { user: { _id: "current" } } };
+
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: "Unauthorized" }),
+    });
+
+    render(<FollowButton userId="other-user" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /follow/i })).toBeInTheDocument();
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.example.com/follow/check/other-user",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
 });

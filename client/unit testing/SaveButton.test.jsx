@@ -315,4 +315,195 @@ describe("SaveButton", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockShowToast).not.toHaveBeenCalled();
   });
+
+  it("silently handles non-ok response when fetching saved status", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: "Not found" }),
+    });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.example.com/save/status/blog-1",
+        { method: "get", credentials: "include" }
+      );
+    });
+
+    const button = screen.getByRole("button", { name: /save blog/i });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it("applies the default medium icon class when size is not specified", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ isSaved: false }),
+    });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save blog/i })).toBeInTheDocument()
+    );
+
+    const button = screen.getByRole("button", { name: /save blog/i });
+    const icon = button.querySelector("svg");
+
+    expect(icon).toHaveClass("h-5", "w-5");
+  });
+
+  it("silently handles fetch errors during status check", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch.mockRejectedValueOnce(new Error("Network error"));
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await flushPromises();
+
+    const button = screen.getByRole("button", { name: /save blog/i });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it("handles malformed JSON during status fetch", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await flushPromises();
+
+    const button = screen.getByRole("button", { name: /save blog/i });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it("handles malformed JSON during toggle request", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ isSaved: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.reject(new Error("Invalid JSON")),
+      });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save blog/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save blog/i }));
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith("success", "Removed from saved.");
+    });
+  });
+
+  it("cleans up event listener on unmount", async () => {
+    mockState = { user: { isLoggedIn: false } };
+
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+
+    const { unmount } = render(<SaveButton blogId="blog-1" />);
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "savedUpdated",
+      expect.any(Function)
+    );
+
+    removeEventListenerSpy.mockRestore();
+  });
+
+  it("uses server-provided message on successful toggle", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ isSaved: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ isSaved: true, message: "Blog saved successfully!" }),
+      });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save blog/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save blog/i }));
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith("success", "Blog saved successfully!");
+    });
+  });
+
+  it("uses server-provided error message on failed toggle", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ isSaved: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: "Server error occurred" }),
+      });
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save blog/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save blog/i }));
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith("error", "Server error occurred");
+    });
+  });
+
+  it("shows error with message property when toggle throws", async () => {
+    mockState = { user: { isLoggedIn: true } };
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ isSaved: false }),
+      })
+      .mockRejectedValueOnce(new Error("Connection timeout"));
+
+    render(<SaveButton blogId="blog-1" />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save blog/i })).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save blog/i }));
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith("error", "Connection timeout");
+    });
+  });
 });
