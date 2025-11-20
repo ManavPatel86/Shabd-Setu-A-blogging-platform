@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { fetchNotifications } from '../api/notificationsApi';
+import { fetchNotifications } from '../services/notifications';
 import { io } from 'socket.io-client';
 import { getEnv } from '@/helpers/getEnv';
 

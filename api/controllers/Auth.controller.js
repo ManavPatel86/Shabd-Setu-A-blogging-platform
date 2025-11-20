@@ -11,28 +11,27 @@ const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES) || 1;
 const PASSWORD_RESET_EXPIRY_MINUTES = Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES || 10);
 
-// Helper: minutes -> ms
 const minutesToMs = (mins) => mins * 60 * 1000;
+
+const getCookieConfig = () => {
+    return {
+        httpOnly: true,
+        secure: process.env.COOKIE_SECURE === "true",
+        sameSite: process.env.COOKIE_SAME_SITE || "lax",
+        domain: process.env.COOKIE_DOMAIN || undefined,
+        path: "/"
+    };
+};
 
 export const checkUsernameAvailability = async (req, res, next) => {
     try {
         const username = normalizeUsername(req.query?.username || req.body?.username || "");
-
-        if (!username) {
-            return next(handleError(400, "Username is required."));
-        }
-
-        if (!isValidUsername(username)) {
-            return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
-        }
-
+        if (!username) return next(handleError(400, "Username is required."));
+        if (!isValidUsername(username)) return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
         const exists = await User.exists({ username });
         return res.status(200).json({
             success: true,
-            data: {
-                available: !exists,
-                username,
-            },
+            data: { available: !exists, username }
         });
     } catch (error) {
         return next(handleError(500, error.message));
@@ -53,34 +52,21 @@ const issueAuthCookie = (res, user) => {
             name: user.name,
             username: user.username,
             email: user.email,
-            avatar: user.avatar,
+            avatar: user.avatar
         },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
     );
-
-    res.cookie("access_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        path: "/",
-    });
-
+    res.cookie("access_token", token, getCookieConfig());
     return sanitizeUser(user);
 };
 
-
 export const Register = async (req, res, next) => {
     try {
-        const { username, email, password, name } = req.body;
-
-        // Tests expect Register to require `name`, not `username`.
-        if (!name || !email || !password) {
-            return next(handleError(400, "Name, email and password are required."));
-        }
-
+        res.clearCookie("access_token", getCookieConfig());
+        const { name, email, password, username } = req.body;
         const normalizedEmail = email.trim().toLowerCase();
-        const normalizedUsername = username ? normalizeUsername(username) : await generateUniqueUsername(name || normalizedEmail);
+        let normalizedUsername = username ? normalizeUsername(username) : await generateUniqueUsername(name || normalizedEmail);
 
         if (normalizedUsername && !isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
@@ -126,7 +112,6 @@ export const Register = async (req, res, next) => {
                 resendIntervalMinutes: RESEND_INTERVAL_MINUTES
             }
         });
-
     } catch (error) {
         return next(handleError(500, error.message));
     }
@@ -135,17 +120,12 @@ export const Register = async (req, res, next) => {
 export const verifyOtp = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
-        if (!email || !otp) {
-            return next(handleError(400, "Email and OTP are required."));
-        }
+        if (!email || !otp) return next(handleError(400, "Email and OTP are required."));
 
         const normalizedEmail = email.trim().toLowerCase();
-
         const pendingUser = await verifyOtpUtil({ email: normalizedEmail, code: otp });
 
-        if (!pendingUser) {
-            return next(handleError(400, "No pending registration found. Please register again."));
-        }
+        if (!pendingUser) return next(handleError(400, "No pending registration found. Please register again."));
 
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
@@ -156,7 +136,6 @@ export const verifyOtp = async (req, res, next) => {
             return next(handleError(400, "Pending registration data is incomplete. Please register again."));
         }
 
-        // If pendingUser didn't include a username, generate one from name/email
         const normalizedUsername = pendingUser.username
             ? normalizeUsername(pendingUser.username)
             : await generateUniqueUsername(pendingUser.name || normalizedEmail);
@@ -183,7 +162,7 @@ export const verifyOtp = async (req, res, next) => {
 
         return res.status(200).json({ success: true, message: "Email verified. Registration complete." });
     } catch (error) {
-        if (error.code === "OTP_NOT_FOUND" || error.code === "OTP_EXPIRED" || error.code === "INVALID_OTP") {
+        if (["OTP_NOT_FOUND", "OTP_EXPIRED", "INVALID_OTP"].includes(error.code)) {
             return next(handleError(400, error.message));
         }
         return next(handleError(500, error.message));
@@ -193,9 +172,7 @@ export const verifyOtp = async (req, res, next) => {
 export const resendOtp = async (req, res, next) => {
     try {
         const { email } = req.body;
-        if (!email) {
-            return next(handleError(400, "Email is required."));
-        }
+        if (!email) return next(handleError(400, "Email is required."));
 
         const normalizedEmail = email.trim().toLowerCase();
 
@@ -230,44 +207,24 @@ export const resendOtp = async (req, res, next) => {
             }
             return next(handleError(400, err.message));
         }
-
     } catch (error) {
-        if (typeof next === 'function') return next(handleError(500, error.message));
-        return res.status(500).json({ success: false, message: error.message });
+        return next(handleError(500, error.message));
     }
 };
-
-
 
 export const Login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) {
-            const err = handleError(400, "Email and password are required.");
-            if (typeof next === 'function') return next(err);
-            return res.status(err.statusCode).json({ success: false, message: err.message });
-        }
+        if (!email || !password) return next(handleError(400, "Email and password are required."));
 
         const normalizedEmail = email.trim().toLowerCase();
         const user = await User.findOne({ email: normalizedEmail });
-        if (!user) {
-            const err = handleError(404, "Invalid login credentials.");
-            if (typeof next === 'function') return next(err);
-            return res.status(err.statusCode).json({ success: false, message: err.message });
-        }
+        if (!user) return next(handleError(404, "Invalid login credentials."));
 
         const comparePassword = await bcryptjs.compare(password, user.password || "");
-        if (!comparePassword) {
-            const err = handleError(404, "Invalid login credentials.");
-            if (typeof next === 'function') return next(err);
-            return res.status(err.statusCode).json({ success: false, message: err.message });
-        }
+        if (!comparePassword) return next(handleError(404, "Invalid login credentials."));
 
-        if (user.isBlacklisted) {
-            const err = handleError(403, "Account is blacklisted.");
-            if (typeof next === 'function') return next(err);
-            return res.status(err.statusCode).json({ success: false, message: err.message });
-        }
+        if (user.isBlacklisted) return next(handleError(403, "Account is blacklisted."));
 
         await ensureUserHasUsername(user, user.name || normalizedEmail);
 
@@ -275,95 +232,81 @@ export const Login = async (req, res, next) => {
         return res.status(200).json({
             success: true,
             user: safeUser,
-            message: "Login successful.",
+            message: "Login successful."
         });
     } catch (error) {
-        if (typeof next === 'function') return next(handleError(500, error.message));
-        return res.status(500).json({ success: false, message: error.message });
+        return next(handleError(500, error.message));
     }
 };
 
 export const GoogleLogin = async (req, res, next) => {
     try {
-        const { name, email, avatar } = req.body
+        const { name, email, avatar } = req.body;
         const normalizedEmail = email?.trim().toLowerCase();
-        let user
-        user = await User.findOne({ email: normalizedEmail })
+
+        let user = await User.findOne({ email: normalizedEmail });
+
         if (!user) {
-            //  create new user 
-            const password = Math.random().toString()
-            const hashedPassword = bcryptjs.hashSync(password)
+            const password = Math.random().toString();
+            const hashedPassword = bcryptjs.hashSync(password);
             const fallbackUsername = await generateUniqueUsername(name || normalizedEmail);
+
             const newUser = new User({
                 username: fallbackUsername,
                 name,
                 email: normalizedEmail,
                 password: hashedPassword,
                 avatar
-            })
+            });
 
-            user = await newUser.save()
-
+            user = await newUser.save();
         } else {
             await ensureUserHasUsername(user, name || normalizedEmail);
         }
 
+        const token = jwt.sign(
+            {
+                _id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar
+            },
+            process.env.JWT_SECRET
+        );
 
-        const token = jwt.sign({
-            _id: user._id,
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            avatar: user.avatar
-        }, process.env.JWT_SECRET)
+        res.cookie("access_token", token, getCookieConfig());
 
+        const newUser = user.toObject({ getters: true });
+        delete newUser.password;
 
-        res.cookie('access_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            path: '/'
-        })
-
-        const newUser = user.toObject({ getters: true })
-        delete newUser.password
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             user: newUser,
-            message: 'Login successful.'
-        })
-
+            message: "Login successful."
+        });
     } catch (error) {
-        next(handleError(500, error.message))
+        return next(handleError(500, error.message));
     }
-}
+};
 
 export const Logout = async (req, res, next) => {
     try {
+        res.clearCookie("access_token", getCookieConfig());
 
-        res.clearCookie('access_token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            path: '/'
-        })
-
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            message: 'Logout successful.'
-        })
-
+            message: "Logout successful."
+        });
     } catch (error) {
-        next(handleError(500, error.message))
+        return next(handleError(500, error.message));
     }
-}
+};
 
 export const requestPasswordReset = async (req, res, next) => {
     try {
         const { email } = req.body;
-        if (!email) {
-            return next(handleError(400, "Email is required."));
-        }
+        if (!email) return next(handleError(400, "Email is required."));
 
         const normalizedEmail = email.trim().toLowerCase();
         const user = await User.findOne({ email: normalizedEmail });
@@ -373,10 +316,10 @@ export const requestPasswordReset = async (req, res, next) => {
                 email: normalizedEmail,
                 userId: user._id,
                 purpose: VERIFICATION_PURPOSES.PASSWORD_RESET,
-                ttlMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
+                ttlMinutes: PASSWORD_RESET_EXPIRY_MINUTES
             });
 
-            await sendPasswordResetEmail({ to: normalizedEmail, code });
+            await mailer.sendPasswordResetEmail({ to: normalizedEmail, code });
         }
 
         return res.status(200).json({
@@ -385,7 +328,7 @@ export const requestPasswordReset = async (req, res, next) => {
             data: {
                 email: normalizedEmail,
                 otpExpiryMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
-                resendIntervalMinutes: RESEND_INTERVAL_MINUTES,
+                resendIntervalMinutes: RESEND_INTERVAL_MINUTES
             }
         });
     } catch (error) {
@@ -396,9 +339,7 @@ export const requestPasswordReset = async (req, res, next) => {
 export const resendPasswordResetCode = async (req, res, next) => {
     try {
         const { email } = req.body;
-        if (!email) {
-            return next(handleError(400, "Email is required."));
-        }
+        if (!email) return next(handleError(400, "Email is required."));
 
         const normalizedEmail = email.trim().toLowerCase();
         const user = await User.findOne({ email: normalizedEmail });
@@ -410,7 +351,7 @@ export const resendPasswordResetCode = async (req, res, next) => {
                 data: {
                     email: normalizedEmail,
                     otpExpiryMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
-                    resendIntervalMinutes: RESEND_INTERVAL_MINUTES,
+                    resendIntervalMinutes: RESEND_INTERVAL_MINUTES
                 }
             });
         }
@@ -419,10 +360,10 @@ export const resendPasswordResetCode = async (req, res, next) => {
             const { code } = await resendVerificationCode({
                 email: normalizedEmail,
                 purpose: VERIFICATION_PURPOSES.PASSWORD_RESET,
-                ttlMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
+                ttlMinutes: PASSWORD_RESET_EXPIRY_MINUTES
             });
 
-            await sendPasswordResetEmail({ to: normalizedEmail, code });
+            await mailer.sendPasswordResetEmail({ to: normalizedEmail, code });
         } catch (error) {
             if (error.code === "VERIFICATION_NOT_FOUND") {
                 return next(handleError(404, "No reset request found. Please request a code first."));
@@ -439,7 +380,7 @@ export const resendPasswordResetCode = async (req, res, next) => {
             data: {
                 email: normalizedEmail,
                 otpExpiryMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
-                resendIntervalMinutes: RESEND_INTERVAL_MINUTES,
+                resendIntervalMinutes: RESEND_INTERVAL_MINUTES
             }
         });
     } catch (error) {
@@ -464,7 +405,7 @@ export const resetPassword = async (req, res, next) => {
         await verifyCodeForPurpose({
             email: normalizedEmail,
             purpose: VERIFICATION_PURPOSES.PASSWORD_RESET,
-            code: otp,
+            code: otp
         });
 
         const user = await User.findOne({ email: normalizedEmail });
@@ -477,7 +418,7 @@ export const resetPassword = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            message: "Password updated successfully. Please sign in.",
+            message: "Password updated successfully. Please sign in."
         });
     } catch (error) {
         if (

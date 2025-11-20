@@ -503,6 +503,113 @@ export const getAllBlogs = async (req, res, next) => {
     }
 }
 
+export const getBestOfWeek = async (req, res, next) => {
+    try {
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const summarizeLikes = (rows) => new Map(rows.map(({ _id, likes }) => [_id?.toString(), likes || 0]));
+
+        const loadBlogsById = async (ids, likeMap, reason) => {
+            if (!Array.isArray(ids) || !ids.length) return [];
+
+            const docs = await Blog.find({ _id: { $in: ids }, ...publishedOnlyQuery() })
+                .populate('author', 'name avatar role')
+                .populate('categories', 'name slug')
+                .lean()
+                .exec();
+
+            const order = new Map(ids.map((id, index) => [id.toString(), index]));
+
+            return docs
+                .map((doc) => ({
+                    ...doc,
+                    highlightLikes: likeMap?.get(doc._id?.toString()) || 0,
+                    highlightReason: reason,
+                }))
+                .sort((a, b) => (order.get(a._id?.toString()) ?? 0) - (order.get(b._id?.toString()) ?? 0));
+        };
+
+        const weekly = await BlogLike.aggregate([
+            { $match: { createdAt: { $gte: sevenDaysAgo } } },
+            { $group: { _id: '$blogid', likes: { $sum: 1 } } },
+            { $sort: { likes: -1 } },
+            { $limit: 6 }
+        ]);
+
+        const weeklyIds = weekly.map(({ _id }) => _id?.toString()).filter(Boolean);
+        const weeklyLikeMap = summarizeLikes(weekly);
+
+        let blogs = await loadBlogsById(weeklyIds, weeklyLikeMap, 'weekly');
+
+        if (blogs.length < 3) {
+            // Backfill with all-time popular posts when weekly activity is sparse.
+            const seen = new Set(blogs.map((blog) => blog._id?.toString()));
+            const popular = await BlogLike.aggregate([
+                { $group: { _id: '$blogid', likes: { $sum: 1 } } },
+                { $sort: { likes: -1 } },
+                { $limit: 9 }
+            ]);
+
+            const popularRows = popular
+                .map(({ _id, likes }) => ({ id: _id?.toString(), likes: likes || 0 }))
+                .filter(({ id }) => id && !seen.has(id));
+
+            if (popularRows.length) {
+                const popularLikeMap = new Map(popularRows.map(({ id, likes }) => [id, likes]));
+                const popularIds = popularRows.map(({ id }) => id);
+                const popularBlogs = await loadBlogsById(popularIds, popularLikeMap, 'popular');
+
+                popularBlogs.forEach((blog) => {
+                    if (blogs.length < 3 && !seen.has(blog._id?.toString())) {
+                        blogs.push(blog);
+                        seen.add(blog._id?.toString());
+                    }
+                });
+            }
+        }
+
+        if (blogs.length < 3) {
+            // Final fallback to latest published posts.
+            const seenIds = new Set(blogs.map((blog) => blog._id?.toString()));
+            const recent = await Blog.find({ ...publishedOnlyQuery(), _id: { $nin: Array.from(seenIds) } })
+                .populate('author', 'name avatar role')
+                .populate('categories', 'name slug')
+                .sort({ createdAt: -1 })
+                .limit(3 - blogs.length)
+                .lean()
+                .exec();
+
+            blogs = blogs.concat(
+                recent.map((doc) => ({
+                    ...doc,
+                    highlightLikes: 0,
+                    highlightReason: 'recent',
+                }))
+            );
+        }
+
+        const trimmed = blogs.slice(0, 3);
+        const hasWeekly = trimmed.some((blog) => blog.highlightReason === 'weekly');
+        const label = hasWeekly ? 'Best of the Week' : trimmed.length ? 'Popular Picks' : 'Latest Stories';
+        const fallback = hasWeekly ? 'weekly' : weeklyIds.length ? 'popular' : 'recent';
+
+        return res.status(200).json({
+            blog: trimmed,
+            meta: {
+                label,
+                fallback,
+                range: {
+                    start: sevenDaysAgo.toISOString(),
+                    end: now.toISOString(),
+                },
+            },
+        });
+    } catch (error) {
+        next(handleError(500, error.message));
+    }
+};
+
 export const getFollowingFeed = async (req, res, next) => {
     try {
         const userId = req.user?._id;

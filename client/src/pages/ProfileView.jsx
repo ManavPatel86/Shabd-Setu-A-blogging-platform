@@ -1,15 +1,16 @@
 import React, { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import { getEnv } from "@/helpers/getEnv";
 import Loading from "@/components/Loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import FollowButton from "@/components/FollowButton";
-import { BookOpen, Eye, Feather, Sparkles, Tag, Users } from "lucide-react";
+import { BookOpen, Eye, Feather, Sparkles, Tag, Users, ChevronLeft } from "lucide-react";
 import BlogCard from "@/components/BlogCard";
 
 const ProfileView = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
 
   const {
     data: userData,
@@ -150,6 +151,14 @@ const ProfileView = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50/30 to-white">
       <div className="max-w-6xl px-4 py-10 mx-auto space-y-10 sm:px-8 lg:px-12">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="text-slate-500 transition hover:text-slate-900"
+          aria-label="Back to previous page"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
         <section className="relative overflow-hidden rounded-4xl bg-linear-to-r from-[#6C5CE7] to-[#8F7CF1] px-6 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
           <div className="absolute inset-y-0 right-0 hidden w-64 rounded-full translate-x-1/4 bg-white/10 blur-3xl md:block" />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

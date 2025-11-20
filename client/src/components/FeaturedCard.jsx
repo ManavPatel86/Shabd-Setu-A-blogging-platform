@@ -12,23 +12,20 @@ const FeaturedCard = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
-  // Fetch featured blogs
-  const featuredEndpoint = `${getEnv("VITE_API_BASE_URL")}/blog/blogs`;
-  const { data: blogData, loading } = useFetch(
-    featuredEndpoint,
+  // Fetch highlight blogs
+  const highlightEndpoint = `${getEnv("VITE_API_BASE_URL")}/blog/best-of-week`;
+  const { data: highlightData, loading } = useFetch(
+    highlightEndpoint,
     { method: "get", credentials: "include" },
-    [featuredEndpoint]
+    [highlightEndpoint]
   );
 
-  // Get featured blogs or fallback to first 3 blogs
+  const highlightLabel = highlightData?.meta?.label || "Best of the Week";
   const featuredBlogs = React.useMemo(() => {
-    if (!blogData?.blog) return [];
-    const blogs = Array.isArray(blogData.blog) ? blogData.blog : [];
-    const featured = blogs.filter((blog) => blog?.isFeatured || blog?.featured);
-    
-    if (featured.length > 0) return featured.slice(0, 5);
-    return blogs.slice(0, 3);
-  }, [blogData]);
+    if (!highlightData?.blog) return [];
+    const blogs = Array.isArray(highlightData.blog) ? highlightData.blog : [];
+    return blogs.slice(0, 5);
+  }, [highlightData]);
 
   // Auto-slide functionality
   useEffect(() => {
@@ -153,6 +150,24 @@ const FeaturedCard = () => {
   if (featuredBlogs.length === 0) return null;
 
   const currentBlog = featuredBlogs[currentIndex];
+  const currentCategory = currentBlog ? getCategoryName(currentBlog) : null;
+
+  const highlightDetail = (() => {
+    if (!currentBlog) return null;
+    const likes = currentBlog.highlightLikes || 0;
+    if (currentBlog.highlightReason === "weekly") {
+      return likes > 0
+        ? `${likes} likes in the last 7 days`
+        : "Trending with readers this week";
+    }
+    if (currentBlog.highlightReason === "popular") {
+      return likes > 0 ? `${likes} all-time likes` : "All-time favorite";
+    }
+    if (currentBlog.highlightReason === "recent") {
+      return "Freshly published";
+    }
+    return null;
+  })();
 
   return (
     <div className="col-span-full bg-[#6C5CE7] rounded-4xl sm:rounded-[40px] mb-10 relative overflow-hidden text-white shadow-xl shadow-indigo-200 min-h-[420px] md:min-h-[460px]">
@@ -178,33 +193,48 @@ const FeaturedCard = () => {
               className="flex flex-col items-center gap-8 md:flex-row md:gap-12"
             >
               {/* Left Content */}
-              <div className="flex-1 space-y-5 text-center md:text-left">
-                <motion.span
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-white/20 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border border-white/10 inline-block"
-                >
-                  {getCategoryName(currentBlog)}
-                </motion.span>
+              <div className="flex-1 flex flex-col text-center md:text-left gap-0">
+                <div className="flex flex-col gap-5">
+                  {currentCategory && (
+                    <motion.span
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-white/20 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border border-white/10 inline-block"
+                    >
+                      {currentCategory}
+                    </motion.span>
+                  )}
 
-                <motion.h2
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl line-clamp-3"
-                >
-                  {currentBlog.title}
-                </motion.h2>
+                  <motion.h2
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl line-clamp-3"
+                  >
+                    {currentBlog.title}
+                  </motion.h2>
 
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="max-w-xl text-base font-medium leading-relaxed text-white/90 line-clamp-6 md:line-clamp-3"
-                >
-                  {getExcerpt(currentBlog)}
-                </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="max-w-xl text-base font-medium leading-relaxed text-white/90 line-clamp-6 md:line-clamp-3"
+                  >
+                    {getExcerpt(currentBlog)}
+                  </motion.p>
+
+                  {highlightDetail && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.45 }}
+                      className="text-sm font-medium text-white/80"
+                    >
+                      {highlightDetail}
+                    </motion.p>
+                  )}
+                </div>
 
                 <motion.button
                   initial={{ opacity: 0, y: 20 }}
@@ -213,10 +243,19 @@ const FeaturedCard = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigateToBlog(currentBlog)}
-                  className="mx-auto md:mx-0 bg-white text-[#6C5CE7] px-6 sm:px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 text-sm sm:text-[15px]"
+                  className="mx-auto md:mx-0 mt-8 bg-white text-[#6C5CE7] px-6 sm:px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center gap-2 text-sm sm:text-[15px]"
                 >
                   Start Reading <ArrowRight size={20} />
                 </motion.button>
+
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.55 }}
+                  className="mt-auto pt-8 text-xl sm:text-2xl md:text-[28px] font-extrabold text-white uppercase tracking-[0.28em]"
+                >
+                  {highlightLabel}
+                </motion.p>
               </div>
 
               {/* Right Image */}

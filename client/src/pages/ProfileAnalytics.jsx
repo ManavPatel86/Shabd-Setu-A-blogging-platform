@@ -3,8 +3,8 @@ import { useSelector } from 'react-redux'
 import axios from 'axios'
 import { getEnv } from '@/helpers/getEnv'
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
-import { Link } from 'react-router-dom'
-import { RouteProfile } from '@/helpers/RouteName'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
 
 const COLORS = ['#6C5CE7', '#A0AEC0']
 
@@ -20,6 +20,7 @@ const ProfileAnalytics = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const navigate = useNavigate()
 
   const apiBase = import.meta.env.VITE_API_BASE_URL || getEnv('VITE_API_BASE_URL')
   // Fallback backend to try when the configured API base points to the Vite frontend server
@@ -112,8 +113,17 @@ const ProfileAnalytics = () => {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold">Your Analytics</h2>
-        <Link to={RouteProfile} className="text-sm text-slate-500">Back to profile</Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="text-slate-500 transition hover:text-slate-900"
+            aria-label="Back to previous page"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-2xl font-semibold">Your Analytics</h2>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
