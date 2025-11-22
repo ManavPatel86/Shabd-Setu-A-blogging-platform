@@ -19,13 +19,12 @@ import defaultAvatar from '@/assets/images/user.png'
 import ActivityHeatmap from '@/components/ActivityHeatmap'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Link } from 'react-router-dom'
-import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView } from '@/helpers/RouteName'
+import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView, RouteSignIn } from '@/helpers/RouteName'
 import { BookOpen, Eye, Heart, Sparkles, Tag, UserPlus, Users } from 'lucide-react'
 import { getDisplayName } from '@/utils/functions'
 
 
 const Profile = () => {
-
     const [filePreview, setPreview] = useState()
     const [file, setFile] = useState()
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
@@ -36,9 +35,9 @@ const Profile = () => {
     const [twoFactorConfirmLoading, setTwoFactorConfirmLoading] = useState(false)
     const [twoFactorEmailMask, setTwoFactorEmailMask] = useState("")
     const [copiedUsername, setCopiedUsername] = useState(false)
-    const user = useSelector((state) => state.user)
     const apiBaseUrl = useMemo(() => getEnv('VITE_API_BASE_URL'), [])
 
+    const user = useSelector((state) => state.user)
     const userId = user?.user?._id
     const userDetailsUrl = userId ? `${getEnv('VITE_API_BASE_URL')}/user/get-user/${userId}` : null
 

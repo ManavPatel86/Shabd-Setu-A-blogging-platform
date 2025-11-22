@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,7 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+
   /* -----------------------------
         React Hook Form + Zod
   ------------------------------ */
@@ -75,8 +76,14 @@ const SignIn = () => {
       }
 
       dispatch(setUser(data.user));
+      // Store token for ProtectedRoute check
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      // Navigate to home page after successful login
       navigate(RouteIndex);
       showToast("success", data.message);
+      window.history.replaceState(null, "");
     } catch (error) {
       showToast("error", error.message);
     } finally {
@@ -85,10 +92,33 @@ const SignIn = () => {
   }
 
   /* -----------------------------
-              JSX
+            JSX
   ------------------------------ */
+  useEffect(() => {
+  // Clear old session ONLY when user manually visits /signin
+  localStorage.removeItem("token");
+  sessionStorage.clear();
+
+  // Handle mobile BFCache (swipe back)
+  const handlePageShow = (event) => {
+    if (event.persisted) {
+      window.location.replace(window.location.href);
+    }
+  };
+
+  window.addEventListener("pageshow", handlePageShow);
+  return () => window.removeEventListener("pageshow", handlePageShow);
+}, []);
+
+
+
+
+
   return (
-    <div className="relative min-h-screen bg-[#F6F4FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12">
+    <div
+      className="relative min-h-screen bg-[#F6F4FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Background Decorations */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-[#dcd2ff]/70 to-transparent" />
       <div className="pointer-events-none absolute -left-16 top-32 h-72 w-72 rounded-full bg-[#6C5CE7]/20 blur-3xl" />
@@ -125,7 +155,6 @@ const SignIn = () => {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
               {/* Email */}
               <FormField
                 control={form.control}

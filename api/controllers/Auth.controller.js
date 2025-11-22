@@ -1,11 +1,51 @@
 import User from "../models/user.model.js";
 import bcryptjs from "bcryptjs";
+import crypto from "crypto";
 import { handleError } from "../helpers/handleError.js";
 import jwt from "jsonwebtoken";
 import { sendOtpEmail, sendPasswordResetEmail, sendTwoFactorCodeEmail, sendTwoFactorSetupEmail } from "../utils/mailer.js";
 import { createAndSendOtp, resendOtp as resendOtpUtil, verifyOtp as verifyOtpUtil } from "../utils/Otp.js";
 import { createVerificationCode, verifyCodeForPurpose, VERIFICATION_PURPOSES } from "../utils/verificationToken.js";
 import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, generateUniqueUsername, ensureUserHasUsername } from "../utils/username.js";
+
+// Password validation requirements
+const PASSWORD_REQUIREMENTS = {
+    minLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumber: true,
+    requireSpecialChar: true,
+};
+
+const PASSWORD_REQUIREMENTS_MESSAGE = `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*()_+-=[]{}|;:,.<>?).`;
+
+const validatePassword = (password) => {
+    if (!password || typeof password !== 'string') {
+        return { isValid: false, message: 'Password is required.' };
+    }
+
+    if (password.length < PASSWORD_REQUIREMENTS.minLength) {
+        return { isValid: false, message: `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long.` };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one uppercase letter.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one lowercase letter.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireNumber && !/\d/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one number.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireSpecialChar && !/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?).' };
+    }
+
+    return { isValid: true };
+};
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES || 5);
@@ -111,6 +151,11 @@ export const Register = async (req, res, next) => {
 
         if (!username || !email || !password) {
             return next(handleError(400, "Username, email and password are required."));
+        }
+
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+            return next(handleError(400, passwordValidation.message));
         }
 
         const normalizedEmail = email.trim().toLowerCase();
@@ -640,8 +685,9 @@ export const resetPassword = async (req, res, next) => {
             return next(handleError(400, "Email, OTP, and new password are required."));
         }
 
-        if (newPassword.length < 8) {
-            return next(handleError(400, "Password must be at least 8 characters."));
+        const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.isValid) {
+            return next(handleError(400, passwordValidation.message));
         }
 
         const normalizedEmail = email.trim().toLowerCase();

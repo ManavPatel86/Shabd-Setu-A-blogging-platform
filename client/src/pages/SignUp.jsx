@@ -92,7 +92,6 @@ const SignUp = () => {
     return () => clearInterval(timer);
   }, [resendDisabled, resendTimer]);
 
-
   // ---------------------------
   // 📝 HANDLE REGISTER SUBMIT
   // ---------------------------
@@ -196,7 +195,7 @@ const SignUp = () => {
   // 🌈 UI + FINAL MERGED RENDER
   // ================================================================
   return (
-    <div className="relative min-h-screen bg-[#F7F5FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12">
+    <div className="relative min-h-screen bg-[#F7F5FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12" onContextMenu={(e) => e.preventDefault()}>
 
       {/* --------------------- Background Orbs ---------------------- */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-[#e8e1ff] to-transparent" />

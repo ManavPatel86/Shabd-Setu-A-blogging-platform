@@ -285,14 +285,8 @@ const SingleBlogDetails = () => {
       await navigator.clipboard.writeText(url);
       showToast("success", "Link copied to clipboard");
     } catch (err) {
-      if (err?.name !== "AbortError") {
-        try {
-          await navigator.clipboard.writeText(url);
-          showToast("success", "Link copied to clipboard");
-        } catch (_) {
-          showToast("error", "Unable to share.");
-        }
-      }
+      if (err?.name === "AbortError") return;
+      showToast("error", "Unable to share.");
     }
   };
 
