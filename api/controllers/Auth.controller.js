@@ -15,10 +15,11 @@ const PASSWORD_RESET_EXPIRY_MINUTES = Number(process.env.PASSWORD_RESET_EXPIRY_M
 const minutesToMs = (mins) => mins * 60 * 1000;
 
 const getCookieConfig = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
     return {
         httpOnly: true,
-        secure: process.env.COOKIE_SECURE === "true",
-        sameSite: process.env.COOKIE_SAME_SITE || "lax",
+        secure: process.env.COOKIE_SECURE === "true" || isProduction,
+        sameSite: process.env.COOKIE_SAME_SITE || (isProduction ? "none" : "lax"),
         domain: process.env.COOKIE_DOMAIN || undefined,
         path: "/"
     };
@@ -66,8 +67,15 @@ export const Register = async (req, res, next) => {
     try {
         res.clearCookie("access_token", getCookieConfig());
         const { name, email, password, username } = req.body;
+        
+        if (!name || !email || !password) {
+            return next(handleError(400, "Name, email and password are required."));
+        }
+        
         const normalizedEmail = email.trim().toLowerCase();
-        let normalizedUsername = username ? normalizeUsername(username) : await generateUniqueUsername(name || normalizedEmail);
+        let normalizedUsername = username
+            ? normalizeUsername(username)
+            : await generateUniqueUsername((typeof name === 'string' && name.trim()) || normalizedEmail);
 
         if (normalizedUsername && !isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
@@ -210,6 +218,9 @@ export const resendOtp = async (req, res, next) => {
             return next(handleError(400, err.message));
         }
     } catch (error) {
+        if (!next) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
         return next(handleError(500, error.message));
     }
 };
@@ -217,16 +228,36 @@ export const resendOtp = async (req, res, next) => {
 export const Login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) return next(handleError(400, "Email and password are required."));
+        if (!email || !password) {
+            if (!next) {
+                return res.status(400).json({ success: false, message: "Email and password are required." });
+            }
+            return next(handleError(400, "Email and password are required."));
+        }
 
         const normalizedEmail = email.trim().toLowerCase();
         const user = await User.findOne({ email: normalizedEmail });
-        if (!user) return next(handleError(404, "Invalid login credentials."));
+        if (!user) {
+            if (!next) {
+                return res.status(404).json({ success: false, message: "Invalid login credentials." });
+            }
+            return next(handleError(404, "Invalid login credentials."));
+        }
 
         const comparePassword = await bcryptjs.compare(password, user.password || "");
-        if (!comparePassword) return next(handleError(404, "Invalid login credentials."));
+        if (!comparePassword) {
+            if (!next) {
+                return res.status(404).json({ success: false, message: "Invalid login credentials." });
+            }
+            return next(handleError(404, "Invalid login credentials."));
+        }
 
-        if (user.isBlacklisted) return next(handleError(403, "Account is blacklisted."));
+        if (user.isBlacklisted) {
+            if (!next) {
+                return res.status(403).json({ success: false, message: "Account is blacklisted." });
+            }
+            return next(handleError(403, "Account is blacklisted."));
+        }
 
         await ensureUserHasUsername(user, user.name || normalizedEmail);
 
@@ -237,6 +268,9 @@ export const Login = async (req, res, next) => {
             message: "Login successful."
         });
     } catch (error) {
+        if (!next) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
         return next(handleError(500, error.message));
     }
 };

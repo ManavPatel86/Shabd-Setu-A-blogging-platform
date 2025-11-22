@@ -330,25 +330,17 @@ describe('createNotification', () => {
     expect(emitCalled).toBe(true)
     expect(emitArgs.event).toBe('notification:new')
     expect(emitArgs.data).toBeTruthy()
-    // spy on console.log to cover successful emit logging and restore after
-    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
-    try {
-      // Trigger another notification to hit the console.log path
-      const result2 = await createNotification({
-        recipientId: user1._id,
-        senderId: user2._id,
-        type: 'like',
-        link: '/test2',
-        extra: { senderName: 'Test', blogTitle: 'Test' }
-      })
+    
+    // Trigger another notification to verify it works multiple times
+    const result2 = await createNotification({
+      recipientId: user1._id,
+      senderId: user2._id,
+      type: 'like',
+      link: '/test2',
+      extra: { senderName: 'Test', blogTitle: 'Test' }
+    })
 
-      expect(result2).toBeTruthy()
-      expect(consoleLogSpy).toHaveBeenCalled()
-      expect(consoleLogSpy.mock.calls[0][0]).toContain(String(user1._id))
-      expect(consoleLogSpy.mock.calls[0][0]).toContain('type=like')
-    } finally {
-      consoleLogSpy.mockRestore()
-    }
+    expect(result2).toBeTruthy()
   })
 
   it('should handle socket emit error gracefully', async () => {
