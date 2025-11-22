@@ -274,6 +274,44 @@ describe('Auth Controller Tests', () => {
       expect(otpDoc.pendingUser.username).toBe('customuser123');
     }, 10000);
 
+    it('should normalize provided username and store it in pending user (covers ternary branch)', async () => {
+      mockSendOtpEmail.mockResolvedValue();
+
+      req.body = {
+        name: 'Norm Case',
+        email: 'normcase@example.com',
+        password: 'password123',
+        username: 'CamelCase_USER'
+      };
+
+      await Register(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const otpDoc = await OtpCode.findOne({ email: 'normcase@example.com' });
+      expect(otpDoc).toBeTruthy();
+      // username should be normalized to lowercase
+      expect(otpDoc.pendingUser.username).toBe('camelcase_user');
+    });
+
+    it('should generate username using normalizedEmail when username omitted and name is whitespace', async () => {
+      mockSendOtpEmail.mockResolvedValue();
+
+      req.body = {
+        name: '   ', // whitespace name -> should fall back to email
+        email: 'emailfallback@example.com',
+        password: 'password123'
+        // username intentionally omitted
+      };
+
+      await Register(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      const otpDoc = await OtpCode.findOne({ email: 'emailfallback@example.com' });
+      expect(otpDoc).toBeTruthy();
+      expect(otpDoc.pendingUser.username).toBeDefined();
+      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
+    }, 10000);
+
     it('should reject invalid username format during registration', async () => {
       req.body = {
         name: 'User',
