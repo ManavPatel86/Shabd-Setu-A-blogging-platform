@@ -102,14 +102,14 @@ import NotificationsProvider from './context/NotificationsProvider';function App
                             }
                         />
 
-                        {/* <Route
+                        <Route
                             path={RouteHelp}
                             element={
                                 <ProtectedRoute>
                                     <Help />
                                 </ProtectedRoute>
                             }
-                        /> */}
+                        />
 
                         <Route
                             path={RouteFollowers}
@@ -157,14 +157,14 @@ import NotificationsProvider from './context/NotificationsProvider';function App
                             }
                         />
 
-                        {/* <Route
+                        <Route
                             path={RouteBlog}
                             element={
                                 <ProtectedRoute>
                                     <BlogDetails />
                                 </ProtectedRoute>
                             }
-                        /> */}
+                        />
 
                         <Route
                             path={RouteBlogEdit()}
@@ -175,14 +175,14 @@ import NotificationsProvider from './context/NotificationsProvider';function App
                             }
                         />
 
-                        {/* <Route
+                        <Route
                             path={RouteSearch()}
                             element={
                                 <ProtectedRoute>
                                     <SearchResult />
                                 </ProtectedRoute>
                             }
-                        /> */}
+                        />
 
                         <Route
                             path={RouteCategoryFeed()}

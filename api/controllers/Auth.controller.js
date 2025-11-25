@@ -647,6 +647,9 @@ export const Logout = async (req, res, next) => {
     }
 }
 
+import VerificationToken from "../models/verificationToken.model.js";
+import PasswordResetRequest from "../models/PasswordResetRequest.model.js";
+
 export const requestPasswordReset = async (req, res, next) => {
     try {
         const { email } = req.body;
@@ -658,6 +661,20 @@ export const requestPasswordReset = async (req, res, next) => {
         const user = await User.findOne({ email: normalizedEmail });
 
         if (user) {
+            // Check number of requests in the last 24 hours in PasswordResetRequest collection
+            const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000); // last 24 hours
+            const recentRequestsCount = await PasswordResetRequest.countDocuments({
+                email: normalizedEmail,
+                requestedAt: { $gte: timeWindow },
+            });
+
+            if (recentRequestsCount >= 3) {
+                return next(handleError(429, "You have exceeded the maximum number of password reset requests for this email. Please try again after 24hrs."));
+            }
+
+            // Log this request
+            await PasswordResetRequest.create({ email: normalizedEmail });
+
             const { code } = await createVerificationCode({
                 email: normalizedEmail,
                 userId: user._id,

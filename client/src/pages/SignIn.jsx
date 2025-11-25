@@ -230,12 +230,13 @@ const SignIn = () => {
               </Button>
 
               <div className="text-center">
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-[#6C5CE7] hover:text-[#4c3ebb] transition-colors"
-                >
-                  Forgot your password?
-                </button>
+              <button
+                type="button"
+                className="text-sm font-semibold text-[#6C5CE7] hover:text-[#4c3ebb] transition-colors"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot your password?
+              </button>
               </div>
             </form>
           </Form>
