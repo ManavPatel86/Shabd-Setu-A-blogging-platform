@@ -20,6 +20,7 @@ import ActivityHeatmap from '@/components/ActivityHeatmap'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Link } from 'react-router-dom'
 import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView, RouteSignIn } from '@/helpers/RouteName'
+import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView, RouteAnalytics } from '@/helpers/RouteName'
 import { BookOpen, Eye, Heart, Sparkles, Tag, UserPlus, Users } from 'lucide-react'
 import { getDisplayName } from '@/utils/functions'
 
@@ -27,13 +28,6 @@ import { getDisplayName } from '@/utils/functions'
 const Profile = () => {
     const [filePreview, setPreview] = useState()
     const [file, setFile] = useState()
-    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
-    const [twoFactorStatusLoading, setTwoFactorStatusLoading] = useState(true)
-    const [twoFactorAction, setTwoFactorAction] = useState(null)
-    const [twoFactorCode, setTwoFactorCode] = useState("")
-    const [twoFactorRequestLoading, setTwoFactorRequestLoading] = useState(false)
-    const [twoFactorConfirmLoading, setTwoFactorConfirmLoading] = useState(false)
-    const [twoFactorEmailMask, setTwoFactorEmailMask] = useState("")
     const [copiedUsername, setCopiedUsername] = useState(false)
     const apiBaseUrl = useMemo(() => getEnv('VITE_API_BASE_URL'), [])
 
@@ -111,103 +105,7 @@ const Profile = () => {
         }
     }, [userData, form])
 
-    useEffect(() => {
-        if (!userId) return
 
-        const fetchTwoFactorStatus = async () => {
-            setTwoFactorStatusLoading(true)
-            try {
-                const response = await fetch(`${apiBaseUrl}/auth/two-factor/status`, {
-                    method: 'GET',
-                    credentials: 'include'
-                })
-                const data = await response.json()
-                if (!response.ok) {
-                    throw new Error(data.message || 'Unable to fetch two-step verification status.')
-                }
-                setTwoFactorEnabled(Boolean(data?.data?.enabled))
-                setTwoFactorEmailMask(data?.data?.email || '')
-            } catch (error) {
-                showToast('error', error.message)
-            } finally {
-                setTwoFactorStatusLoading(false)
-            }
-        }
-
-        fetchTwoFactorStatus()
-    }, [apiBaseUrl, userId])
-
-
-
-    const startTwoFactorChange = async (action) => {
-        if (!userId) {
-            return showToast('error', 'Sign in again to update security settings.')
-        }
-        setTwoFactorRequestLoading(true)
-        try {
-            const response = await fetch(`${apiBaseUrl}/auth/two-factor/start`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action })
-            })
-            const data = await response.json()
-            if (!response.ok) {
-                return showToast('error', data.message)
-            }
-            setTwoFactorAction(action)
-            setTwoFactorCode("")
-            if (data?.data?.email) {
-                setTwoFactorEmailMask(data.data.email)
-            }
-            showToast('info', data.message || 'Enter the verification code we emailed you to continue.')
-        } catch (error) {
-            showToast('error', error.message)
-        } finally {
-            setTwoFactorRequestLoading(false)
-        }
-    }
-
-    const confirmTwoFactorChange = async () => {
-        if (!twoFactorAction) {
-            return showToast('error', 'No security change is pending confirmation.')
-        }
-        if (!twoFactorCode.trim()) {
-            return showToast('error', 'Enter the verification code from your email.')
-        }
-
-        setTwoFactorConfirmLoading(true)
-        try {
-            const response = await fetch(`${apiBaseUrl}/auth/two-factor/confirm`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: twoFactorAction, code: twoFactorCode })
-            })
-            const data = await response.json()
-            if (!response.ok) {
-                return showToast('error', data.message)
-            }
-
-            const enabled = data?.data?.enabled ?? (twoFactorAction === 'enable')
-            setTwoFactorEnabled(enabled)
-            setTwoFactorAction(null)
-            setTwoFactorCode("")
-            if (data?.user) {
-                dispath(setUser(data.user))
-            }
-            showToast('success', data.message)
-        } catch (error) {
-            showToast('error', error.message)
-        } finally {
-            setTwoFactorConfirmLoading(false)
-        }
-    }
-
-    const cancelTwoFactorFlow = () => {
-        setTwoFactorAction(null)
-        setTwoFactorCode("")
-    }
 
 
     async function onSubmit(values) {
@@ -373,7 +271,7 @@ const Profile = () => {
                 <div className="absolute bottom-0 left-12 h-64 w-64 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />
                 <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                        <div className="relative">
+                        <div className="relative flex flex-col items-center">
                             <div className="absolute inset-0 -translate-y-2 translate-x-2 rounded-full bg-white/25 blur-2xl" />
                             <Avatar className="relative h-28 w-28 border-4 border-white shadow-xl">
                                 <AvatarImage src={profileUser?.avatar || defaultAvatar} alt={profileUser?.name} />
@@ -385,7 +283,7 @@ const Profile = () => {
                                 <button
                                     type="button"
                                     onClick={() => handleCopyUsername(profileUser?.username)}
-                                    className="absolute -bottom-3 left-1/2 w-max -translate-x-1/2 rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/80 transition hover:bg-white/25"
+                                    className="relative z-10 mt-4 w-max rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/85 transition hover:bg-white/30"
                                 >
                                     {copiedUsername ? 'Copied' : usernameHandle}
                                 </button>
@@ -439,9 +337,8 @@ const Profile = () => {
                     </div>
                     <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
                         <div className="rounded-[28px] border border-white/25 bg-white/10 px-8 py-6 text-center shadow-[0_20px_60px_-35px_rgba(15,23,42,0.8)]">
-                            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Publishing streak</p>
+                            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70">Published Blogs</p>
                             <p className="text-4xl font-black text-white">{totalBlogsThisPeriod}</p>
-                            <p className="text-xs text-white/70">blogs this period</p>
                         </div>
                         <div className="flex flex-col gap-3">
                             <Button asChild className="rounded-full bg-white/90 px-6 py-2 text-sm font-semibold text-[#6C5CE7] shadow-[0_20px_60px_-45px_rgba(15,23,42,0.8)] transition hover:bg-white">
@@ -449,6 +346,9 @@ const Profile = () => {
                             </Button>
                             <Button asChild variant="ghost" className="rounded-full border border-white/40 px-6 py-2 text-sm text-white hover:bg-white/10">
                                 <Link to={RouteProfileView(profileUser?._id)}>View public profile</Link>
+                            </Button>
+                            <Button asChild variant="ghost" className="rounded-full border border-white/40 px-6 py-2 text-sm text-white hover:bg-white/10">
+                                <Link to={RouteAnalytics}>See your analytics</Link>
                             </Button>
                         </div>
                     </div>
@@ -677,7 +577,7 @@ const Profile = () => {
                             )}
                         />
 
-                        <Button type="submit" className="w-full">Save changes</Button>
+                        <Button type="submit" className="w-full sm:inline-flex items-center gap-2 rounded-full bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:from-[#6C5CE7] hover:to-[#6C5CE7">Save changes</Button>
                     </form>
                 </Form>
             </section>
@@ -758,70 +658,6 @@ const Profile = () => {
                             totalBlogs={contributionsData.totalBlogs}
                             range={contributionsData.range}
                         />
-                    </div>
-                )}
-            </section>
-
-            <section className="rounded-[32px] border border-slate-100 bg-white/95 p-6 shadow-[0_25px_70px_-55px_rgba(15,23,42,0.7)] space-y-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Security</p>
-                        <h2 className="text-2xl font-semibold text-slate-900">Two-step verification</h2>
-                        <p className="text-sm text-slate-500">Add an extra layer of protection to keep your writing safe.</p>
-                    </div>
-                    {!twoFactorStatusLoading && (
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${twoFactorEnabled ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-slate-200 bg-slate-50 text-slate-600'}`}>
-                            {twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                    )}
-                </div>
-                {twoFactorStatusLoading ? (
-                    <div className="space-y-3">
-                        <Skeleton className="h-16 rounded-3xl" />
-                        <Skeleton className="h-12 rounded-3xl" />
-                    </div>
-                ) : (
-                    <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5 shadow-[0_20px_60px_-55px_rgba(15,23,42,0.6)]">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="space-y-1">
-                                <p className="text-base font-semibold text-slate-900">Two-step verification is {twoFactorEnabled ? 'on' : 'off'}</p>
-                                <p className="text-sm text-slate-500">
-                                    {twoFactorEnabled
-                                        ? `We email verification codes to ${twoFactorEmailMask || 'your primary email'} when you sign in on new devices.`
-                                        : 'Turn this on to require a verification code whenever you sign in from a new device.'}
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                onClick={() => startTwoFactorChange(twoFactorEnabled ? 'disable' : 'enable')}
-                                disabled={twoFactorRequestLoading}
-                                className="w-full rounded-full sm:w-auto"
-                            >
-                                {twoFactorRequestLoading ? 'Sending code...' : (twoFactorEnabled ? 'Turn off 2FA' : 'Turn on 2FA')}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {twoFactorAction && (
-                    <div className="rounded-3xl border border-dashed border-[#6C5CE7]/30 bg-[#6C5CE7]/5 p-5 space-y-3">
-                        <p className="text-sm font-medium text-[#6C5CE7]">
-                            Enter the verification code we emailed you to confirm you want to {twoFactorAction === 'enable' ? 'turn on' : 'turn off'} two-step verification.
-                        </p>
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <Input
-                                value={twoFactorCode}
-                                onChange={(e) => setTwoFactorCode(e.target.value)}
-                                placeholder="6-digit code"
-                                maxLength={6}
-                            />
-                            <Button type="button" onClick={confirmTwoFactorChange} disabled={twoFactorConfirmLoading}>
-                                {twoFactorConfirmLoading ? 'Verifying...' : 'Confirm'}
-                            </Button>
-                            <Button type="button" variant="outline" onClick={cancelTwoFactorFlow} disabled={twoFactorConfirmLoading}>
-                                Cancel
-                            </Button>
-                        </div>
                     </div>
                 )}
             </section>

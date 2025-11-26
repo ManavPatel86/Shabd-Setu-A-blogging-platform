@@ -15,7 +15,7 @@ const verificationTokenSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ["two-factor-login", "password-reset", "two-factor-toggle"],
+      enum: ["password-reset"],
       required: true,
       index: true,
     },
@@ -30,6 +30,13 @@ const verificationTokenSchema = new mongoose.Schema(
     },
     meta: {
       type: mongoose.Schema.Types.Mixed,
+    },
+    lastSentAt: {
+      type: Date,
+    },
+    resendCount: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

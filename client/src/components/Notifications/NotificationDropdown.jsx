@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useNotifications } from '../../context/NotificationsProvider';
-import { markAllAsRead, markNotificationAsRead, deleteNotification } from '../../api/notificationsApi';
+import { markAllAsRead, markNotificationAsRead, deleteNotification } from '../../services/notifications';
 import { Button } from "../ui/button";
 import { Link } from 'react-router-dom';
 import { Heart, MessageSquare, UserPlus, FileText, Bell } from 'lucide-react';
@@ -49,13 +49,13 @@ export default function NotificationDropdown({ onClose }) {
   return (
     <div className="max-h-[480px] w-[370px] bg-white rounded-xl shadow-2xl border flex flex-col overflow-hidden animate-popup">
       <div className="flex items-center justify-between px-5 py-4 border-b bg-gray-50 rounded-t-xl">
-        <div className="font-semibold text-lg text-gray-900">Notifications</div>
+        <div className="text-lg font-semibold text-gray-900">Notifications</div>
         <div className="flex gap-2">
           <Button
             onClick={onMarkAll}
             variant="secondary"
             size="sm"
-            className="text-xs h-8 px-4 rounded-full font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+            className="h-8 px-4 text-xs font-medium text-blue-700 rounded-full bg-blue-50 hover:bg-blue-100"
           >
             Mark all read
           </Button>
@@ -63,7 +63,7 @@ export default function NotificationDropdown({ onClose }) {
             onClick={onClose}
             variant="ghost"
             size="sm"
-            className="text-xs h-8 px-4 rounded-full font-medium border border-gray-300 hover:bg-gray-100"
+            className="h-8 px-4 text-xs font-medium border border-gray-300 rounded-full hover:bg-gray-100"
           >
             Close
           </Button>
@@ -72,7 +72,7 @@ export default function NotificationDropdown({ onClose }) {
 
       <div className="overflow-y-auto">
         {items.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-base">
+          <div className="p-8 text-base text-center text-gray-400">
             No notifications
           </div>
         ) : (
@@ -85,7 +85,7 @@ export default function NotificationDropdown({ onClose }) {
             >
               <Link
                 to={notification.link || '#'}
-                className="group flex items-start gap-4"
+                className="flex items-start gap-4 group"
                 onClick={onClose}
               >
                 <span className={`rounded-full flex items-center justify-center h-9 w-9 shadow-sm ${
@@ -101,7 +101,7 @@ export default function NotificationDropdown({ onClose }) {
                   <div className="text-[15px] leading-snug text-gray-900 font-medium">
                     {notification.message}
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">
+                  <div className="mt-1 text-xs text-gray-400">
                     {new Date(notification.createdAt).toLocaleString()}
                   </div>
                 </div>
@@ -112,7 +112,7 @@ export default function NotificationDropdown({ onClose }) {
                     onClick={() => onMarkOne(notification._id)}
                     variant="secondary"
                     size="sm"
-                    className="text-xs h-7 px-3 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    className="px-3 text-xs text-blue-700 bg-blue-100 rounded-full h-7 hover:bg-blue-200"
                   >
                     Mark read
                   </Button>
@@ -121,7 +121,7 @@ export default function NotificationDropdown({ onClose }) {
                   onClick={() => onDelete(notification._id)}
                   variant="ghost"
                   size="sm"
-                  className="text-xs h-7 px-3 rounded-full border border-gray-200 hover:bg-gray-100"
+                  className="px-3 text-xs border border-gray-200 rounded-full h-7 hover:bg-gray-100"
                 >
                   Delete
                 </Button>

@@ -15,7 +15,9 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  Flag,
 } from "lucide-react";
+import ReportModal from '@/components/ReportModal';
 import LikeCount from "@/components/LikeCount";
 import ViewCount from "@/components/ViewCount";
 import FollowButton from "@/components/FollowButton";
@@ -58,6 +60,7 @@ const SingleBlogDetails = () => {
   const navigate = useNavigate();
 
   const [showSidebar, setShowSidebar] = useState(true);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const { data, loading } = useFetch(
     `${getEnv("VITE_API_BASE_URL")}/blog/get-blog/${blog}`,
@@ -492,8 +495,24 @@ const SingleBlogDetails = () => {
                 withLabel
                 className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-[#6C5CE7] hover:text-[#6C5CE7]"
               />
+              <button
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    showToast('error', 'Please sign in to report this blog.');
+                    navigate('/auth/login');
+                    return;
+                  }
+                  setReportOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+              >
+                <Flag className="h-4 w-4" />
+                Report
+              </button>
             </div>
           </section>
+
+          <ReportModal blogId={b._id} open={reportOpen} onClose={() => setReportOpen(false)} />
 
           {showComments && (
             <section

@@ -9,16 +9,13 @@ const Layout = () => {
   const topOffset = TOPBAR_HEIGHT_PX || 88;
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen w-full bg-[#F5F6FA] text-gray-600 overflow-hidden selection:bg-[#6C5CE7] selection:text-white">
+    <SidebarProvider defaultOpen>
+      <div className="min-h-screen w-full bg-[#F5F6FA] text-gray-600 overflow-x-hidden selection:bg-[#6C5CE7] selection:text-white">
         <Topbar />
         <AppSidebar />
 
-        <main className="ml-0 lg:ml-72 pt-[88px]">
-          <div
-            className="h-[calc(100vh-88px)] overflow-y-auto overflow-x-hidden scrollbar-hide"
-            style={{ height: `calc(100vh - ${topOffset}px)` }}
-          >
+        <main className="pt-[88px] lg:ml-72">
+          <div className="min-h-[calc(100vh-88px)] pb-10">
             <Outlet />
           </div>
         </main>

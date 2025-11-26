@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 
 import BlogCard from "@/components/BlogCard";
@@ -86,22 +86,6 @@ const isFollowingAuthor = (blog, followingIds) => {
   );
 };
 
-const getEngagementScore = (blog) => {
-  const likes = Number(
-    blog?.likeCount ??
-      blog?.likes ??
-      blog?.likesCount ??
-      blog?.stats?.likes ??
-      0
-  );
-  const views = Number(blog?.viewCount ?? blog?.views ?? blog?.stats?.views ?? 0);
-  const comments = Number(
-    blog?.commentCount ?? blog?.commentsCount ?? blog?.stats?.comments ?? 0
-  );
-
-  return likes * 2 + views * 0.25 + comments * 1.5;
-};
-
 /* ----------------------
     FINAL PAGE
 ---------------------- */
@@ -127,6 +111,29 @@ const Index = () => {
   );
 
   /* ----------------------------
+        PERSONALIZED FEED
+  ---------------------------- */
+  const personalizedEndpoint = currentUserId
+    ? `${getEnv("VITE_API_BASE_URL")}/blog/get-personalized-home`
+    : null;
+
+  const {
+    data: personalizedData,
+    loading: personalizedLoading,
+    error: personalizedError,
+  } = useFetch(
+    personalizedEndpoint,
+    { method: "get", credentials: "include" },
+    [personalizedEndpoint]
+  );
+
+  const personalizedBlogs = useMemo(
+    () => (Array.isArray(personalizedData?.blog) ? personalizedData.blog : []),
+    [personalizedData]
+  );
+  const personalizationMessage = personalizedData?.meta?.message;
+
+  /* ----------------------------
         FOLLOWING FETCH (UI)
   ---------------------------- */
   const followingEndpoint = currentUserId
@@ -147,6 +154,23 @@ const Index = () => {
         .filter(Boolean)
     );
   }, [followingData]);
+
+  const filterByCategory = useCallback(
+    (list = []) => {
+      const safeList = Array.isArray(list) ? list.filter(Boolean) : [];
+      if (activeCategory === "All") {
+        return safeList;
+      }
+
+      return safeList.filter((blog) =>
+        getBlogCategories(blog).some((cat) => {
+          const raw = normalizeCategoryName(cat?.name || cat);
+          return raw.toLowerCase() === activeCategory.toLowerCase();
+        })
+      );
+    },
+    [activeCategory]
+  );
 
   /* ------------------------------------
       ORDER BY NEWEST FIRST (UI logic)
@@ -204,33 +228,73 @@ const Index = () => {
   /* ------------------------------------
       FILTERING (UI logic)
   ------------------------------------ */
+  const categoryFilteredBlogs = useMemo(
+    () => filterByCategory(orderedBlogs),
+    [filterByCategory, orderedBlogs]
+  );
+
+  const personalizedFilteredBlogs = useMemo(
+    () => filterByCategory(personalizedBlogs),
+    [filterByCategory, personalizedBlogs]
+  );
+
   const filteredBlogs = useMemo(() => {
-    // CATEGORY FILTER
-    const byCategory = orderedBlogs.filter((blog) => {
-      if (activeCategory === "All") return true;
-
-      return getBlogCategories(blog).some((cat) => {
-        const raw = normalizeCategoryName(cat?.name || cat);
-        return raw.toLowerCase() === activeCategory.toLowerCase();
-      });
-    });
-
-    // FEED TABS
     if (activeFeedTab === "Following") {
-      const following = byCategory.filter((blog) =>
+      return categoryFilteredBlogs.filter((blog) =>
         isFollowingAuthor(blog, followingIds)
       );
-      return following;
     }
 
     if (activeFeedTab === "Personalized") {
-      return [...byCategory].sort((a, b) => getEngagementScore(b) - getEngagementScore(a));
+      if (!currentUserId || personalizedError) {
+        return [];
+      }
+
+      if (personalizedFilteredBlogs.length) {
+        return personalizedFilteredBlogs;
+      }
+
+      return [];
     }
 
-    return byCategory;
-  }, [orderedBlogs, activeCategory, activeFeedTab, followingIds]);
+    return categoryFilteredBlogs;
+  }, [
+    activeFeedTab,
+    categoryFilteredBlogs,
+    currentUserId,
+    followingIds,
+    personalizedError,
+    personalizedFilteredBlogs,
+  ]);
 
-  if (loading) return <Loading />;
+  const activeFeedMessage = useMemo(() => {
+    if (activeFeedTab === "Personalized") {
+      if (!currentUserId) {
+        return "Sign in to get personalized recommendations.";
+      }
+      if (personalizedError) {
+        return "We couldn't load your personalized feed. Try refreshing.";
+      }
+      return personalizationMessage || null;
+    }
+
+    if (activeFeedTab === "Following" && !followingIds.size) {
+      return "Follow authors to populate this feed.";
+    }
+
+    return null;
+  }, [
+    activeFeedTab,
+    currentUserId,
+    followingIds.size,
+    personalizationMessage,
+    personalizedError,
+  ]);
+
+  const isLoading =
+    loading || (activeFeedTab === "Personalized" && personalizedLoading);
+
+  if (isLoading) return <Loading />;
 
   return (
     <>
@@ -241,9 +305,9 @@ const Index = () => {
         setActiveCategory={setActiveCategory}
       />
 
-      <div className="px-4 sm:px-8 lg:px-12 pt-6 pb-16">
-        {/* Featured Blog */}
-        {featuredBlog && <FeaturedCard blog={featuredBlog} />}
+      <div className="px-4 pt-4 pb-12 sm:px-8 lg:px-12 sm:pt-6 sm:pb-16">
+        {/* Featured Hero Slider */}
+        <FeaturedCard />
 
         {/* Feed Tabs */}
         <FeedTabs
@@ -251,35 +315,40 @@ const Index = () => {
           setActiveFeedTab={setActiveFeedTab}
         />
 
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-3 shadow-sm">
-          <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-            Total blogs
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-              {activeCategory === "All" ? "All categories" : activeCategory}
+        <div className="flex flex-col gap-2 px-5 py-3 mt-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
+              Total blogs
             </span>
-            <span className="text-2xl font-bold text-slate-900">
-              {filteredBlogs.length}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 text-xs font-medium border rounded-full border-slate-200 bg-slate-50 text-slate-500">
+                {activeCategory === "All" ? "All categories" : activeCategory}
+              </span>
+              <span className="text-2xl font-bold text-slate-900">
+                {filteredBlogs.length}
+              </span>
+            </div>
           </div>
+          {activeFeedMessage && (
+            <p className="text-sm text-slate-500">{activeFeedMessage}</p>
+          )}
         </div>
 
         {/* BLOG GRID */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pt-6">
+        <section className="grid grid-cols-1 gap-8 pt-6 md:grid-cols-2 xl:grid-cols-3">
           {filteredBlogs.length > 0 ? (
             filteredBlogs.map((blog) => (
               <BlogCard key={blog?._id} blog={blog} />
             ))
           ) : (
-            <div className="col-span-full bg-white border border-dashed border-gray-200 rounded-3xl p-12 text-center text-gray-500">
-              <p className="text-lg font-semibold mb-2">
+            <div className="p-12 text-center text-gray-500 bg-white border border-gray-200 border-dashed col-span-full rounded-3xl">
+              <p className="mb-2 text-lg font-semibold">
                 {error ? "We hit a snag." : "No blogs match this view yet."}
               </p>
               <p className="text-sm">
                 {error
                   ? "Please refresh or try again shortly."
-                  : "Try switching categories or feed tabs to discover more content."}
+                  : activeFeedMessage || "Try switching categories or feed tabs to discover more content."}
               </p>
             </div>
           )}

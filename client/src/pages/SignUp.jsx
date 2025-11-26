@@ -54,7 +54,7 @@ const SignUp = () => {
   const [otp, setOtp] = useState("");
 
   // resend otp timer
-  const resendMinutes = Number(import.meta.env.VITE_OTP_RESEND_INTERVAL_MINUTES || 5);
+  const resendMinutes = Number(import.meta.env.VITE_OTP_RESEND_INTERVAL_MINUTES) || 1;
   const RESEND_INTERVAL = resendMinutes * 60;
 
   const [resendDisabled, setResendDisabled] = useState(false);
@@ -196,6 +196,7 @@ const SignUp = () => {
   // ================================================================
   return (
     <div className="relative min-h-screen bg-[#F7F5FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12" onContextMenu={(e) => e.preventDefault()}>
+    <div className="relative h-screen bg-[#F7F5FF] overflow-hidden px-4 sm:px-6 lg:px-12 flex items-center">
 
       {/* --------------------- Background Orbs ---------------------- */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-[#e8e1ff] to-transparent" />
@@ -203,13 +204,13 @@ const SignUp = () => {
       <div className="pointer-events-none absolute -right-10 bottom-0 h-96 w-96 rounded-full bg-[#8e7cf3]/25 blur-3xl" />
 
       <div className="relative z-10 mx-auto w-full max-w-xl">
-        <div className="space-y-8 rounded-4xl border border-white/70 bg-white/95 p-8 shadow-[0_40px_70px_-35px_rgba(108,92,231,0.35)] backdrop-blur-2xl sm:p-10">
+        <div className="space-y-4 rounded-4xl border border-white/70 bg-white/95 p-5 shadow-[0_40px_70px_-35px_rgba(108,92,231,0.35)] backdrop-blur-2xl sm:p-7">
 
-          <div className="space-y-2 text-center">
+          <div className="space-y-1 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6C5CE7]">
               Create your profile
             </p>
-            <h2 className="text-3xl font-semibold text-slate-900">
+            <h2 className="text-2xl font-semibold text-slate-900">
               Join the ShabdSetu circle
             </h2>
             <p className="text-sm text-slate-600">
@@ -221,7 +222,7 @@ const SignUp = () => {
           {step === "register" && (
             <>
               <GoogleLogin />
-              <div className="relative flex items-center gap-3 py-4">
+              <div className="relative flex items-center gap-3 py-3">
                 <span className="flex-1 border-t border-dashed border-slate-200" />
                 <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
                   or
@@ -236,7 +237,7 @@ const SignUp = () => {
           {/* --------------------------- */}
           {step === "register" ? (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
                 
                 {/* NAME */}
                 <FormField
@@ -248,10 +249,10 @@ const SignUp = () => {
                         Full name
                       </FormLabel>
                       <FormControl>
-                        <div className="relative mt-2">
+                        <div className="relative mt-1">
                           <Input
                             placeholder="Tell us what to call you"
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-800 shadow-sm transition-all focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30"
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 pr-12 text-slate-800 shadow-sm transition-all focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30"
                             {...field}
                           />
                           <CiUser className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
@@ -353,7 +354,7 @@ const SignUp = () => {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-14 w-full rounded-2xl bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(108,92,231,0.9)] transition-all hover:shadow-[0_18px_45px_-14px_rgba(108,92,231,0.95)]"
+                  className="h-11 w-full rounded-2xl bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(108,92,231,0.9)] transition-all hover:shadow-[0_18px_45px_-14px_rgba(108,92,231,0.95)]"
                 >
                   {isLoading ? "Creating account..." : "Create account"}
                 </Button>
@@ -363,7 +364,7 @@ const SignUp = () => {
             // ---------------------------
             // STEP 2 → OTP VERIFY FORM
             // ---------------------------
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <form onSubmit={handleVerifyOtp} className="space-y-3">
               <div className="rounded-2xl bg-[#F6F4FF] px-4 py-3 text-sm text-slate-600">
                 Enter the 6-digit code we sent to{" "}
                 <span className="font-semibold text-slate-900">{pendingEmail}</span>
@@ -380,7 +381,7 @@ const SignUp = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="h-14 w-full rounded-2xl bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(108,92,231,0.9)] transition-all hover:shadow-[0_18px_45px_-14px_rgba(108,92,231,0.95)]"
+                className="h-11 w-full rounded-2xl bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(108,92,231,0.9)] transition-all hover:shadow-[0_18px_45px_-14px_rgba(108,92,231,0.95)]"
               >
                 {isLoading ? "Verifying..." : "Verify & continue"}
               </Button>

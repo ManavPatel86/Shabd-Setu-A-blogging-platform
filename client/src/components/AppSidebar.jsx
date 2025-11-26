@@ -7,6 +7,7 @@ import {
     Bookmark,
     Briefcase,
     Users,
+    Flag,
     Settings,
     LogOut,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
     RouteSaved,
     RouteFollowing,
     RouteCategoryDetails,
+    RouteAdminReports,
     RouteUser,
     RouteHelp,
 } from "@/helpers/RouteName";
@@ -88,6 +90,7 @@ const AppSidebar = () => {
         { icon: MessageSquare, label: "Comments", to: RouteCommentDetails, auth: true },
         { icon: Bookmark, label: "Saved", to: RouteSaved, auth: true },
         { icon: Users, label: "Following", to: RouteFollowing, auth: true },
+        { icon: Flag, label: "Reports", to: RouteAdminReports, admin: true },
         { icon: Briefcase, label: "Manage Categories", to: RouteCategoryDetails, admin: true },
         { icon: Users, label: "Manage Users", to: RouteUser, admin: true },
     ];
