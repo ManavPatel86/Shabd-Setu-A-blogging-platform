@@ -83,7 +83,7 @@ const SignIn = () => {
       // Navigate to home page after successful login
       navigate(RouteIndex);
       showToast("success", data.message);
-      window.history.replaceState(null, "");
+      globalThis.history.replaceState(null, "");
     } catch (error) {
       showToast("error", error.message);
     } finally {
@@ -102,7 +102,7 @@ const SignIn = () => {
   // Handle mobile BFCache (swipe back)
   const handlePageShow = (event) => {
     if (event.persisted) {
-      window.location.replace(window.location.href);
+      globalThis.location.replaceAll(globalThis.location.href);
     }
   };
 
@@ -117,7 +117,7 @@ const SignIn = () => {
   return (
     <div
       className="relative min-h-screen bg-[#F6F4FF] overflow-hidden py-10 px-4 sm:px-6 lg:px-12"
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()} 
     >
       {/* Background Decorations */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-linear-to-b from-[#dcd2ff]/70 to-transparent" />

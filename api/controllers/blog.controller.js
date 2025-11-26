@@ -10,7 +10,7 @@ import { notifyFollowersNewPost } from "../utils/notifyTriggers.js";
 import { moderateBlog } from "../utils/moderation.js";
 import Follow from "../models/follow.model.js";
 
-const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegex = (value = '') => value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizeSlug = (value = '') => {
     const trimmed = typeof value === 'string' ? value.trim() : ''
@@ -20,7 +20,7 @@ const normalizeSlug = (value = '') => {
     return slugify(trimmed, { lower: true, strict: true })
 }
 
-const stripHtml = (value = '') => value.replace(/<[^>]*>/g, '').trim()
+const stripHtml = (value = '') => value.replaceAll(/<[^>]*>/g, '').trim()
 const toPlainText = (value = '') => decode(value)
 
 const parseRequestBody = (raw) => {

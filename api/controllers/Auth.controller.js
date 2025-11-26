@@ -1,6 +1,5 @@
 import User from "../models/user.model.js";
 import bcryptjs from "bcryptjs";
-import crypto from "crypto";
 import { handleError } from "../helpers/handleError.js";
 import jwt from "jsonwebtoken";
 import { sendOtpEmail, sendPasswordResetEmail, sendTwoFactorCodeEmail, sendTwoFactorSetupEmail } from "../utils/mailer.js";
@@ -40,7 +39,7 @@ const validatePassword = (password) => {
         return { isValid: false, message: 'Password must contain at least one number.' };
     }
 
-    if (PASSWORD_REQUIREMENTS.requireSpecialChar && !/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
+    if (PASSWORD_REQUIREMENTS.requireSpecialChar && !/[!@#$%^&*()_+\-[\]{}|;:,.<>?]/.test(password)) {
         return { isValid: false, message: 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?).' };
     }
 
@@ -580,8 +579,11 @@ export const GoogleLogin = async (req, res, next) => {
         user = await User.findOne({ email: normalizedEmail })
         if (!user) {
             //  create new user 
-            const password = Math.random().toString()
-            const hashedPassword = bcryptjs.hashSync(password)
+            //fix for cryptography
+            const crypto = require('crypto');
+            // Generate a secure random password
+            const password = crypto.randomBytes(16).toString('hex');
+            const hashedPassword = bcryptjs.hashSync(password,10) //10 is for salting
             const fallbackUsername = await generateUniqueUsername(name || normalizedEmail);
             const newUser = new User({
                 username: fallbackUsername,
