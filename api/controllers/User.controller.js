@@ -7,6 +7,45 @@ import Follow from "../models/follow.model.js"
 import bcryptjs from 'bcryptjs'
 import mongoose from "mongoose"
 
+// Password validation requirements
+const PASSWORD_REQUIREMENTS = {
+    minLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumber: true,
+    requireSpecialChar: true,
+};
+
+const PASSWORD_REQUIREMENTS_MESSAGE = `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*()_+-=[]{}|;:,.<>?).`;
+
+const validatePassword = (password) => {
+    if (!password || typeof password !== 'string') {
+        return { isValid: false, message: 'Password is required.' };
+    }
+
+    if (password.length < PASSWORD_REQUIREMENTS.minLength) {
+        return { isValid: false, message: `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long.` };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one uppercase letter.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one lowercase letter.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireNumber && !/\d/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one number.' };
+    }
+
+    if (PASSWORD_REQUIREMENTS.requireSpecialChar && !/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
+        return { isValid: false, message: 'Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?).' };
+    }
+
+    return { isValid: true };
+};
+
 export const getUser = async (req, res, next) => {
     try {
         const { userid } = req.params
@@ -49,9 +88,13 @@ export const updateUser = async (req, res, next) => {
             user.email = normalizedEmail
         }
 
-        if (data.password && data.password.length >= 8) {
-            const hashedPassword = bcryptjs.hashSync(data.password)
-            user.password = hashedPassword
+        if (data.password) {
+            const passwordValidation = validatePassword(data.password);
+            if (!passwordValidation.isValid) {
+                return next(handleError(400, passwordValidation.message));
+            }
+            const hashedPassword = bcryptjs.hashSync(data.password);
+            user.password = hashedPassword;
         }
 
         if (req.file) {

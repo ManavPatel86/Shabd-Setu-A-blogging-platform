@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import mongoose from 'mongoose'
+import rateLimit from 'express-rate-limit'
 import { Server as SocketServer } from "socket.io";
 import AuthRoute from './routes/Auth.route.js'
 import UserRoute from './routes/User.route.js'
@@ -27,6 +28,28 @@ dotenv.config()
 const PORT = process.env.PORT
 const app = express();
 app.set('trust proxy', 1); // trust Render/other reverse proxies for secure cookies
+
+// Disable caching for security (prevents BFCache)
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
+
+
+
+// HTTPS Enforcement Middleware
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      res.redirect(`https://${req.header('host')}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
+
 const server = createServer(app)
 
 const io = new SocketServer(server, { cors: { origin: "*" } });
@@ -51,6 +74,19 @@ const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
 ];
+// Rate limiting specifically for login attempts
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 login attempts per windowMs
+  message: {
+    success: false,
+    message: 'Too many login attempts, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
 const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
@@ -74,9 +110,8 @@ app.use(
   })
 );
 
-
-
-
+// Apply rate limiting only to login route
+app.use('/api/auth/login', loginLimiter)
 app.use('/api/auth', AuthRoute)
 app.use('/api/user', UserRoute)
 app.use('/api/category', CategoryRoute)

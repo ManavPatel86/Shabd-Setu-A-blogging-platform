@@ -20,7 +20,7 @@ const normalizeSlug = (value = '') => {
     return slugify(trimmed, { lower: true, strict: true })
 }
 
-const stripHtml = (value = '') => value.replace(/<[^>]*>/g, '').trim()
+const stripHtml = (value = '') => value.replaceAll(/<[^>]*>/g, '').trim()
 const toPlainText = (value = '') => decode(value)
 
 const parseRequestBody = (raw) => {
@@ -100,6 +100,21 @@ export const addBlog = async (req, res, next) => {
         const data = parseRequestBody(req.body?.data)
         const status = data.status === 'draft' ? 'draft' : 'published'
         const isPublished = status === 'published'
+
+        // Check empty draft - reject if all key fields empty
+        if (!isPublished) {
+            const fields = [
+                typeof data.title === 'string' ? data.title.trim() : '',
+                typeof data.blogContent === 'string' ? stripHtml(data.blogContent) : '',
+                typeof data.summary === 'string' ? data.summary.trim() : '',
+                typeof data.description === 'string' ? data.description.trim() : '',
+                req.file ? 'hasImage' : ''
+            ];
+            const hasContent = fields.some(field => field && field.length > 0);
+            if (!hasContent) {
+                return next(handleError(400, 'Cannot save an empty draft. Please add some content before saving.'));
+            }
+        }
 
         const authorId = req.user?._id || data.author
         if (!authorId) {

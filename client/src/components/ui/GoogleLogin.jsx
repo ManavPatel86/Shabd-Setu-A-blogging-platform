@@ -33,6 +33,8 @@ const GoogleLogin = () => {
                 return showToast('error', data.message)
             }
             dispath(setUser(data.user))
+            localStorage.setItem("token", data.token);
+
             navigate(RouteIndex)
             showToast('success', data.message)
         } catch (error) {

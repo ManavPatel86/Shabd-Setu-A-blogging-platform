@@ -1,3 +1,8 @@
+/**
+ * Middleware to authenticate users using JWT tokens.
+ * Verifies the access_token cookie and attaches user info to req.user.
+ * Handles token expiration and invalid tokens appropriately.
+ */
 import jwt from 'jsonwebtoken'
 import User from '../models/user.model.js'
 import { handleError } from '../helpers/handleError.js'

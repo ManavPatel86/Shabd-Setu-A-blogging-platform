@@ -18,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@faker-js/faker": "^9.9.0",
     "@google/generative-ai": "^0.6.0",
     "@langchain/core": "^0.3.0",
     "@langchain/google-genai": "^0.1.0",
@@ -29,6 +30,7 @@
     "dotenv": "^17.2.2",
     "entities": "^7.0.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",

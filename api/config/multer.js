@@ -1,6 +1,11 @@
 import multer from 'multer'
 
 const storage = multer.diskStorage({
+    //FOR Dos
+
+//     limits: {
+//      fileSize: 2000000 // Compliant: 2MB 
+//   },
     filename: function (req, file, cb) {
         cb(null, file.originalname)
     }

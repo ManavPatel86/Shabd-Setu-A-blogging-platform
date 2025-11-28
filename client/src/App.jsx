@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 import Layout from "./Layout/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import {
     RouteAddCategory,
     RouteBlogAdd,
@@ -52,55 +53,200 @@ import CategoryFeed from "./pages/CategoryFeed";
 import Landing from "./pages/Landing";
 import ForgotPassword from "./pages/ForgotPassword";
 
-import NotificationsProvider from './context/NotificationsProvider';
-import { useSelector } from 'react-redux';
-
-function App() {
-    const user = useSelector((state) => state.user);
-    const loggedInUser = user?.user;
-
+import NotificationsProvider from './context/NotificationsProvider';function App() {
     return (
         <BrowserRouter>
-            <NotificationsProvider currentUser={loggedInUser}>
+            <NotificationsProvider>
                 <Routes>
+
+                    {/* Public Pages */}
                     <Route path={RouteLanding} element={<Landing />} />
-
-                    <Route element={<Layout />}>
-                        <Route path={RouteIndex} element={<Index />} />
-                        <Route path={RouteProfile} element={<Profile />} />
-                        <Route path={RouteProfileView()} element={<ProfileView />} />
-                        <Route path={RouteFollowing} element={<Following />} />
-                        <Route path={RouteHelp} element={<Help />} />
-                        <Route path={RouteFollowers} element={<Followers />} />
-                        <Route path={RouteAddCategory} element={<AddCategory />} />
-                        <Route path={RouteCategoryDetails} element={<CategoryDetails />} />
-                        <Route path={RouteEditCategory()} element={<EditCategory />} />
-
-                        {/* Blog */}
-                        <Route path={RouteBlogAdd} element={<AddBlog />} />
-                        <Route path={RouteBlog} element={<BlogDetails />} />
-                        <Route path={RouteBlogEdit()} element={<EditBlog />} />
-                        <Route path={RouteSearch()} element={<SearchResult />} />
-                        <Route path={RouteCategoryFeed()} element={<CategoryFeed />} />
-
-                        {/* Comments */}
-                        <Route path={RouteCommentDetails} element={<Comments />} />
-                        <Route path={RouteSaved} element={<Saved />} />
-                        <Route path={RouteAnalytics} element={<ProfileAnalytics />} />
-                        <Route path={RouteUser} element={<ManageUsers />} />
-                        <Route path={RouteAdminReports} element={<AdminReports />} />
-
-                        {/* This is the new public blog detail route */}
-                        <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
-                    </Route>
-
                     <Route path={RouteSignIn} element={<SignIn />} />
                     <Route path={RouteSignUp} element={<SignUp />} />
-                        <Route path={RouteForgotPassword} element={<ForgotPassword />} />
-            </Routes>
+                    <Route path={RouteForgotPassword} element={<ForgotPassword />} />
+
+                    {/* Protected Pages */}
+                    <Route element={<Layout />}>
+
+                        <Route
+                            path={RouteIndex}
+                            element={
+                                <ProtectedRoute>
+                                    <Index />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteProfile}
+                            element={
+                                <ProtectedRoute>
+                                    <Profile />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteProfileView()}
+                            element={
+                                <ProtectedRoute>
+                                    <ProfileView />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteFollowing}
+                            element={
+                                <ProtectedRoute>
+                                    <Following />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteHelp}
+                            element={
+                                <ProtectedRoute>
+                                    <Help />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteFollowers}
+                            element={
+                                <ProtectedRoute>
+                                    <Followers />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteAddCategory}
+                            element={
+                                <ProtectedRoute>
+                                    <AddCategory />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteCategoryDetails}
+                            element={
+                                <ProtectedRoute>
+                                    <CategoryDetails />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteEditCategory()}
+                            element={
+                                <ProtectedRoute>
+                                    <EditCategory />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Blog */}
+                        <Route
+                            path={RouteBlogAdd}
+                            element={
+                                <ProtectedRoute>
+                                    <AddBlog />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteBlog}
+                            element={
+                                <ProtectedRoute>
+                                    <BlogDetails />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteBlogEdit()}
+                            element={
+                                <ProtectedRoute>
+                                    <EditBlog />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteSearch()}
+                            element={
+                                <ProtectedRoute>
+                                    <SearchResult />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteCategoryFeed()}
+                            element={
+                                <ProtectedRoute>
+                                    <CategoryFeed />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Comments */}
+                         <Route 
+                            path={RouteAnalytics} 
+                            element={
+                              <ProtectedRoute>
+                                <ProfileAnalytics />
+                              </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path={RouteCommentDetails}
+                            element={
+                                <ProtectedRoute>
+                                    <Comments />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteSaved}
+                            element={
+                                <ProtectedRoute>
+                                    <Saved />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteUser}
+                            element={
+                                <ProtectedRoute>
+                                    <ManageUsers />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path={RouteAdminReports}
+                            element={
+                                <ProtectedRoute>
+                                    <AdminReports />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Public Blog */}
+                        <Route path={RouteBlogDetails()} element={<SingleBlogDetails />} />
+
+                    </Route>
+                </Routes>
             </NotificationsProvider>
         </BrowserRouter>
     );
 }
-
 export default App;
