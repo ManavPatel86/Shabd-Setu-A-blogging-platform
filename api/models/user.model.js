@@ -62,10 +62,6 @@ const userSchema = new mongoose.Schema({
             ref: 'Blog'
         }],
         default: []
-    },
-    twoFactorEnabled: {
-        type: Boolean,
-        default: false
     }
 }, {
     timestamps: true

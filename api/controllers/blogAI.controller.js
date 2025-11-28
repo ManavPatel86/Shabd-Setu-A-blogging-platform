@@ -6,18 +6,25 @@ import { handleError } from '../helpers/handleError.js'
 import Category from '../models/category.model.js'
 import Blog from '../models/blog.model.js'
 
+// Dependencies object for testing
+export const deps = {
+  ChatPromptTemplate,
+  StringOutputParser,
+  ChatGoogleGenerativeAI
+}
+
 const MAX_CONTENT_LENGTH = 12000
 
-const isHttpUrl = (value = '') => /^https?:\/\//i.test(value)
+export const isHttpUrl = (value = '') => /^https?:\/\//i.test(value)
 
-const normalizeSlugLike = (value = '') => value
+export const normalizeSlugLike = (value = '') => value
   .toString()
   .trim()
   .toLowerCase()
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '')
 
-const toPlainText = (value = '') => decode(value)
+export const toPlainText = (value = '') => decode(value)
   .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
   .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
   .replace(/<[^>]+>/g, ' ')
@@ -25,7 +32,7 @@ const toPlainText = (value = '') => decode(value)
   .replace(/\s+/g, ' ')
   .trim()
 
-const tryParseCategoryResponse = (text = '') => {
+export const tryParseCategoryResponse = (text = '') => {
   const trimmed = text.trim()
   if (!trimmed) {
     return []
@@ -41,6 +48,7 @@ const tryParseCategoryResponse = (text = '') => {
       if (Array.isArray(parsed)) {
         return parsed.map((item) => String(item))
       }
+      // Not an array, fall through to plain-text parsing
     } catch (error) {
       // fall through to plain-text parsing
     }
@@ -91,7 +99,7 @@ export const generateCategorySuggestions = async (req, res, next) => {
       .map((category) => `- ${category.name} (slug: ${category.slug})`)
       .join('\n')
 
-    const prompt = ChatPromptTemplate.fromMessages([
+    const prompt = deps.ChatPromptTemplate.fromMessages([
       [
         'system',
         'You assign one to {maxCategories} categories to a blog post using only the provided category list. '
@@ -130,19 +138,22 @@ export const generateCategorySuggestions = async (req, res, next) => {
 
     let modelOutput = ''
     let lastError
+    let modelIndex = 0
+    let shouldContinue = true
 
-    for (const modelId of candidateModels) {
+    while (modelIndex < candidateModels.length && shouldContinue) {
+      const modelId = candidateModels[modelIndex]
       try {
-        const model = new ChatGoogleGenerativeAI({
+        const model = new deps.ChatGoogleGenerativeAI({
           apiKey: process.env.GEMINI_API_KEY,
           model: modelId,
           temperature: 0,
           maxOutputTokens: 256,
         })
 
-        const chain = prompt.pipe(model).pipe(new StringOutputParser())
+        const chain = prompt.pipe(model).pipe(new deps.StringOutputParser())
 
-        modelOutput = await chain.invoke({
+        const result = await chain.invoke({
           categoryGlossary,
           maxCategories,
           exampleTitle: 'The Rise of Plant-Based Nutrition',
@@ -152,18 +163,20 @@ export const generateCategorySuggestions = async (req, res, next) => {
           content: contentForCategorization,
         })
 
-        modelOutput = (modelOutput || '').trim()
+        modelOutput = (result || '').trim()
         if (modelOutput) {
-          break
+          shouldContinue = false
         }
       } catch (error) {
         lastError = error
       }
+      modelIndex++
     }
 
     if (!modelOutput) {
       const message = lastError?.message || 'Gemini returned no output.'
-      const statusCode = lastError?.status === 404 ? 502 : 500
+      const is404 = (lastError && lastError.status === 404)
+      const statusCode = is404 ? 502 : 500
       throw handleError(
         statusCode,
         `${message} Please verify GEMINI_MODEL is available.`
@@ -203,14 +216,16 @@ export const generateCategorySuggestions = async (req, res, next) => {
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')
     
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       categories: matched,
       suggestedSlugs: rawSuggestions,
       modelOutput,
     })
   } catch (error) {
-    next(handleError(500, error.message || 'Failed to generate category suggestions.'))
+    const statusCode = error.statusCode ? error.statusCode : 500
+    const message = error.message ? error.message : 'Failed to generate category suggestions.'
+    next(handleError(statusCode, message))
   }
 }
 
@@ -315,7 +330,7 @@ It replaces clutter with calm, making room for creativity, relationships, and re
 
 To begin, review each room for meaningful items only, adopt one-in-one-out habits, and reframe shopping as an intentional choice instead of an impulse.`
 
-    const prompt = ChatPromptTemplate.fromMessages([
+    const prompt = deps.ChatPromptTemplate.fromMessages([
       [
         'system',
         'You craft clean, human readable blog summaries for the Shabd Setu platform. Write in plain text only—no markdown, bullet symbols, headings, emojis, or emphasis. Deliver few concise paragraphs (2-3 sentences each) separated by a single blank line. Capture the core theme, tone, and the most practical insights. Keep the complete response at or under 500 words.'
@@ -337,14 +352,14 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
     const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
     const runChain = async (modelId) => {
-      const model = new ChatGoogleGenerativeAI({
+      const model = new deps.ChatGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY,
         model: modelId,
         temperature: 0.3,
         maxOutputTokens: 768,
       })
 
-      const chain = prompt.pipe(model).pipe(new StringOutputParser())
+      const chain = prompt.pipe(model).pipe(new deps.StringOutputParser())
 
       const payload = {
         title: blog.title,
@@ -371,19 +386,26 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
 
     let summary
     let lastError
+    let modelIndex = 0
+    let shouldContinue = true
 
-    for (const modelId of candidateModels) {
+    while (modelIndex < candidateModels.length && shouldContinue) {
+      const modelId = candidateModels[modelIndex]
       try {
         summary = await runChain(modelId)
-        break
+        if (summary) {
+          shouldContinue = false
+        }
       } catch (error) {
         lastError = error
       }
+      modelIndex++
     }
 
     if (!summary) {
       const message = lastError?.message || 'Gemini returned no output.'
-      const statusCode = lastError?.status === 404 ? 502 : 500
+      const is404 = (lastError && lastError.status === 404)
+      const statusCode = is404 ? 502 : 500
       throw handleError(
         statusCode,
         `${message} Please confirm your GEMINI_MODEL matches an available model (eg. gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite). See https://ai.google.dev/gemini-api/docs/models/gemini for the latest list.`
@@ -447,7 +469,9 @@ To begin, review each room for meaningful items only, adopt one-in-one-out habit
       refreshed: false,
     })
   } catch (error) {
-    next(handleError(500, error.message || 'Failed to generate summary.'))
+    const statusCode = error.statusCode ? error.statusCode : 500
+    const message = error.message ? error.message : 'Failed to generate summary.'
+    next(handleError(statusCode, message))
   }
 }
 
@@ -474,7 +498,7 @@ export const generateBlogDescription = async (req, res, next) => {
       ? `${plainContent.slice(0, MAX_CONTENT_LENGTH)}...`
       : plainContent
 
-    const prompt = ChatPromptTemplate.fromMessages([
+    const prompt = deps.ChatPromptTemplate.fromMessages([
       [
         'system',
         'You are a professional blog editor. Generate a concise, engaging 2-4 line description (max 300 characters) '
@@ -506,14 +530,14 @@ export const generateBlogDescription = async (req, res, next) => {
 
     for (const modelId of candidateModels) {
       try {
-        const model = new ChatGoogleGenerativeAI({
+        const model = new deps.ChatGoogleGenerativeAI({
           apiKey: process.env.GEMINI_API_KEY,
           model: modelId,
           temperature: 0.7,
           maxOutputTokens: 256,
         })
 
-        const chain = prompt.pipe(model).pipe(new StringOutputParser())
+        const chain = prompt.pipe(model).pipe(new deps.StringOutputParser())
 
         modelOutput = await chain.invoke({
           title: rawTitle || 'Untitled Blog Post',

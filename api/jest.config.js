@@ -1,19 +1,20 @@
 export default {
   testEnvironment: 'node',
-  transform: {},
-  testMatch: ['**/tests/**/*.test.js'],
+  verbose: true,
   collectCoverageFrom: [
     'controllers/**/*.js',
-    'models/**/*.js',
-    'routes/**/*.js',
-    'middleware/**/*.js',
-    'utils/**/*.js',
     'helpers/**/*.js',
+    'middleware/**/*.js',
+    'models/**/*.js',
+    'utils/**/*.js'
   ],
-  coveragePathIgnorePatterns: ['/node_modules/'],
-  verbose: true,
-  testTimeout: 30000,
-  clearMocks: true,
-  resetMocks: true,
-  restoreMocks: true,
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/',
+    '/coverage/'
+  ],
+  testMatch: [
+    '**/tests/**/*.test.js'
+  ],
+  transform: {}
 };

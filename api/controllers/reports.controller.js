@@ -1,323 +1,330 @@
 // /api/controllers/reports.controller.js
-// Handles reporting and admin report management
+// Rebuilt controller for handling user blog reports and admin moderation flow
 
+import mongoose from 'mongoose';
 import Report from '../models/report.model.js';
 import Blog from '../models/blog.model.js';
 import User from '../models/user.model.js';
 import { createNotification } from '../utils/createNotification.js';
 
-/**
- * POST /api/report/blog
- * User reports a blog
- * Expects: { blogId, type, reason }
- */
+const { Types } = mongoose;
+
+const normalizeObjectId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value.trim();
+  // Check if it's already an ObjectId instance first
+  if (value instanceof Types.ObjectId) return value.toString();
+  // Then check if it's an object with _id property (like a populated document)
+  if (typeof value === 'object' && value._id) return normalizeObjectId(value._id);
+  return null;
+};
+
+const buildReportPayload = (reportDoc) => {
+  const report = reportDoc || {};
+  const blog = report.blogId || {};
+  const reporter = report.reporterId || {};
+  const categories = Array.isArray(blog.categories) ? blog.categories : [];
+  const author = blog.author || null;
+
+  return {
+    id: report._id ? String(report._id) : null,
+    type: report.type || null,
+    reason: report.reason || '',
+    submittedAt: report.createdAt ? new Date(report.createdAt).toISOString() : null,
+    blog: blog._id
+      ? {
+          id: String(blog._id),
+          title: blog.title || 'Untitled blog',
+          slug: blog.slug || null,
+          categories: categories.map((cat) => ({
+            id: cat && cat._id ? String(cat._id) : null,
+            title: cat?.title || null,
+            slug: cat?.slug || null,
+          })),
+          author: author && author._id
+            ? {
+                id: String(author._id),
+                name: author.name || null,
+                username: author.username || null,
+                email: author.email || null,
+                isBlacklisted: Boolean(author.isBlacklisted),
+                role: author.role || 'user',
+              }
+            : null,
+        }
+      : null,
+    reporter: reporter && reporter._id
+      ? {
+          id: String(reporter._id),
+          name: reporter.name || null,
+          username: reporter.username || null,
+          email: reporter.email || null,
+        }
+      : null,
+  };
+};
+
+const removeReportById = async (reportId) => {
+  if (!Types.ObjectId.isValid(reportId)) return;
+  try {
+    await Report.findByIdAndDelete(reportId);
+  } catch (error) {
+    console.error('Failed to delete report by id:', error);
+  }
+};
+
 export const reportBlog = async (req, res) => {
   try {
     const { blogId, type, reason } = req.body;
-    const reporterId = req.user._id;
+    const reporterId = req.user?._id;
+
     if (!blogId || !type) {
       return res.status(400).json({ error: 'Blog ID and report type are required.' });
     }
-    
-    // Convert blogId to string if it's an object
-    const blogIdStr = typeof blogId === 'object' ? blogId._id || blogId : blogId;
-    
-    // Validate blogId is a valid MongoDB ObjectId
-    if (!blogIdStr.match(/^[0-9a-fA-F]{24}$/)) {
+
+    if (!reporterId) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+
+    const normalizedBlogId = normalizeObjectId(blogId);
+    if (!normalizedBlogId || !Types.ObjectId.isValid(normalizedBlogId)) {
       return res.status(400).json({ error: 'Invalid blog ID format.' });
     }
-    // Prevent duplicate reports by same user
-    const exists = await Report.findOne({ blogId: blogIdStr, reporterId });
-    if (exists) return res.status(409).json({ error: 'You have already reported this blog.' });
-    const report = await Report.create({ 
-      blogId: blogIdStr, 
-      reporterId, 
-      type, 
-      reason: reason || '' // Make reason optional
+
+    const duplicate = await Report.findOne({ blogId: normalizedBlogId, reporterId });
+    if (duplicate) {
+      return res.status(409).json({ error: 'You have already reported this blog.' });
+    }
+
+    await Report.create({
+      blogId: normalizedBlogId,
+      reporterId,
+      type,
+      reason: reason || '',
+      status: 'pending',
     });
 
-    // Notify blog author about the report (non-blocking)
     try {
-      const blog = await Blog.findById(blogIdStr).populate('author', 'name');
-      if (blog && blog.author) {
-        const recipientId = blog.author._id ? blog.author._id : blog.author;
+      const blog = await Blog.findById(normalizedBlogId)
+        .populate({ path: 'author', select: 'name' })
+        .lean();
+
+      if (blog?.author?._id) {
         await createNotification({
-          recipientId,
-          senderId: reporterId,
+          recipientId: String(blog.author._id),
+          senderId: String(reporterId),
           type: 'report',
-          link: `/blog/${blog.slug}`,
-          extra: { senderName: (req.user && req.user.name) || 'Someone', blogTitle: blog.title }
+          link: blog.slug ? `/blog/${blog.slug}` : '/blog',
+          extra: {
+            senderName: (req.user && req.user.name) || 'Someone',
+            blogTitle: blog.title || 'a blog',
+          },
         });
       }
-    } catch (notifErr) {
-      console.error('Failed to create report notification:', notifErr);
-      // don't fail the request
+    } catch (notificationError) {
+      console.error('Failed to queue report notification:', notificationError);
     }
 
-    res.status(201).json({ success: true, message: 'Report submitted successfully.' });
-  } catch (err) {
-    console.error('Report error:', err);
-    res.status(500).json({ error: err.message || 'Failed to report blog.' });
+    return res.status(201).json({ success: true, message: 'Report submitted successfully.' });
+  } catch (error) {
+    console.error('reportBlog error:', error);
+    return res.status(500).json({ error: 'Failed to submit report.' });
   }
 };
 
-/**
- * GET /api/admin/reports
- * Admin: list all reports
- */
 export const listReports = async (req, res) => {
   try {
-    const reports = await Report.find().populate('blogId reporterId').sort({ createdAt: -1 });
-    res.json(reports);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch reports.' });
+    const reports = await Report.find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'blogId',
+        select: 'title slug categories author',
+        populate: [
+          { path: 'categories', select: 'title slug' },
+          { path: 'author', select: 'name username email role isBlacklisted' },
+        ],
+      })
+      .populate({ path: 'reporterId', select: 'name username email' })
+      .lean();
+
+    const formatted = reports.map(buildReportPayload).filter((report) => report.id);
+    return res.json(formatted);
+  } catch (error) {
+    console.error('listReports error:', error);
+    return res.status(500).json({ error: 'Failed to fetch reports.' });
   }
 };
 
-/**
- * PATCH /api/admin/report/:id
- * Admin: update report status
- * Expects: { status }
- */
-export const updateReportStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    if (!['pending','resolved','safe','removed','banned'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status.' });
-    }
-    const report = await Report.findByIdAndUpdate(id, { status }, { new: true });
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
-    res.json(report);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to update report.' });
-  }
-};
-
-/**
- * Admin action: mark report as SAFE
- * PATCH /api/report/admin/report/:id/safe
- */
 export const adminSafeReport = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Validate ObjectId format
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Invalid report ID format.' });
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid report identifier.' });
     }
-    
-    const report = await Report.findByIdAndUpdate(id, { status: 'safe' }, { new: true }).populate('blogId reporterId');
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
-    return res.json(report);
-  } catch (err) {
-    console.error('adminSafeReport error:', err);
-    return res.status(500).json({ error: 'Failed to mark report as safe.' });
+
+    const report = await Report.findById(id);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
+
+    await removeReportById(id);
+    return res.json({ success: true, message: 'Report marked safe and removed.' });
+  } catch (error) {
+    console.error('adminSafeReport error:', error);
+    return res.status(500).json({ error: 'Failed to mark report safe.' });
   }
 };
 
-/**
- * Admin action: remove/delete the blog and mark report removed
- * PATCH /api/report/admin/report/:id/remove
- */
 export const adminRemoveReport = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Validate ObjectId format
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Invalid report ID format.' });
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid report identifier.' });
     }
-    
-    // Populate blogId and its author field
+
     const report = await Report.findById(id).populate({
       path: 'blogId',
-      populate: { path: 'author' }
+      populate: { path: 'author', select: 'name username email role isBlacklisted' },
     });
-    
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
 
     const blog = report.blogId;
-    if (!blog) return res.status(400).json({ error: 'Blog not found for this report.' });
-
-    const blogId = blog._id;
-    
-    // Extract authorId properly - handle both ObjectId and populated object
-    let authorId = blog.author;
-    if (authorId && typeof authorId === 'object' && authorId._id) {
-      authorId = authorId._id;
-    }
-    
-    // Convert to string for consistency
-    authorId = String(authorId);
-    
-    // Validate authorId format
-    if (!authorId || !authorId.match(/^[0-9a-fA-F]{24}$/)) {
-      console.error('Invalid authorId format:', authorId);
-      return res.status(400).json({ error: 'Blog author not found or invalid.' });
+    if (!blog || !blog._id) {
+      await removeReportById(id);
+      return res.json({ success: true, message: 'Blog already removed; report cleared.' });
     }
 
-    // Soft delete the blog (mark as removed instead of hard delete)
+    const blogId = String(blog._id);
+    const blogAuthorId = normalizeObjectId(blog.author);
+
     try {
-      await Blog.findByIdAndUpdate(blogId, {
-        removed: true,
-        removedAt: new Date(),
-        removedBy: req.user._id // Admin who removed it
-      }, { new: true });
+      await Blog.findByIdAndDelete(blogId);
+    } catch (deletionError) {
+      console.error('Failed to delete blog:', deletionError);
+      return res.status(500).json({ error: 'Failed to delete reported blog.' });
+    }
 
-      // Notify blog author about removal with warning
+    try {
+      await Report.deleteMany({ blogId });
+    } catch (cleanupError) {
+      console.error('Failed to delete blog reports:', cleanupError);
+    }
+
+    await removeReportById(id);
+
+    if (blogAuthorId) {
       try {
         await createNotification({
-          recipientId: authorId,
-          senderId: req.user._id,
-          type: 'report', // Using 'report' type - the notification will use the custom message from extra
-          link: `/blog/${blog.slug}`,
+          recipientId: blogAuthorId,
+          senderId: req.user?._id ? String(req.user._id) : null,
+          type: 'report',
+          link: '/dashboard/reports',
           extra: {
             senderName: 'Admin',
-            blogTitle: blog.title,
-            message: `Your blog "${blog.title}" has been removed due to violations. Please review our community guidelines.`
-          }
+            blogTitle: blog.title || 'Your blog',
+            message: 'Your blog has been removed after moderator review.',
+          },
         });
-        console.log(`Removal notification sent to author: ${authorId}`);
-      } catch (notifErr) {
-        console.error('Failed to send removal notification:', notifErr);
-        // Continue even if notification fails
+      } catch (notificationError) {
+        console.error('Failed to send removal notification:', notificationError);
       }
-
-      // Resolve all other reports for this blog
-      try {
-        await Report.updateMany(
-          { blogId: blogId, _id: { $ne: id }, status: { $ne: 'removed' } },
-          { status: 'resolved' }
-        );
-      } catch (updateErr) {
-        console.error('Failed to resolve other reports:', updateErr);
-        // Continue even if this fails
-      }
-    } catch (delErr) {
-      console.error('Failed to remove blog:', delErr);
-      return res.status(500).json({ error: 'Failed to remove blog.' });
     }
 
-    // Update this report status to removed
-    report.status = 'removed';
-    await report.save();
-    
-    // Populate with blog info (which still exists but marked as removed)
-    const populated = await Report.findById(report._id).populate('blogId reporterId');
-    return res.json(populated);
-  } catch (err) {
-    console.error('adminRemoveReport error:', err);
-    return res.status(500).json({ error: 'Failed to remove blog for report.' });
+    return res.json({ success: true, message: 'Blog removed and report cleared.' });
+  } catch (error) {
+    console.error('adminRemoveReport error:', error);
+    return res.status(500).json({ error: 'Failed to remove reported blog.' });
   }
 };
 
-/**
- * Admin action: ban the blog author
- * PATCH /api/report/admin/report/:id/ban
- */
 export const adminBanReport = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Validate ObjectId format
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Invalid report ID format.' });
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid report identifier.' });
     }
-    
-    const report = await Report.findById(id).populate('blogId');
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
+
+    const report = await Report.findById(id).populate({
+      path: 'blogId',
+      populate: { path: 'author', select: 'name username email role isBlacklisted status' },
+    });
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
 
     const blog = report.blogId;
-    if (!blog) return res.status(400).json({ error: 'Blog not found for this report.' });
-    
-    // Extract authorId properly - handle both ObjectId and populated object
-    let authorId = blog.author;
-    if (authorId && typeof authorId === 'object' && authorId._id) {
-      authorId = authorId._id;
-    }
-    
-    // Convert to string for consistency
-    authorId = String(authorId);
-    
-    // Validate authorId format
-    if (!authorId || !authorId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Blog author not found or invalid.' });
+    const authorDoc = blog?.author;
+    const authorId = normalizeObjectId(authorDoc);
+
+    if (!authorId) {
+      await removeReportById(id);
+      return res.json({ success: true, message: 'Author not found; report removed.' });
     }
 
-    // Get the user to check if they're an admin
-    const targetUser = await User.findById(authorId);
-    if (!targetUser) {
-      return res.status(404).json({ error: 'User not found.' });
+    if (authorDoc?.role === 'admin') {
+      return res.status(400).json({ error: 'Admin accounts cannot be banned from reports.' });
     }
 
-    // Prevent banning admins
-    if (targetUser.role === 'admin') {
-      return res.status(400).json({ error: 'Admin accounts cannot be blacklisted.' });
-    }
-
-    // Blacklist the user (set isBlacklisted to true)
     try {
       await User.findByIdAndUpdate(
         authorId,
-        {
-          isBlacklisted: true,
-          status: 'banned' // Also update status for consistency
-        },
+        { isBlacklisted: true, status: 'banned' },
         { new: true }
       );
-
-      // Notify the banned user
-      try {
-        await createNotification({
-          recipientId: authorId,
-          senderId: req.user._id,
-          type: 'report',
-          link: '/profile',
-          extra: {
-            senderName: 'Admin',
-            message: 'Your account has been blacklisted due to policy violations. Please contact support if you believe this is an error.'
-          }
-        });
-      } catch (notifErr) {
-        console.error('Failed to send ban notification:', notifErr);
-        // Continue even if notification fails
-      }
-    } catch (userErr) {
-      console.error('Failed to blacklist user:', userErr);
+    } catch (userError) {
+      console.error('Failed to blacklist user:', userError);
       return res.status(500).json({ error: 'Failed to blacklist user.' });
     }
 
-    // Update report status
-    report.status = 'banned';
-    await report.save();
-    
-    const populated = await Report.findById(report._id).populate('blogId reporterId');
-    return res.json(populated);
-  } catch (err) {
-    console.error('adminBanReport error:', err);
-    return res.status(500).json({ error: 'Failed to ban user for report.' });
+    let affectedBlogs = [];
+    try {
+      affectedBlogs = await Blog.find({ author: authorId }).select('_id');
+    } catch (blogLookupError) {
+      console.error('Failed to fetch user blogs:', blogLookupError);
+    }
+
+    if (affectedBlogs.length) {
+      const blogIds = affectedBlogs.map((blogDoc) => String(blogDoc._id));
+      try {
+        await Blog.deleteMany({ _id: { $in: blogIds } });
+      } catch (blogDeleteError) {
+        console.error('Failed to delete author blogs:', blogDeleteError);
+      }
+      try {
+        await Report.deleteMany({ blogId: { $in: blogIds } });
+      } catch (reportDeleteError) {
+        console.error('Failed to clear reports for banned user:', reportDeleteError);
+      }
+    }
+
+    try {
+      await createNotification({
+        recipientId: authorId,
+        senderId: req.user?._id ? String(req.user._id) : null,
+        type: 'report',
+        link: '/profile',
+        extra: {
+          senderName: 'Admin',
+          message: 'Your account has been banned following repeated policy violations.',
+        },
+      });
+    } catch (notificationError) {
+      console.error('Failed to send ban notification:', notificationError);
+    }
+
+    await removeReportById(id);
+
+    return res.json({ success: true, message: 'Author banned and related content removed.' });
+  } catch (error) {
+    console.error('adminBanReport error:', error);
+    return res.status(500).json({ error: 'Failed to ban author.' });
   }
 };
 
-/**
- * Admin action: resolve report without action
- * PATCH /api/report/admin/report/:id/resolve
- */
-export const adminResolveReport = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validate ObjectId format
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'Invalid report ID format.' });
-    }
-    
-    const report = await Report.findByIdAndUpdate(id, { status: 'resolved' }, { new: true }).populate('blogId reporterId');
-    if (!report) return res.status(404).json({ error: 'Report not found.' });
-    return res.json(report);
-  } catch (err) {
-    console.error('adminResolveReport error:', err);
-    return res.status(500).json({ error: 'Failed to resolve report.' });
-  }
-};
+// Export helper functions for testing purposes
+export { buildReportPayload, removeReportById };
+

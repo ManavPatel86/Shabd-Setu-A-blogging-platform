@@ -14,13 +14,9 @@ router.post('/blog', authenticate, reportsController.reportBlog);
 // Admin: list all reports
 router.get('/admin/reports', authenticate, admin, reportsController.listReports);
 
-// Admin: update report status
-router.patch('/admin/report/:id', authenticate, admin, reportsController.updateReportStatus);
-
 // Admin action endpoints
 router.patch('/admin/report/:id/safe', authenticate, admin, reportsController.adminSafeReport);
 router.patch('/admin/report/:id/remove', authenticate, admin, reportsController.adminRemoveReport);
 router.patch('/admin/report/:id/ban', authenticate, admin, reportsController.adminBanReport);
-router.patch('/admin/report/:id/resolve', authenticate, admin, reportsController.adminResolveReport);
 
 export default router;

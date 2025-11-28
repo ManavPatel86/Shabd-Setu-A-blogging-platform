@@ -18,11 +18,10 @@ import SaveRoute from './routes/save.route.js'
 import NotificationRoute from './routes/notification.route.js'
 import ModerationRoute from './routes/moderation.route.js'
 import ReportsRoute from './routes/reports.route.js'
+import AnalyticsRoute from './routes/Analytics.route.js'
 import { initNotificationIO } from "./utils/createNotification.js";
 import { createServer } from 'http';
 
-import { log } from 'console';
-import Blog from './models/blog.model.js';
 
 dotenv.config()
 
@@ -69,6 +68,12 @@ io.on('connection', (socket) => {
 app.use(cookieParser());
 app.use(express.json());
 
+const defaultOrigins = [
+  'https://shabdsetu-git-deployment-manav-patels-projects-9e6ba397.vercel.app',
+  'https://shabdsetu.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
 // Rate limiting specifically for login attempts
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -120,6 +125,7 @@ app.use('/api/save', SaveRoute)
 app.use('/api/notifications', NotificationRoute)
 app.use('/api/moderate', ModerationRoute)
 app.use('/api/report', ReportsRoute)
+app.use('/api/analytics', AnalyticsRoute)
 
 
 mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
@@ -127,7 +133,7 @@ mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
     .catch(err=>console.log('Database connection failed.',err))
 
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 })
 
 app.use((err, req, res, next) => {
