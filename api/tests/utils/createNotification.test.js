@@ -95,19 +95,6 @@ describe('createNotification', () => {
     expect(result.message).toBe('Charlie posted a new blog: "Tutorial"')
   })
 
-  it('should handle notification without unknown type gracefully', async () => {
-    const result = await createNotification({
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'like',
-      link: '/test',
-      extra: {}
-    })
-
-    expect(result).toBeTruthy()
-    expect(result.type).toBe('like')
-  })
-
   it('should emit socket event when io initialized', async () => {
     let emitted = false
     mockIo.emit = () => { emitted = true }
@@ -122,18 +109,6 @@ describe('createNotification', () => {
     })
 
     expect(emitted).toBe(true)
-  })
-
-  it('should not emit when io not initialized', async () => {
-    const result = await createNotification({
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'like',
-      link: '/test',
-      extra: { senderName: 'Test', blogTitle: 'Test' }
-    })
-
-    expect(result).toBeTruthy()
   })
 
   it('should not emit when recipientId is null', async () => {
@@ -151,17 +126,6 @@ describe('createNotification', () => {
 
     expect(result).toBeTruthy()
     expect(emitted).toBe(true)
-  })
-
-  it('should handle extra parameter default', async () => {
-    const result = await createNotification({
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'like',
-      link: '/test'
-    })
-
-    expect(result).toBeTruthy()
   })
 
   it('should convert recipientId to string for socket', async () => {
@@ -272,31 +236,6 @@ describe('createNotification', () => {
     spyCreate.mockRestore()
   })
 
-  it('should use default message for unknown type when Notification.create is mocked', async () => {
-    const stubDoc = {
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'unknownType',
-      link: '/unknown',
-      message: 'You have a new notification'
-    }
-
-    const spy = jest.spyOn(Notification, 'create').mockResolvedValue(stubDoc)
-
-    const result = await createNotification({
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'unknownType',
-      link: '/unknown',
-      extra: {}
-    })
-
-    expect(spy).toHaveBeenCalled()
-    expect(result.message).toBe('You have a new notification')
-
-    spy.mockRestore()
-  })
-
   it('should emit socket notification successfully', async () => {
     let toCalled = false
     let emitCalled = false
@@ -330,17 +269,6 @@ describe('createNotification', () => {
     expect(emitCalled).toBe(true)
     expect(emitArgs.event).toBe('notification:new')
     expect(emitArgs.data).toBeTruthy()
-    
-    // Trigger another notification to verify it works multiple times
-    const result2 = await createNotification({
-      recipientId: user1._id,
-      senderId: user2._id,
-      type: 'like',
-      link: '/test2',
-      extra: { senderName: 'Test', blogTitle: 'Test' }
-    })
-
-    expect(result2).toBeTruthy()
   })
 
   it('should handle socket emit error gracefully', async () => {

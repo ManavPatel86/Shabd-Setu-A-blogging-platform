@@ -161,7 +161,7 @@ describe('User Controller Tests', () => {
       const user = await User.create({
         name: 'User',
         email: 'user@example.com',
-        password: bcryptjs.hashSync('oldpassword'),
+        password: bcryptjs.hashSync('OldPassword123!'),
       });
 
       req.params.userid = user._id.toString();
@@ -169,7 +169,8 @@ describe('User Controller Tests', () => {
         name: 'User',
         email: 'user@example.com',
         bio: '',
-        password: 'newpassword123',
+        password: 'NewPassword123!',
+        currentPassword: 'OldPassword123!',
       });
 
       await updateUser(req, res, next);
@@ -179,12 +180,12 @@ describe('User Controller Tests', () => {
 
       // Verify password was updated
       const updatedUser = await User.findById(user._id);
-      const passwordMatches = bcryptjs.compareSync('newpassword123', updatedUser.password);
+      const passwordMatches = bcryptjs.compareSync('NewPassword123!', updatedUser.password);
       expect(passwordMatches).toBe(true);
     });
 
     it('should not update password when password is too short', async () => {
-      const oldHash = bcryptjs.hashSync('oldpassword');
+      const oldHash = bcryptjs.hashSync('OldPassword123!');
       const user = await User.create({
         name: 'User',
         email: 'user@example.com',
@@ -197,11 +198,14 @@ describe('User Controller Tests', () => {
         email: 'user@example.com',
         bio: '',
         password: 'short',
+        currentPassword: 'OldPassword123!',
       });
 
       await updateUser(req, res, next);
 
-      expect(res._statusCode).toBe(200);
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('Password must be at least');
 
       // Password should remain unchanged
       const updatedUser = await User.findById(user._id);
@@ -326,6 +330,120 @@ describe('User Controller Tests', () => {
       expect(errorArg.message).toBe('Cloudinary upload failed');
 
       jest.restoreAllMocks();
+    });
+
+    it('should return error when username is empty or normalizes to empty', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'emptyusername@example.com',
+        password: bcryptjs.hashSync('Password123!'),
+        username: 'validuser',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        username: '!!!', // normalizes to empty string
+        email: 'emptyusername@example.com',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Username is required.');
+    });
+
+    it('should return error when username is already taken', async () => {
+      await User.create({
+        name: 'Existing User',
+        email: 'existing@example.com',
+        password: bcryptjs.hashSync('Password123!'),
+        username: 'takenusername',
+      });
+
+      const user = await User.create({
+        name: 'Another User',
+        email: 'another@example.com',
+        password: bcryptjs.hashSync('Password123!'),
+        username: 'anotheruser',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        username: 'takenusername',
+        email: 'another@example.com',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(409);
+      expect(res._error.message).toBe('Username is already taken. Please choose another.');
+    });
+
+    it('should return error when currentPassword is missing for password update', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'nocurrent@example.com',
+        password: bcryptjs.hashSync('OldPassword123!'),
+        username: 'usernocurrent',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        password: 'NewPassword123!',
+        email: 'nocurrent@example.com',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Current password is required to change your password.');
+    });
+
+    it('should return error when currentPassword is incorrect', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'wrongpass@example.com',
+        password: bcryptjs.hashSync('CorrectPassword123!'),
+        username: 'userwrongpass',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        password: 'NewPassword123!',
+        currentPassword: 'WrongPassword123!',
+        email: 'wrongpass@example.com',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('Current password is incorrect.');
+    });
+
+    it('should return error when new password is same as current password', async () => {
+      const user = await User.create({
+        name: 'User',
+        email: 'samepass@example.com',
+        password: bcryptjs.hashSync('SamePassword123!'),
+        username: 'usersamepass',
+      });
+
+      req.params.userid = user._id.toString();
+      req.body.data = JSON.stringify({
+        password: 'SamePassword123!',
+        currentPassword: 'SamePassword123!',
+        email: 'samepass@example.com',
+      });
+
+      await updateUser(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toBe('New password must be different from the current password.');
     });
   });
 

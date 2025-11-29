@@ -22,7 +22,7 @@ export const isUsernameAvailable = async (username, excludeUserId) => {
     return !existing;
 };
 
-const buildBaseFromSeed = (seed = "") => {
+export const buildBaseFromSeed = (seed = "") => {
     const cleaned = stripToAllowedCharacters(seed)
         .replace(/_{2,}/g, "_")
         .replace(/^_+|_+$/g, "");
@@ -31,8 +31,19 @@ const buildBaseFromSeed = (seed = "") => {
         return cleaned.slice(0, 20);
     }
 
-    const randomFallback = `user${Math.random().toString(36).replace(/[^a-z0-9]/g, "").slice(0, 6)}`;
+    const randomPart = Math.random().toString(36).replace(/[^a-z0-9]/g, "").slice(0, 6);
+    // In the extremely rare case randomPart is empty, return empty to trigger fallback in generateUsernameSuggestion
+    if (!randomPart) {
+        return "";
+    }
+    
+    const randomFallback = `user${randomPart}`;
     return stripToAllowedCharacters(randomFallback);
+};
+
+export const ensureValidLength = (value, suffix = "") => {
+    const trimmedBase = value.slice(0, Math.max(3, 20 - suffix.length));
+    return `${trimmedBase}${suffix}`;
 };
 
 export const generateUsernameSuggestion = async (seed = "") => {
@@ -45,11 +56,6 @@ export const generateUsernameSuggestion = async (seed = "") => {
 
     let candidate = base;
     let attempt = 0;
-
-    const ensureValidLength = (value, suffix = "") => {
-        const trimmedBase = value.slice(0, Math.max(3, 20 - suffix.length));
-        return `${trimmedBase}${suffix}`;
-    };
 
     while (attempt < 1000) {
         const suffix = attempt === 0 ? "" : attempt.toString();

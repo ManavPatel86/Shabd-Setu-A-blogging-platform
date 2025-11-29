@@ -489,6 +489,7 @@ const Profile = () => {
     const stats = overviewData?.stats || {}
     const highlights = overviewData?.highlights || {}
     const recentPosts = overviewData?.recentPosts || []
+    const publishedRecentPosts = recentPosts.filter((post) => (post?.status || 'published') !== 'draft')
     const profileUser = overviewData?.user || userData?.user || user?.user || {}
     const effectiveUsername = profileUser?.username || currentUsername || ''
     const hasCustomName = Boolean(profileUser?.name?.trim())
@@ -500,6 +501,14 @@ const Profile = () => {
     const formatNumber = (value) => {
         const numericValue = typeof value === 'number' ? value : Number(value) || 0
         return numericValue.toLocaleString()
+    }
+
+    const getPrimaryCategory = (entry) => {
+        if (!entry || !Array.isArray(entry.categories)) {
+            return null
+        }
+
+        return entry.categories.find((category) => category?.slug) || entry.categories[0] || null
     }
 
     const statsItems = [
@@ -547,13 +556,16 @@ const Profile = () => {
 
     const topCategories = highlights?.topCategories || []
     const topPost = highlights?.topPost
+    const topPostPrimaryCategory = topPost ? getPrimaryCategory(topPost) : null
     const totalBlogsThisPeriod = contributionsData?.totalBlogs ?? 0
     const heroBio = profileUser?.bio?.trim() || 'Add a short bio to let readers know what you write about.'
     const topicsPreview = topCategories.slice(0, 3)
 
     return (
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-8 lg:px-12">
-            <BackButton className="mb-4" />
+            <div className="flex items-center justify-between">
+                <BackButton className="mb-2 w-fit self-start rounded-full border border-slate-200/80 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm shadow-slate-100/70 transition hover:bg-white hover:text-slate-900 sm:mb-4 sm:px-4 sm:py-2" />
+            </div>
             <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
                 <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
                 <div className="absolute bottom-0 left-12 h-64 w-64 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />
@@ -702,14 +714,14 @@ const Profile = () => {
                             <h4 className="text-lg font-semibold text-slate-900">{topPost.title}</h4>
                             <p className="text-xs text-slate-500">
                                 {new Date(topPost.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                {topPost?.category?.name ? ` · ${topPost.category.name}` : ''}
+                                {topPostPrimaryCategory?.name ? ` · ${topPostPrimaryCategory.name}` : ''}
                             </p>
                             <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
                                 <span>{formatNumber(topPost.views)} views</span>
                                 <span>{formatNumber(topPost.likeCount)} likes</span>
                             </div>
                             <Button asChild variant="ghost" className="w-fit rounded-full px-4 text-sm text-[#6C5CE7] hover:bg-[#6C5CE7]/10">
-                                <Link to={topPost?.category?.slug && topPost?.slug ? RouteBlogDetails(topPost.category.slug, topPost.slug) : RouteBlog}>
+                                <Link to={topPostPrimaryCategory?.slug && topPost?.slug ? RouteBlogDetails(topPostPrimaryCategory.slug, topPost.slug) : RouteBlog}>
                                     Open Blog
                                 </Link>
                             </Button>
@@ -953,9 +965,9 @@ const Profile = () => {
                         <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Recent blogs</p>
                         <h2 className="text-2xl font-semibold text-slate-900">Keep tabs on performance</h2>
                     </div>
-                    {recentPosts.length > 0 && (
+                    {publishedRecentPosts.length > 0 && (
                         <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600">
-                            {recentPosts.length} active
+                            {publishedRecentPosts.length} active
                         </span>
                     )}
                 </div>
@@ -965,28 +977,32 @@ const Profile = () => {
                             <Skeleton key={`recent-post-skeleton-${index}`} className="h-20 rounded-3xl" />
                         ))}
                     </div>
-                ) : recentPosts.length > 0 ? (
+                ) : publishedRecentPosts.length > 0 ? (
                     <div className="space-y-4">
-                        {recentPosts.map((post) => (
-                            <div key={post._id || post.id} className="rounded-3xl border border-slate-100 bg-slate-50/70 px-4 py-4">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="space-y-1">
-                                        <h3 className="text-base font-semibold text-slate-900">{post.title}</h3>
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                            <span>{new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                            {post?.category?.name && <span>· {post.category.name}</span>}
+                        {publishedRecentPosts.map((post) => {
+                            const primaryCategory = getPrimaryCategory(post)
+
+                            return (
+                                <div key={post._id || post.id} className="rounded-3xl border border-slate-100 bg-slate-50/70 px-4 py-4">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="space-y-1">
+                                            <h3 className="text-base font-semibold text-slate-900">{post.title}</h3>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                                <span>{new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                {primaryCategory?.name && <span>· {primaryCategory.name}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                                            <span>{formatNumber(post.views)} views</span>
+                                            <span>{formatNumber(post.likeCount)} likes</span>
+                                            <Button asChild variant="outline" size="sm" className="rounded-full">
+                                                <Link to={primaryCategory?.slug && post?.slug ? RouteBlogDetails(primaryCategory.slug, post.slug) : RouteBlog}>View</Link>
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                                        <span>{formatNumber(post.views)} views</span>
-                                        <span>{formatNumber(post.likeCount)} likes</span>
-                                        <Button asChild variant="outline" size="sm" className="rounded-full">
-                                            <Link to={post?.category?.slug && post?.slug ? RouteBlogDetails(post.category.slug, post.slug) : RouteBlog}>View</Link>
-                                        </Button>
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 ) : (
                     <p className="text-sm text-slate-500">Publish your first post to see it listed here.</p>

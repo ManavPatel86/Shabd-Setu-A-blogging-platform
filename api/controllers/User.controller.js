@@ -335,7 +335,7 @@ export const getUserProfileOverview = async (req, res, next) => {
                 .lean()
                 .exec(),
             Blog.find({ author: userObjectId })
-                .select('title slug createdAt views featuredImage summary categories')
+                .select('title slug createdAt views featuredImage summary categories status')
                 .populate('categories', 'name slug')
                 .sort({ createdAt: -1 })
                 .lean()
@@ -346,11 +346,13 @@ export const getUserProfileOverview = async (req, res, next) => {
             return next(handleError(404, 'User not found.'))
         }
 
-        const totalPosts = blogs.length
-        const totalViews = blogs.reduce((sum, blog) => sum + (blog?.views || 0), 0)
+        const publishedBlogs = blogs.filter((blog) => blog?.status !== 'draft')
+
+        const totalPosts = publishedBlogs.length
+        const totalViews = publishedBlogs.reduce((sum, blog) => sum + (blog?.views || 0), 0)
         const averageViewsPerPost = totalPosts > 0 ? Math.round(totalViews / totalPosts) : 0
 
-        const blogIds = blogs.map((blog) => blog?._id).filter(Boolean)
+        const blogIds = publishedBlogs.map((blog) => blog?._id).filter(Boolean)
 
         let totalLikes = 0
         const likeCountsByBlog = {}
@@ -387,7 +389,7 @@ export const getUserProfileOverview = async (req, res, next) => {
 
         const categoryStatsMap = new Map()
 
-        blogs.forEach((blog) => {
+        publishedBlogs.forEach((blog) => {
             const categories = blog?.categories
             if (!categories || !Array.isArray(categories) || categories.length === 0) {
                 return
@@ -421,7 +423,7 @@ export const getUserProfileOverview = async (req, res, next) => {
                 percentage: totalPosts > 0 ? Math.round((category.count / totalPosts) * 100) : 0
             }))
 
-        const recentPosts = blogs.slice(0, 5).map((blog) => {
+        const recentPosts = publishedBlogs.slice(0, 5).map((blog) => {
             const key = blog?._id?.toString() || ''
             const categories = blog?.categories || []
             const primaryCategory = categories.length > 0 ? categories[0] : null
@@ -438,11 +440,12 @@ export const getUserProfileOverview = async (req, res, next) => {
                     name: cat?.name,
                     slug: cat?.slug
                 })) : [],
-                summary: blog?.summary || ''
+                summary: blog?.summary || '',
+                status: blog?.status || 'published'
             }
         })
 
-        const topPostSource = blogs.slice().sort((a, b) => (b?.views || 0) - (a?.views || 0))[0]
+        const topPostSource = publishedBlogs.slice().sort((a, b) => (b?.views || 0) - (a?.views || 0))[0]
 
         const topPost = topPostSource ? {
             id: topPostSource?._id,

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import BackButton from "@/components/BackButton";
 import { Link, useNavigate } from "react-router-dom";
 import { getEnv } from "@/helpers/getEnv";
 import { RouteSignIn } from "@/helpers/RouteName";
@@ -142,9 +141,6 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f4f0ff] via-[#f5f7ff] to-white px-4 py-12">
-      <div className="mx-auto max-w-lg">
-        <BackButton className="mb-6" />
-      </div>
       <div className="mx-auto flex max-w-lg flex-col items-center text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#7c6ce6]">Welcome back</p>
         <h1 className="mt-3 text-3xl font-semibold text-slate-900">Reset your password</h1>

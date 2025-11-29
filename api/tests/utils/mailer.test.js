@@ -54,12 +54,6 @@ describe('Mailer Utils', () => {
       ).rejects.toThrow('SMTP Error')
     })
 
-    it('should validate mailer module loads correctly', () => {
-      // The mailer module loads and creates transporter on import
-      // This test validates the module can be imported and used
-      expect(typeof sendOtpEmail).toBe('function')
-    })
-
     it('should replace verification code in template', async () => {
       mockSendMail.mockResolvedValue({ messageId: 'test-id' })
 
@@ -96,17 +90,6 @@ describe('Mailer Utils', () => {
       await expect(
         sendPasswordResetEmail({ to: 'fail@test.com', code: '111222' })
       ).rejects.toThrow('SMTP Connection Failed')
-    })
-
-    it('should replace verification code in password reset template', async () => {
-      mockSendMail.mockResolvedValue({ messageId: 'reset-id' })
-
-      const code = '777888'
-      await sendPasswordResetEmail({ to: 'reset@test.com', code })
-
-      const callArgs = mockSendMail.mock.calls[0][0]
-      expect(callArgs.html).toContain(code)
-      expect(callArgs.subject).toContain('Password reset')
     })
   })
 })

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
 import User from '../../models/user.model.js'
@@ -7,7 +7,9 @@ import {
   normalizeUsername,
   isValidUsername,
   isUsernameAvailable,
-  generateUsernameSuggestion
+  generateUsernameSuggestion,
+  buildBaseFromSeed,
+  ensureValidLength
 } from '../../utils/username.js'
 
 describe('Username utilities', () => {
@@ -36,6 +38,18 @@ describe('Username utilities', () => {
     it('returns empty string for falsy values', () => {
       expect(normalizeUsername('')).toBe('')
       expect(normalizeUsername()).toBe('')
+    })
+
+    it('removes special characters', () => {
+      expect(normalizeUsername('hello-world')).toBe('helloworld')
+      expect(normalizeUsername('test@user.com')).toBe('testusercom')
+    })
+  })
+
+  describe('stripToAllowedCharacters', () => {
+    it('works same as normalizeUsername', async () => {
+      const { stripToAllowedCharacters } = await import('../../utils/username.js')
+      expect(stripToAllowedCharacters('Test!')).toBe('test')
     })
   })
 
@@ -66,6 +80,43 @@ describe('Username utilities', () => {
     })
   })
 
+  describe('buildBaseFromSeed', () => {
+    it('returns cleaned seed when length >= 3', () => {
+      expect(buildBaseFromSeed('HelloWorld')).toBe('helloworld')
+      expect(buildBaseFromSeed('abc')).toBe('abc')
+      expect(buildBaseFromSeed('test_user_123')).toBe('test_user_123')
+      expect(buildBaseFromSeed('xyz')).toBe('xyz')
+    })
+
+    it('returns truncated seed when longer than 20 chars', () => {
+      const result = buildBaseFromSeed('a'.repeat(30))
+      expect(result.length).toBe(20)
+      expect(result).toBe('a'.repeat(20))
+    })
+
+    it('collapses multiple underscores', () => {
+      expect(buildBaseFromSeed('test__user')).toBe('test_user')
+    })
+
+    it('returns random fallback when cleaned seed is < 3 chars', () => {
+      const result = buildBaseFromSeed('ab')
+      expect(result).toMatch(/^user/)
+    })
+
+  })
+
+  describe('ensureValidLength', () => {
+    it('trims base and appends suffix', () => {
+      expect(ensureValidLength('testuser', '123')).toBe('testuser123')
+      expect(ensureValidLength('verylongusername', '999')).toBe('verylongusername999')
+      expect(ensureValidLength('a'.repeat(25), '999')).toBe('a'.repeat(17) + '999')
+    })
+
+    it('ensures minimum length of 3', () => {
+      expect(ensureValidLength('ab', '1')).toBe('ab1')
+    })
+  })
+
   describe('generateUsernameSuggestion', () => {
     it('generates a valid username from seed', async () => {
       const suggestion = await generateUsernameSuggestion('Cool Name!')
@@ -77,7 +128,48 @@ describe('Username utilities', () => {
       const suggestion = await generateUsernameSuggestion('Seed Name')
       expect(isValidUsername(suggestion)).toBe(true)
       expect(suggestion.startsWith('seedname')).toBe(true)
-      expect(suggestion).not.toBe('seedname')
     })
+
+    it('uses user fallback when buildBaseFromSeed returns empty', async () => {
+      const originalRandom = Math.random
+      Math.random = jest.fn().mockReturnValue({ toString: () => '...' })
+      
+      const suggestion = await generateUsernameSuggestion('ab')
+      expect(suggestion).toBe('user')
+      
+      Math.random = originalRandom
+    })
+
+    it('iterates through suffixes when base is taken', async () => {
+      await User.create({ username: 'newbase', email: 'base@example.com', password: 'secret123' })
+      await User.create({ username: 'newbase1', email: 'base1@example.com', password: 'secret123' })
+      
+      const suggestion = await generateUsernameSuggestion('newbase')
+      expect(isValidUsername(suggestion)).toBe(true)
+      expect(suggestion).toMatch(/^newbase\d+$/)
+    })
+
+    it('handles seed that results in exactly 20 character base', async () => {
+      const longSeed = 'a'.repeat(25)
+      const suggestion = await generateUsernameSuggestion(longSeed)
+      expect(isValidUsername(suggestion)).toBe(true)
+      expect(suggestion.length).toBeLessThanOrEqual(20)
+    })
+
+    it('throws error when unable to generate available username after many attempts', async () => {
+      const testBase = 'abc'
+      const promises = []
+      
+      promises.push(User.create({ username: testBase, email: `${testBase}@example.com`, password: 'secret123' }))
+      
+      for (let i = 1; i < 1000; i++) {
+        const username = `${testBase}${i}`
+        promises.push(User.create({ username, email: `${username}@example.com`, password: 'secret123' }))
+      }
+      
+      await Promise.all(promises)
+
+      await expect(generateUsernameSuggestion('abc')).rejects.toThrow('Unable to generate an available username.')
+    }, 30000)
   })
 })

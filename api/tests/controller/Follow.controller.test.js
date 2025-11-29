@@ -105,17 +105,8 @@ describe('Follow Controller', () => {
 
       await followUser(req, res, next);
 
-      // followUser toggles, so calling again should unfollow
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.following).toBe(false);
-    });
-
-    it('should call notifyFollow when following a user', async () => {
-      req.params.userId = testUser2._id.toString();
-
-      await followUser(req, res, next);
-
-      expect(notifyFollow).toHaveBeenCalled();
     });
 
     it('should handle notification failure gracefully', async () => {
@@ -126,49 +117,30 @@ describe('Follow Controller', () => {
 
       await followUser(req, res, next);
 
-      // Should still complete follow even if notification fails
       expect(res._statusCode).toBe(201);
       expect(res._jsonData.following).toBe(true);
       
       consoleErrorSpy.mockRestore();
     });
 
-    describe('Edge Cases', () => {
-      it('should handle followUser with missing userId', async () => {
-        req.params.userId = undefined;
+    it('should return 404 for non-existent user', async () => {
+      req.params.userId = '507f1f77bcf86cd799439011';
 
-        await followUser(req, res, next);
+      await followUser(req, res, next);
 
-        expect(res._error).toBeDefined();
-      });
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(404);
+    });
 
-      it('should handle followUser with non-existent user', async () => {
-        req.params.userId = '507f1f77bcf86cd799439011';
+    it('should require authentication', async () => {
+      req.user = { _id: null };
+      req.params.userId = testUser2._id.toString();
 
-        await followUser(req, res, next);
+      await followUser(req, res, next);
 
-        expect(res._error).toBeDefined();
-      });
-
-      it('should handle missing authentication in followUser', async () => {
-        req.user = undefined;
-        req.params.userId = testUser2._id.toString();
-
-        await followUser(req, res, next);
-
-        expect(res._error).toBeDefined();
-      });
-
-      it('should require authentication for followUser', async () => {
-        req.user = { _id: null };
-        req.params.userId = testUser2._id.toString();
-
-        await followUser(req, res, next);
-
-        expect(res._error).toBeDefined();
-        expect(res._error.statusCode).toBe(401);
-        expect(res._error.message).toBe('Authentication required');
-      });
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(401);
+      expect(res._error.message).toBe('Authentication required');
     });
   });
 
@@ -193,50 +165,32 @@ describe('Follow Controller', () => {
       expect(follow).toBeNull();
     });
 
-    it('should not send notification when unfollowing', async () => {
-      await Follow.create({
-        follower: testUser._id,
-        following: testUser2._id,
-      });
-
+    it('should return 404 for non-existent follow', async () => {
       req.params.userId = testUser2._id.toString();
-
-      // Reset mock before test
-      notifyFollow.mockClear();
 
       await unfollowUser(req, res, next);
 
-      expect(notifyFollow).not.toHaveBeenCalled();
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(404);
     });
 
-    describe('Edge Cases', () => {
-      it('should handle unfollowUser with non-existent follow', async () => {
-        req.params.userId = testUser2._id.toString();
+    it('should handle database errors', async () => {
+      const spy = jest.spyOn(Follow, 'findOneAndDelete').mockRejectedValueOnce(new Error('DB error'));
 
-        await unfollowUser(req, res, next);
+      req.params.userId = testUser2._id.toString();
 
-        expect(res._error).toBeDefined();
-        expect(res._error.statusCode).toBe(404);
-      });
+      await unfollowUser(req, res, next);
 
-      it('should handle database errors in unfollowUser', async () => {
-        const spy = jest.spyOn(Follow, 'findOneAndDelete').mockRejectedValueOnce(new Error('DB error'));
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('DB error');
 
-        req.params.userId = testUser2._id.toString();
-
-        await unfollowUser(req, res, next);
-
-        expect(res._error).toBeDefined();
-        expect(res._error.statusCode).toBe(500);
-        expect(res._error.message).toBe('DB error');
-
-        spy.mockRestore();
-      });
+      spy.mockRestore();
     });
   });
 
   describe('getFollowers', () => {
-    it('should get user followers', async () => {
+    it('should get user followers with populated details', async () => {
       await Follow.create({
         follower: testUser2._id,
         following: testUser._id,
@@ -248,46 +202,23 @@ describe('Follow Controller', () => {
 
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.followers).toBeDefined();
-      expect(res._jsonData.followers.length).toBeGreaterThanOrEqual(0);
+      expect(res._jsonData.followers.length).toBe(1);
+      expect(res._jsonData.followers[0]).toHaveProperty('name');
+      expect(res._jsonData.followers[0]).toHaveProperty('email');
     });
 
-    it('should populate user details in getFollowers', async () => {
-      await Follow.create({
-        follower: testUser2._id,
-        following: testUser._id,
-      });
-
+    it('should return empty array when no followers', async () => {
       req.params.userId = testUser._id.toString();
 
       await getFollowers(req, res, next);
 
       expect(res._statusCode).toBe(200);
-      expect(res._jsonData.followers[0]).toHaveProperty('name');
-      expect(res._jsonData.followers[0]).toHaveProperty('email');
-    });
-
-    describe('Edge Cases', () => {
-      it('should handle getFollowers with no followers', async () => {
-        req.params.userId = testUser._id.toString();
-
-        await getFollowers(req, res, next);
-
-        expect(res._statusCode).toBe(200);
-        expect(res._jsonData.followers).toEqual([]);
-      });
-
-      it('should handle getFollowers with invalid userId', async () => {
-        req.params.userId = 'invalid-id';
-
-        await getFollowers(req, res, next);
-
-        expect(res._error).toBeDefined();
-      });
+      expect(res._jsonData.followers).toEqual([]);
     });
   });
 
   describe('getFollowing', () => {
-    it('should get users being followed', async () => {
+    it('should get users being followed with populated details', async () => {
       await Follow.create({
         follower: testUser._id,
         following: testUser2._id,
@@ -299,40 +230,18 @@ describe('Follow Controller', () => {
 
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.following).toBeDefined();
+      expect(res._jsonData.following[0]).toHaveProperty('name');
+      expect(res._jsonData.following[0]).toHaveProperty('email');
     });
 
-    it('should populate user details in getFollowing', async () => {
-      await Follow.create({
-        follower: testUser._id,
-        following: testUser2._id,
-      });
-
+    it('should return empty array when not following anyone', async () => {
       req.params.userId = testUser._id.toString();
 
       await getFollowing(req, res, next);
 
       expect(res._statusCode).toBe(200);
-      expect(res._jsonData.following[0]).toHaveProperty('name');
-      expect(res._jsonData.following[0]).toHaveProperty('email');
-    });
-
-    describe('Edge Cases', () => {
-      it('should handle getFollowing with no following', async () => {
-        req.params.userId = testUser._id.toString();
-
-        await getFollowing(req, res, next);
-
-        expect(res._statusCode).toBe(200);
-        expect(Array.isArray(res._jsonData.following)).toBe(true);
-      });
-
-      it('should handle getFollowing with invalid userId', async () => {
-        req.params.userId = 'invalid-id';
-
-        await getFollowing(req, res, next);
-
-        expect(res._error).toBeDefined();
-      });
+      expect(Array.isArray(res._jsonData.following)).toBe(true);
+      expect(res._jsonData.following).toEqual([]);
     });
   });
 
@@ -358,16 +267,6 @@ describe('Follow Controller', () => {
 
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.isFollowing).toBe(false);
-    });
-
-    describe('Edge Cases', () => {
-      it('should handle errors in checkFollowStatus', async () => {
-        req.params.userId = 'invalid-id';
-
-        await checkFollowStatus(req, res, next);
-
-        expect(res._error).toBeDefined();
-      });
     });
   });
 
@@ -405,16 +304,6 @@ describe('Follow Controller', () => {
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.followersCount).toBe(0);
       expect(res._jsonData.followingCount).toBe(0);
-    });
-
-    describe('Edge Cases', () => {
-      it('should handle errors in getFollowStats', async () => {
-        req.params.userId = 'invalid-id';
-
-        await getFollowStats(req, res, next);
-
-        expect(res._error).toBeDefined();
-      });
     });
   });
 });

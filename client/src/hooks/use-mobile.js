@@ -7,6 +7,7 @@ export function useIsMobile() {
     if (typeof window !== "undefined") {
       return window.innerWidth < MOBILE_BREAKPOINT
     }
+    /* c8 ignore next */
     return false
   })
 

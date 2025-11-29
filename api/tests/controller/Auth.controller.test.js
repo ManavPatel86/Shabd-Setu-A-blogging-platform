@@ -124,6 +124,7 @@ describe('Auth Controller Tests', () => {
         name: 'New User',
         email: 'newuser@example.com',
         password: 'password123',
+        username: 'newuser',
       };
 
       await Register(req, res, next);
@@ -150,7 +151,7 @@ describe('Auth Controller Tests', () => {
 
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(400);
-      expect(res._error.message).toBe('Name, email and password are required.');
+      expect(res._error.message).toBe('Name, email, password, and username are required.');
     });
 
     it('should normalize email to lowercase', async () => {
@@ -160,6 +161,7 @@ describe('Auth Controller Tests', () => {
         name: 'User',
         email: 'USER@EXAMPLE.COM',
         password: 'password123',
+        username: 'testuser',
       };
 
       await Register(req, res, next);
@@ -181,6 +183,7 @@ describe('Auth Controller Tests', () => {
         name: 'New User',
         email: 'existing@example.com',
         password: 'password123',
+        username: 'newuser',
       };
 
       await Register(req, res, next);
@@ -197,6 +200,7 @@ describe('Auth Controller Tests', () => {
         name: 'User',
         email: 'user@example.com',
         password: 'plainpassword',
+        username: 'testuser',
       };
 
       await Register(req, res, next);
@@ -215,6 +219,7 @@ describe('Auth Controller Tests', () => {
         name: 'User',
         email: 'user@example.com',
         password: 'password123',
+        username: 'testuser',
       };
 
       await Register(req, res, next);
@@ -776,7 +781,7 @@ describe('Auth Controller Tests', () => {
     it('should reject invalid username format in verifyOtp (line 167)', async () => {
       const hashedPassword = bcryptjs.hashSync('password123');
       
-      // Create OTP with invalid username
+      // Create OTP with username that becomes too long after normalization
       await OtpCode.create({
         email: 'invalid@example.com',
         code: '654321',
@@ -788,7 +793,7 @@ describe('Auth Controller Tests', () => {
         pendingUser: {
           name: 'Test User',
           passwordHash: hashedPassword,
-          username: 'invalid username!', // Invalid format with spaces and special chars
+          username: 'a'.repeat(21), // 21 chars, max allowed is 20
         },
       });
 

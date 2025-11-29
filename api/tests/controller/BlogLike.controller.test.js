@@ -95,7 +95,6 @@ describe('BlogLike Controller', () => {
     });
 
     it('should unlike a blog (toggle)', async () => {
-      // First like
       await BlogLike.create({
         user: testUser._id,
         blogid: testBlog._id,
@@ -103,7 +102,6 @@ describe('BlogLike Controller', () => {
 
       req.body.blogid = testBlog._id.toString();
 
-      // doLike toggles, so this will unlike
       await doLike(req, res, next);
 
       expect(res._statusCode).toBe(200);
@@ -115,77 +113,7 @@ describe('BlogLike Controller', () => {
       });
       expect(like).toBeNull();
     });
-  });
 
-  describe('likeCount', () => {
-    it('should return like count for a blog', async () => {
-      await BlogLike.create({
-        user: testUser._id,
-        blogid: testBlog._id,
-      });
-      await BlogLike.create({
-        user: testUser2._id,
-        blogid: testBlog._id,
-      });
-
-      req.params.blogid = testBlog._id.toString();
-      req.params.userid = testUser._id.toString();
-
-      await likeCount(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.likecount).toBe(2);
-      expect(res._jsonData.isUserliked).toBe(true);
-    });
-
-    it('should return isUserliked false when user has not liked', async () => {
-      await BlogLike.create({
-        user: testUser2._id,
-        blogid: testBlog._id,
-      });
-
-      req.params.blogid = testBlog._id.toString();
-      req.params.userid = testUser._id.toString();
-
-      await likeCount(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.likecount).toBe(1);
-      expect(res._jsonData.isUserliked).toBe(false);
-    });
-
-    it('should work without userid parameter', async () => {
-      await BlogLike.create({
-        user: testUser._id,
-        blogid: testBlog._id,
-      });
-
-      req.params.blogid = testBlog._id.toString();
-      // No userid parameter
-
-      await likeCount(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.likecount).toBe(1);
-      expect(res._jsonData.isUserliked).toBe(false);
-    });
-
-    it('should handle errors', async () => {
-      const spy = jest.spyOn(BlogLike, 'countDocuments').mockRejectedValueOnce(new Error('DB error'));
-
-      req.params.blogid = testBlog._id.toString();
-
-      await likeCount(req, res, next);
-
-      expect(res._error).toBeDefined();
-      expect(res._error.statusCode).toBe(500);
-      expect(res._error.message).toBe('DB error');
-
-      spy.mockRestore();
-    });
-  });
-
-  describe('doLike', () => {
     it('should return error when user is not identified', async () => {
       req.user = null;
       req.body.blogid = testBlog._id.toString();
@@ -248,9 +176,15 @@ describe('BlogLike Controller', () => {
   });
 
   describe('likeCount', () => {
-    it('should return like count with user status when user is authenticated', async () => {
-      await BlogLike.create({ blogid: testBlog._id, user: testUser._id });
-      await BlogLike.create({ blogid: testBlog._id, user: testUser2._id });
+    it('should return like count for a blog', async () => {
+      await BlogLike.create({
+        user: testUser._id,
+        blogid: testBlog._id,
+      });
+      await BlogLike.create({
+        user: testUser2._id,
+        blogid: testBlog._id,
+      });
 
       req.params.blogid = testBlog._id.toString();
       req.params.userid = testUser._id.toString();
@@ -262,42 +196,11 @@ describe('BlogLike Controller', () => {
       expect(res._jsonData.isUserliked).toBe(true);
     });
 
-    it('should return like count without user status when userid is not provided', async () => {
-      await BlogLike.create({ blogid: testBlog._id, user: testUser2._id });
-
-      req.params.blogid = testBlog._id.toString();
-      // No userid in params
-
-      await likeCount(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.likecount).toBe(1);
-      expect(res._jsonData.isUserliked).toBe(false);
-    });
-
-    it('should return 0 likes when blog has no likes', async () => {
-      req.params.blogid = testBlog._id.toString();
-
-      await likeCount(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.likecount).toBe(0);
-    });
-
-    it('should handle errors in likeCount', async () => {
-      const spy = jest.spyOn(BlogLike, 'countDocuments').mockRejectedValueOnce(new Error('DB error'));
-
-      req.params.blogid = testBlog._id.toString();
-
-      await likeCount(req, res, next);
-
-      expect(res._error).toBeDefined();
-
-      spy.mockRestore();
-    });
-
-    it('should return isUserliked false when authenticated user has not liked', async () => {
-      await BlogLike.create({ blogid: testBlog._id, user: testUser2._id });
+    it('should return isUserliked false when user has not liked', async () => {
+      await BlogLike.create({
+        user: testUser2._id,
+        blogid: testBlog._id,
+      });
 
       req.params.blogid = testBlog._id.toString();
       req.params.userid = testUser._id.toString();
@@ -307,6 +210,35 @@ describe('BlogLike Controller', () => {
       expect(res._statusCode).toBe(200);
       expect(res._jsonData.likecount).toBe(1);
       expect(res._jsonData.isUserliked).toBe(false);
+    });
+
+    it('should work without userid parameter', async () => {
+      await BlogLike.create({
+        user: testUser._id,
+        blogid: testBlog._id,
+      });
+
+      req.params.blogid = testBlog._id.toString();
+
+      await likeCount(req, res, next);
+
+      expect(res._statusCode).toBe(200);
+      expect(res._jsonData.likecount).toBe(1);
+      expect(res._jsonData.isUserliked).toBe(false);
+    });
+
+    it('should handle errors', async () => {
+      const spy = jest.spyOn(BlogLike, 'countDocuments').mockRejectedValueOnce(new Error('DB error'));
+
+      req.params.blogid = testBlog._id.toString();
+
+      await likeCount(req, res, next);
+
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(500);
+      expect(res._error.message).toBe('DB error');
+
+      spy.mockRestore();
     });
   });
 
@@ -359,12 +291,10 @@ describe('BlogLike Controller', () => {
 
       await likeBlog(req, res);
 
-      // notifyLike should not be called for own blog
       expect(res._statusCode).toBe(201);
     });
 
     it('should notify when liking someone else blog', async () => {
-      // testBlog is authored by testUser, so like from testUser2
       req.user = { _id: testUser2._id };
       req.params.blogId = testBlog._id.toString();
 

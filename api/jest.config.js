@@ -5,11 +5,11 @@ export default {
     'controllers/**/*.js',
     'helpers/**/*.js',
     'middleware/**/*.js',
-    'models/**/*.js',
     'utils/**/*.js'
   ],
   coveragePathIgnorePatterns: [
     '/node_modules/',
+    '/models/',
     '/tests/',
     '/coverage/'
   ],

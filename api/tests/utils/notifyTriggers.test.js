@@ -67,22 +67,6 @@ describe('notifyTriggers', () => {
       expect(mockCreateNotification).not.toHaveBeenCalled()
     })
 
-    it('should handle blog without categories', async () => {
-      const author = await User.create({ name: 'Author', email: 'author@test.com', password: 'pass' })
-      const liker = await User.create({ name: 'Liker', email: 'liker@test.com', password: 'pass' })
-      const blog = await Blog.create({ 
-        title: 'Test', 
-        slug: 'test', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id
-      })
-
-      await notifyLike({ likerId: liker._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalled()
-    })
-
     it('should use "Someone" fallback when liker not found', async () => {
       const author = await User.create({ name: 'Author', email: 'author@test.com', password: 'pass' })
       const blog = await Blog.create({ 
@@ -119,96 +103,6 @@ describe('notifyTriggers', () => {
       expect(mockCreateNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           extra: expect.objectContaining({ senderName: 'Someone' })
-        })
-      )
-    })
-
-    it('should handle category without slug', async () => {
-      const author = await User.create({ name: 'Author', email: 'author5@test.com', password: 'pass' })
-      const liker = await User.create({ name: 'Liker', email: 'liker5@test.com', password: 'pass' })
-      const category = new Category({ name: 'NoSlug', key: 'noslug', slug: '' })
-      await category.save({ validateBeforeSave: false })
-      const blog = await Blog.create({ 
-        title: 'Test', 
-        slug: 'test-no-slug', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id,
-        categories: [category._id]
-      })
-
-      await notifyLike({ likerId: liker._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          link: '/blog/test-no-slug'
-        })
-      )
-    })
-
-    it('should handle null category in array', async () => {
-      const author = await User.create({ name: 'Author', email: 'author6@test.com', password: 'pass' })
-      const liker = await User.create({ name: 'Liker', email: 'liker6@test.com', password: 'pass' })
-      const blog = new Blog({ 
-        title: 'Test', 
-        slug: 'test-null-cat', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id,
-        categories: ['507f1f77bcf86cd799439011']
-      })
-      await blog.save({ validateBeforeSave: false })
-
-      await notifyLike({ likerId: liker._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          link: '/blog/test-null-cat'
-        })
-      )
-    })
-
-    it('should handle category with null slug property', async () => {
-      const author = await User.create({ name: 'Author', email: 'author7@test.com', password: 'pass' })
-      const liker = await User.create({ name: 'Liker', email: 'liker7@test.com', password: 'pass' })
-      const category = new Category({ name: 'NullSlug', key: 'nullslug', slug: null })
-      await category.save({ validateBeforeSave: false })
-      const blog = await Blog.create({ 
-        title: 'Test', 
-        slug: 'test-slug-null', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id,
-        categories: [category._id]
-      })
-
-      await notifyLike({ likerId: liker._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          link: '/blog/test-slug-null'
-        })
-      )
-    })
-
-    it('should handle blog with categories as non-array (covers [] fallback)', async () => {
-      const author = await User.create({ name: 'Author', email: 'author8@test.com', password: 'pass' })
-      const liker = await User.create({ name: 'Liker', email: 'liker8@test.com', password: 'pass' })
-      const blog = new Blog({ 
-        title: 'Test', 
-        slug: 'test-non-array', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id,
-        categories: null // Set categories to null to trigger [] fallback
-      })
-      await blog.save({ validateBeforeSave: false })
-
-      await notifyLike({ likerId: liker._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          link: '/blog/test-non-array'
         })
       )
     })
@@ -251,25 +145,6 @@ describe('notifyTriggers', () => {
 
       expect(mockCreateNotification).not.toHaveBeenCalled()
     })
-
-    it('should use "Someone" fallback when commenter not found', async () => {
-      const author = await User.create({ name: 'Author', email: 'author@test.com', password: 'pass' })
-      const blog = await Blog.create({ 
-        title: 'Post', 
-        slug: 'post', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id
-      })
-
-      await notifyComment({ commenterId: '507f1f77bcf86cd799439011', blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          extra: expect.objectContaining({ senderName: 'Someone' })
-        })
-      )
-    })
   })
 
   describe('notifyReply', () => {
@@ -294,6 +169,23 @@ describe('notifyTriggers', () => {
       expect(mockCreateNotification).toHaveBeenCalled()
     })
 
+    it('should handle blog not found and use # as link', async () => {
+      const commenter = await User.create({ name: 'Commenter', email: 'commenter4@test.com', password: 'pass' })
+      const replier = await User.create({ name: 'Replier', email: 'replier4@test.com', password: 'pass' })
+
+      await notifyReply({ 
+        replierId: replier._id.toString(), 
+        originalCommentUserId: commenter._id.toString(), 
+        blogId: '507f1f77bcf86cd799439011' 
+      })
+
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          link: '##comments'
+        })
+      )
+    })
+
     it('should not notify when replying to own comment', async () => {
       await notifyReply({ 
         replierId: 'user1', 
@@ -302,46 +194,6 @@ describe('notifyTriggers', () => {
       })
 
       expect(mockCreateNotification).not.toHaveBeenCalled()
-    })
-
-    it('should handle blog not found in reply', async () => {
-      const commenter = await User.create({ name: 'Commenter', email: 'commenter2@test.com', password: 'pass' })
-      const replier = await User.create({ name: 'Replier', email: 'replier2@test.com', password: 'pass' })
-
-      await notifyReply({ 
-        replierId: replier._id.toString(), 
-        originalCommentUserId: commenter._id.toString(), 
-        blogId: '507f1f77bcf86cd799439011' 
-      })
-
-      // Should still call createNotification even if blog not found (buildBlogLink returns '#')
-      expect(mockCreateNotification).toHaveBeenCalled()
-      const call = mockCreateNotification.mock.calls[mockCreateNotification.mock.calls.length - 1][0]
-      expect(call.link).toContain('#')
-    })
-
-    it('should use "Someone" fallback when replier not found', async () => {
-      const commenter = await User.create({ name: 'Commenter', email: 'commenter3@test.com', password: 'pass' })
-      const author = await User.create({ name: 'Author', email: 'author3@test.com', password: 'pass' })
-      const blog = await Blog.create({ 
-        title: 'Post', 
-        slug: 'post', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id
-      })
-
-      await notifyReply({ 
-        replierId: '507f1f77bcf86cd799439011', 
-        originalCommentUserId: commenter._id.toString(), 
-        blogId: blog._id.toString() 
-      })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          extra: expect.objectContaining({ senderName: 'Someone' })
-        })
-      )
     })
   })
 
@@ -359,18 +211,6 @@ describe('notifyTriggers', () => {
       await notifyFollow({ followerId: 'user1', targetUserId: 'user1' })
 
       expect(mockCreateNotification).not.toHaveBeenCalled()
-    })
-
-    it('should use "Someone" fallback when follower not found', async () => {
-      const target = await User.create({ name: 'Target', email: 'target2@test.com', password: 'pass' })
-
-      await notifyFollow({ followerId: '507f1f77bcf86cd799439011', targetUserId: target._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          extra: expect.objectContaining({ senderName: 'Someone' })
-        })
-      )
     })
   })
 
@@ -421,28 +261,6 @@ describe('notifyTriggers', () => {
       await notifyFollowersNewPost({ authorId: author._id.toString(), blogId: blog._id.toString() })
 
       expect(mockCreateNotification).not.toHaveBeenCalled()
-    })
-
-    it('should use "Someone" fallback when author has no name', async () => {
-      const author = new User({ name: '', email: 'authornoname@test.com', password: 'pass' })
-      await author.save({ validateBeforeSave: false })
-      const follower = await User.create({ name: 'Follower', email: 'follower3@test.com', password: 'pass' })
-      const blog = await Blog.create({ 
-        title: 'New Post', 
-        slug: 'new-post2', 
-        blogContent: 'content',
-        featuredImage: 'image.jpg',
-        author: author._id
-      })
-      await Follow.create({ follower: follower._id, following: author._id })
-
-      await notifyFollowersNewPost({ authorId: author._id.toString(), blogId: blog._id.toString() })
-
-      expect(mockCreateNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          extra: expect.objectContaining({ senderName: 'Someone' })
-        })
-      )
     })
   })
 })

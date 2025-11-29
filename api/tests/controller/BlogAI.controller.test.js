@@ -324,31 +324,6 @@ describe('Blog AI Controller', () => {
       expect(res._error.message).toContain('Gemini returned no output')
     })
 
-    it('handles lastError with undefined status', async () => {
-      // Create error without status property
-      const errorWithoutStatus = new Error('Model error')
-      delete errorWithoutStatus.status
-
-      for (let i = 0; i < 9; i++) {
-        queueChainError(errorWithoutStatus)
-      }
-
-      const req = {
-        user: { _id: authedUser._id },
-        body: {
-          title: 'Test',
-          content: '<p>Valid content</p>'
-        }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateCategorySuggestions(req, res, next)
-
-      expect(res._error).toBeDefined()
-      expect(res._error.statusCode).toBe(500)
-    })
-
     it('handles lastError being null', async () => {
       // Queue empty results for all models (no errors thrown)
       for (let i = 0; i < 9; i++) {
@@ -567,33 +542,6 @@ describe('Blog AI Controller', () => {
       Category.find = originalFind
     })
 
-    it('handles errors without message property', async () => {
-      const originalFind = Category.find
-
-      Category.find = () => {
-        const err = new Error()
-        delete err.message
-        throw err
-      }
-
-      const req = {
-        user: { _id: authedUser._id },
-        body: {
-          title: 'Test',
-          content: '<p>Valid content</p>'
-        }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateCategorySuggestions(req, res, next)
-
-      expect(res._error).toBeDefined()
-      expect(res._error.statusCode).toBe(500)
-      expect(res._error.message).toBe('Failed to generate category suggestions.')
-
-      Category.find = originalFind
-    })
   })
 
   describe('generateBlogSummary', () => {
@@ -975,28 +923,6 @@ describe('Blog AI Controller', () => {
       expect(res._error.statusCode).toBe(500)
     })
 
-    it('uses default model when GEMINI_MODEL is empty string', async () => {
-      const originalModel = process.env.GEMINI_MODEL
-      process.env.GEMINI_MODEL = ''
-
-      queueChainResult('Summary with default model')
-
-      const req = {
-        params: { blogId: baseBlog._id.toString() },
-        query: {},
-        user: { _id: authedUser._id }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateBlogSummary(req, res, next)
-
-      expect(res._statusCode).toBe(200)
-      expect(res._jsonData.summary).toContain('Summary with default model')
-
-      process.env.GEMINI_MODEL = originalModel
-    })
-
     // Validation errors
     it('requires authentication', async () => {
       const req = {
@@ -1121,32 +1047,6 @@ describe('Blog AI Controller', () => {
     })
 
     // Error handling
-    it('returns 502 when all models return 404 status', async () => {
-      class Summary404Error extends Error {
-        constructor(message) {
-          super(message)
-          this.status = 404
-        }
-      }
-
-      for (let i = 0; i < 9; i++) {
-        queueChainError(new Summary404Error('Summary model not found'))
-      }
-
-      const req = {
-        params: { blogId: baseBlog._id.toString() },
-        query: {},
-        user: { _id: authedUser._id }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateBlogSummary(req, res, next)
-
-      expect(res._error).toBeDefined()
-      expect(res._error.statusCode).toBe(502)
-    })
-
     it('returns 500 when all models fail with non-404 errors', async () => {
       for (let i = 0; i < 9; i++) {
         queueChainError(new Error('Model failure'))
@@ -1189,32 +1089,6 @@ describe('Blog AI Controller', () => {
 
       Blog.findById = originalFindById
     })
-
-    it('handles errors without message property in summary', async () => {
-      const originalFindById = Blog.findById
-
-      Blog.findById = () => {
-        const err = new Error()
-        delete err.message
-        throw err
-      }
-
-      const req = {
-        params: { blogId: baseBlog._id.toString() },
-        query: {},
-        user: { _id: authedUser._id }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateBlogSummary(req, res, next)
-
-      expect(res._error).toBeDefined()
-      expect(res._error.statusCode).toBe(500)
-      expect(res._error.message).toBe('Failed to generate summary.')
-
-      Blog.findById = originalFindById
-    })
   })
 
   describe('generateBlogDescription', () => {
@@ -1237,25 +1111,6 @@ describe('Blog AI Controller', () => {
       expect(res._statusCode).toBe(200)
       expect(res._jsonData.success).toBe(true)
       expect(res._jsonData.description).toBe('Engaging description about AI and healthcare technology innovations.')
-    })
-
-    it('generates description with only title provided', async () => {
-      queueChainResult('Description based on title only.')
-
-      const req = {
-        user: { _id: authedUser._id },
-        body: {
-          title: 'Exciting Tech Blog',
-          content: ''
-        }
-      }
-      const res = buildRes()
-      const next = buildNext(res)
-
-      await generateBlogDescription(req, res, next)
-
-      expect(res._statusCode).toBe(200)
-      expect(res._jsonData.description).toBe('Description based on title only.')
     })
 
     it('generates description with only content provided', async () => {

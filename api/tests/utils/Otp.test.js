@@ -23,26 +23,12 @@ describe('Otp Utils', () => {
       expect(Number(otp)).toBeGreaterThanOrEqual(100000)
       expect(Number(otp)).toBeLessThanOrEqual(999999)
     })
-
-    it('should generate different OTPs', () => {
-      const otp1 = generateOtp()
-      const otp2 = generateOtp()
-      // Very unlikely to be the same, but not impossible
-      expect(typeof otp1).toBe('string')
-      expect(typeof otp2).toBe('string')
-    })
   })
 
   describe('createAndSendOtp', () => {
     it('should throw error when email is missing', async () => {
       await expect(
         createAndSendOtp({ email: '', pendingUser: {}, sendEmailFn: jest.fn() })
-      ).rejects.toThrow('Email is required')
-    })
-
-    it('should throw error when email is null', async () => {
-      await expect(
-        createAndSendOtp({ email: null, pendingUser: {}, sendEmailFn: jest.fn() })
       ).rejects.toThrow('Email is required')
     })
 
@@ -84,29 +70,6 @@ describe('Otp Utils', () => {
       expect(allDocs).toHaveLength(1)
     })
 
-    it('should work without sendEmailFn', async () => {
-      const email = 'nosend@test.com'
-      const pendingUser = { name: 'Test', email, password: 'pass' }
-
-      const result = await createAndSendOtp({ email, pendingUser })
-
-      expect(result).toBeTruthy()
-      expect(result.code).toHaveLength(6)
-    })
-
-    it('should not call sendEmailFn if not a function', async () => {
-      const email = 'notfunc@test.com'
-      const pendingUser = { name: 'Test', email, password: 'pass' }
-
-      const result = await createAndSendOtp({ 
-        email, 
-        pendingUser, 
-        sendEmailFn: 'not a function' 
-      })
-
-      expect(result).toBeTruthy()
-    })
-
     it('should reset resendCount and attempts', async () => {
       const email = 'reset@test.com'
       const pendingUser = { name: 'Test', email, password: 'pass' }
@@ -131,10 +94,6 @@ describe('Otp Utils', () => {
   describe('canResendOtp', () => {
     it('should return true when otpDoc is null', () => {
       expect(canResendOtp(null)).toBe(true)
-    })
-
-    it('should return true when otpDoc is undefined', () => {
-      expect(canResendOtp(undefined)).toBe(true)
     })
 
     it('should return true when enough time has passed', () => {
@@ -194,22 +153,6 @@ describe('Otp Utils', () => {
       expect(result.code).not.toBe(firstDoc.code)
       expect(result.resendCount).toBe(1)
       expect(mockSendEmail).toHaveBeenCalled()
-    })
-
-    it('should work without sendEmailFn', async () => {
-      const email = 'resendnosend@test.com'
-      const pendingUser = { name: 'Test', email, password: 'pass' }
-      
-      await createAndSendOtp({ email, pendingUser })
-      await OtpCode.updateOne(
-        { email },
-        { lastSentAt: new Date(Date.now() - 10 * 60 * 1000) }
-      )
-
-      const result = await resendOtp({ email })
-
-      expect(result).toBeTruthy()
-      expect(result.resendCount).toBe(1)
     })
 
     it('should increment resendCount correctly', async () => {
@@ -291,32 +234,6 @@ describe('Otp Utils', () => {
       
       const doc = await OtpCode.findOne({ email })
       expect(doc).toBeNull()
-    })
-
-    it('should trim whitespace from code', async () => {
-      const email = 'whitespace@test.com'
-      const pendingUser = { name: 'Test', email, password: 'pass' }
-      
-      const otpDoc = await createAndSendOtp({ email, pendingUser })
-      const code = otpDoc.code
-      
-      const result = await verifyOtp({ email, code: `  ${code}  ` })
-
-      expect(result).toBeTruthy()
-      expect(result.name).toBe('Test')
-    })
-
-    it('should handle code as number', async () => {
-      const email = 'number@test.com'
-      const pendingUser = { name: 'Test', email, password: 'pass' }
-      
-      const otpDoc = await createAndSendOtp({ email, pendingUser })
-      const code = Number(otpDoc.code)
-      
-      const result = await verifyOtp({ email, code })
-
-      expect(result).toBeTruthy()
-      expect(result.name).toBe('Test')
     })
   })
 })

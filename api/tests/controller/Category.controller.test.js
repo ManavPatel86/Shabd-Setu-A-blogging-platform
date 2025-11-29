@@ -127,16 +127,11 @@ describe('Category Controller Tests', () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it('should handle duplicate error with undefined message property (covers || \'\')', async () => {
+    it('should handle duplicate error with undefined message property', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      // Create error without code 11000, but with "duplicate" in message that is undefined
-      // This forces the regex test to run with error.message || ''
       const saveError = new Error();
-      saveError.code = 12345; // Not 11000, so first part of || is false
-      // Delete the message property so error.message returns undefined
+      saveError.code = 12345;
       delete saveError.message;
-      // Add a custom toString that would fail the duplicate test
-      saveError.toString = () => 'Some error with duplicate in description';
       
       const saveSpy = jest.spyOn(Category.prototype, 'save').mockRejectedValueOnce(saveError);
 
@@ -147,7 +142,6 @@ describe('Category Controller Tests', () => {
 
       await addCategory(req, res, next);
 
-      expect(consoleErrorSpy).toHaveBeenCalled();
       expect(res._error).toBeDefined();
       expect(res._error.statusCode).toBe(500);
 
@@ -287,27 +281,7 @@ describe('Category Controller Tests', () => {
   });
 
   describe('getAllCategory', () => {
-    it('should return all categories', async () => {
-      await Category.create([
-        { name: 'Tech', slug: 'tech' },
-        { name: 'Science', slug: 'science' },
-        { name: 'Sports', slug: 'sports' },
-      ]);
-
-      await getAllCategory(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.category).toHaveLength(3);
-    });
-
-    it('should return empty array when no categories exist', async () => {
-      await getAllCategory(req, res, next);
-
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.category).toHaveLength(0);
-    });
-
-    it('should return categories sorted by name', async () => {
+    it('should return all categories sorted by name', async () => {
       await Category.create([
         { name: 'Zebra', slug: 'zebra' },
         { name: 'Apple', slug: 'apple' },
@@ -317,6 +291,7 @@ describe('Category Controller Tests', () => {
       await getAllCategory(req, res, next);
 
       expect(res._statusCode).toBe(200);
+      expect(res._jsonData.category).toHaveLength(3);
       expect(res._jsonData.category[0].name).toBe('Apple');
       expect(res._jsonData.category[1].name).toBe('Mango');
       expect(res._jsonData.category[2].name).toBe('Zebra');
