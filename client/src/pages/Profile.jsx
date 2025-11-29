@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import BackButton from '@/components/BackButton'
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,12 +23,21 @@ import { Link } from 'react-router-dom'
 import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteProfileView, RouteSignIn ,RouteAnalytics } from '@/helpers/RouteName'
 import { BookOpen, Eye, Heart, Sparkles, Tag, UserPlus, Users } from 'lucide-react'
 import { getDisplayName } from '@/utils/functions'
+import { normalizeUsername, validateUsername, USERNAME_REQUIREMENTS_MESSAGE, USERNAME_RULES } from '@/helpers/usernameValidation'
+import { validatePassword } from '@/helpers/passwordValidation'
 
 
 const Profile = () => {
     const [filePreview, setPreview] = useState()
     const [file, setFile] = useState()
     const [copiedUsername, setCopiedUsername] = useState(false)
+    const [isChangingUsername, setIsChangingUsername] = useState(false)
+    const [isChangingPassword, setIsChangingPassword] = useState(false)
+    const [usernameFeedback, setUsernameFeedback] = useState({
+        state: 'idle',
+        message: USERNAME_REQUIREMENTS_MESSAGE
+    })
+    const [currentUsername, setCurrentUsername] = useState('')
     const apiBaseUrl = useMemo(() => getEnv('VITE_API_BASE_URL'), [])
 
     const user = useSelector((state) => state.user)
@@ -64,43 +74,128 @@ const Profile = () => {
 
     const dispath = useDispatch()
 
-    const formSchema = z.object({
+    const formSchema = useMemo(() => z.object({
         name: z.string()
             .max(60, 'Name can be at most 60 characters long.')
             .refine((value) => value.trim().length === 0 || value.trim().length >= 3, {
                 message: 'Enter at least 3 characters for your name or leave it blank.',
             }),
-        email: z.string().email(),
+        username: z.string().optional(),
         bio: z.string()
             .max(500, 'Bio can be at most 500 characters long.')
             .refine((value) => value.trim().length === 0 || value.trim().length >= 3, {
                 message: 'Enter at least 3 characters for your bio or leave it blank.',
             }),
-        password: z.string().refine((val) => val === '' || val.length >= 8, {
-            message: 'Password must be at least 8 characters long or leave empty'
-        })
+        oldPassword: z.string().optional(),
+        newPassword: z.string().optional(),
+        confirmPassword: z.string().optional(),
+    }).superRefine((values, ctx) => {
+        if (isChangingUsername) {
+            const usernameCheck = validateUsername(values.username)
+            if (!usernameCheck.isValid) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['username'],
+                    message: usernameCheck.message
+                })
+            } else {
+                values.username = usernameCheck.username
+            }
+        }
 
-    })
+        const wantsPasswordChange = Boolean(
+            isChangingPassword || values.oldPassword || values.newPassword || values.confirmPassword
+        )
+
+        if (!wantsPasswordChange) {
+            return
+        }
+
+        if (!values.oldPassword || values.oldPassword.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['oldPassword'],
+                message: 'Enter your current password.'
+            })
+        }
+
+        if (!values.newPassword || values.newPassword.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['newPassword'],
+                message: 'Enter a new password.'
+            })
+        } else {
+            const passwordCheck = validatePassword(values.newPassword)
+            if (!passwordCheck.isValid) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['newPassword'],
+                    message: passwordCheck.message
+                })
+            }
+
+            if (values.oldPassword && values.oldPassword === values.newPassword) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['newPassword'],
+                    message: 'New password must be different from current password.'
+                })
+            }
+        }
+
+        if (!values.confirmPassword || values.confirmPassword.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['confirmPassword'],
+                message: 'Confirm your new password.'
+            })
+        } else if (values.newPassword && values.confirmPassword !== values.newPassword) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['confirmPassword'],
+                message: 'Passwords do not match.'
+            })
+        }
+    }), [isChangingPassword, isChangingUsername])
 
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
-            email: '',
+            username: '',
             bio: '',
-            password: '',
+            oldPassword: '',
+            newPassword: '',
+            confirmPassword: '',
         },
     })
+
+    const watchedUsername = form.watch('username')
+    const usernameFeedbackClass = usernameFeedback.state === 'available'
+        ? 'text-emerald-600'
+        : usernameFeedback.state === 'unavailable' || usernameFeedback.state === 'error'
+            ? 'text-rose-500'
+            : usernameFeedback.state === 'checking'
+                ? 'text-slate-500'
+                : usernameFeedback.state === 'invalid'
+                    ? 'text-amber-600'
+                    : 'text-slate-400'
 
     useEffect(() => {
         if (userData && userData.success) {
             form.reset({
                 name: userData.user.name || '',
-                email: userData.user.email || '',
+                username: userData.user.username || '',
                 bio: userData.user.bio || '',
-                password: '',
-
+                oldPassword: '',
+                newPassword: '',
+                confirmPassword: '',
             })
+            setCurrentUsername(normalizeUsername(userData.user.username || ''))
+            setIsChangingUsername(false)
+            setUsernameFeedback({ state: 'idle', message: USERNAME_REQUIREMENTS_MESSAGE })
+            setIsChangingPassword(false)
         }
     }, [userData, form])
 
@@ -116,9 +211,34 @@ const Profile = () => {
 
             const sanitizedData = {
                 name: values.name.trim(),
-                email: values.email.trim().toLowerCase(),
                 bio: values.bio.trim(),
-                password: values.password,
+            }
+
+            if (isChangingUsername) {
+                const usernameCheck = validateUsername(values.username)
+                if (!usernameCheck.isValid) {
+                    return showToast('error', usernameCheck.message)
+                }
+
+                if (usernameFeedback.state === 'checking') {
+                    return showToast('error', 'Please wait while we confirm that username.')
+                }
+
+                if (usernameFeedback.state === 'unavailable') {
+                    return showToast('error', 'That username is already taken.')
+                }
+
+                sanitizedData.username = usernameCheck.username
+            }
+
+            if (isChangingPassword && values.newPassword) {
+                sanitizedData.currentPassword = values.oldPassword || ''
+                sanitizedData.password = values.newPassword
+            }
+
+            const existingEmail = userData?.user?.email || profileUser?.email
+            if (existingEmail) {
+                sanitizedData.email = existingEmail.trim().toLowerCase()
             }
 
             formData.append('data', JSON.stringify(sanitizedData))
@@ -139,6 +259,18 @@ const Profile = () => {
             }
             dispath(setUser(data.user))
             showToast('success', data.message)
+            if (sanitizedData.username) {
+                setCurrentUsername(sanitizedData.username)
+                setIsChangingUsername(false)
+                form.setValue('username', sanitizedData.username)
+                setUsernameFeedback({ state: 'current', message: 'This is your current username.' })
+            }
+            if (isChangingPassword) {
+                setIsChangingPassword(false)
+                form.setValue('oldPassword', '')
+                form.setValue('newPassword', '')
+                form.setValue('confirmPassword', '')
+            }
         } catch (error) {
             showToast('error', error.message)
         }
@@ -168,6 +300,85 @@ const Profile = () => {
         }
     }, [filePreview])
 
+    useEffect(() => {
+        if (!overviewData?.user) {
+            return
+        }
+
+        const normalized = normalizeUsername(overviewData.user.username || '')
+
+        setCurrentUsername(normalized)
+
+        if (!isChangingUsername) {
+            form.setValue('username', overviewData.user.username || '')
+            setUsernameFeedback({ state: normalized ? 'current' : 'idle', message: normalized ? 'This is your current username.' : USERNAME_REQUIREMENTS_MESSAGE })
+        }
+    }, [overviewData, form, isChangingUsername])
+
+    useEffect(() => {
+        if (!isChangingUsername) {
+            setUsernameFeedback({
+                state: currentUsername ? 'current' : 'idle',
+                message: currentUsername ? 'This is your current username.' : USERNAME_REQUIREMENTS_MESSAGE
+            })
+            return
+        }
+
+        const normalized = normalizeUsername(watchedUsername || '')
+
+        if (!normalized) {
+            setUsernameFeedback({ state: 'invalid', message: USERNAME_REQUIREMENTS_MESSAGE })
+            return
+        }
+
+        if (normalized === currentUsername) {
+            setUsernameFeedback({ state: 'current', message: 'This matches your current username.' })
+            return
+        }
+
+        if (
+            normalized.length < USERNAME_RULES.MIN_LENGTH ||
+            normalized.length > USERNAME_RULES.MAX_LENGTH ||
+            !USERNAME_RULES.REGEX.test(normalized)
+        ) {
+            setUsernameFeedback({ state: 'invalid', message: USERNAME_REQUIREMENTS_MESSAGE })
+            return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(async () => {
+            setUsernameFeedback({ state: 'checking', message: 'Checking availability...' })
+
+            try {
+                const response = await fetch(`${getEnv('VITE_API_BASE_URL')}/auth/username/check?username=${normalized}`, {
+                    signal: controller.signal
+                })
+                const data = await response.json()
+
+                if (!response.ok) {
+                    setUsernameFeedback({ state: 'error', message: data.message || 'Unable to check username right now.' })
+                    return
+                }
+
+                if (data?.data?.available || normalized === currentUsername) {
+                    setUsernameFeedback({ state: 'available', message: 'Username is available.' })
+                } else {
+                    setUsernameFeedback({ state: 'unavailable', message: 'Username is already taken.' })
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return
+                }
+                setUsernameFeedback({ state: 'error', message: error.message || 'Unable to check username right now.' })
+            }
+        }, 500)
+
+        return () => {
+            controller.abort()
+            clearTimeout(timeoutId)
+        }
+    }, [isChangingUsername, watchedUsername, currentUsername])
+
     const handleCopyUsername = async (username) => {
         if (!username) {
             return showToast('error', 'No username available to copy yet.')
@@ -183,6 +394,82 @@ const Profile = () => {
         } catch (error) {
             showToast('error', error.message || 'Unable to copy username right now.')
         }
+    }
+
+    const handleCancelPasswordChange = () => {
+        setIsChangingPassword(false)
+        form.setValue('oldPassword', '')
+        form.setValue('newPassword', '')
+        form.setValue('confirmPassword', '')
+        form.clearErrors(['oldPassword', 'newPassword', 'confirmPassword'])
+    }
+
+    const handleCancelUsernameChange = () => {
+        setIsChangingUsername(false)
+        form.setValue('username', currentUsername)
+        form.clearErrors('username')
+        setUsernameFeedback({
+            state: currentUsername ? 'current' : 'idle',
+            message: currentUsername ? 'This is your current username.' : USERNAME_REQUIREMENTS_MESSAGE
+        })
+    }
+
+    const findFirstErrorMessage = (errors) => {
+        const visited = new Set()
+
+        const traverse = (value) => {
+            if (!value) {
+                return null
+            }
+
+            if (typeof value === 'string') {
+                return value.trim().length > 0 ? value : null
+            }
+
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    const nestedFromArray = traverse(item)
+                    if (nestedFromArray) {
+                        return nestedFromArray
+                    }
+                }
+                return null
+            }
+
+            if (typeof value === 'object') {
+                if (visited.has(value)) {
+                    return null
+                }
+                visited.add(value)
+
+                if (typeof value.message === 'string' && value.message.trim().length > 0) {
+                    return value.message
+                }
+
+                if (value.types && typeof value.types === 'object') {
+                    const fromTypes = traverse(Object.values(value.types))
+                    if (fromTypes) {
+                        return fromTypes
+                    }
+                }
+
+                for (const nested of Object.values(value)) {
+                    const nestedMessage = traverse(nested)
+                    if (nestedMessage) {
+                        return nestedMessage
+                    }
+                }
+            }
+
+            return null
+        }
+
+        return traverse(errors)
+    }
+
+    const handleFormErrors = (errors) => {
+        const message = findFirstErrorMessage(errors) || 'Please review the form and try again.'
+        showToast('error', message)
     }
 
     if (userLoading) return <Loading />
@@ -202,10 +489,11 @@ const Profile = () => {
     const stats = overviewData?.stats || {}
     const highlights = overviewData?.highlights || {}
     const recentPosts = overviewData?.recentPosts || []
-    const profileUser = overviewData?.user || userData?.user || {}
+    const profileUser = overviewData?.user || userData?.user || user?.user || {}
+    const effectiveUsername = profileUser?.username || currentUsername || ''
     const hasCustomName = Boolean(profileUser?.name?.trim())
     const displayHeading = hasCustomName ? profileUser.name : getDisplayName(profileUser)
-    const usernameHandle = profileUser?.username ? `@${profileUser.username}` : ''
+    const usernameHandle = effectiveUsername ? `@${effectiveUsername}` : ''
 
     const joinedDate = profileUser?.createdAt ? new Date(profileUser.createdAt) : null
 
@@ -265,6 +553,7 @@ const Profile = () => {
 
     return (
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-8 lg:px-12">
+            <BackButton className="mb-4" />
             <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
                 <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
                 <div className="absolute bottom-0 left-12 h-64 w-64 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />
@@ -279,13 +568,9 @@ const Profile = () => {
                                 </AvatarFallback>
                             </Avatar>
                             {usernameHandle && (
-                                <button
-                                    type="button"
-                                    onClick={() => handleCopyUsername(profileUser?.username)}
-                                    className="relative z-10 mt-4 w-max rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/85 transition hover:bg-white/30"
-                                >
-                                    {copiedUsername ? 'Copied' : usernameHandle}
-                                </button>
+                                <div className="relative z-10 mt-4 w-max rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] lowercase tracking-[0.3em] text-white/85">
+                                    {usernameHandle}
+                                </div>
                             )}
                         </div>
                         <div className="space-y-4 text-white">
@@ -294,15 +579,24 @@ const Profile = () => {
                                     <Sparkles className="h-4 w-4" />
                                     Creator cockpit
                                 </p>
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <h1 className="text-3xl font-black leading-tight sm:text-4xl">
-                                        {displayHeading || 'Your profile'}
-                                    </h1>
-                                    {profileUser?.role && (
-                                        <span className="rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-white/80">
-                                            {profileUser.role}
-                                        </span>
-                                    )}
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <h1 className="text-3xl font-black leading-tight sm:text-4xl">
+                                                {displayHeading || 'Your profile'}
+                                            </h1>
+                                            {profileUser?.role && (
+                                                <span className="rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.35em] text-white/80">
+                                                    {profileUser.role}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {profileUser?.email && (
+                                            <p className="text-sm font-medium text-white/80">
+                                                {profileUser.email}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                                 <p className="text-sm text-white/85 sm:text-base">{heroBio}</p>
                             </div>
@@ -484,22 +778,65 @@ const Profile = () => {
                         )}
                     </Dropzone>
                 </div>
-                {usernameHandle && (
-                    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm">
-                        <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Username</p>
-                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <code className="text-lg font-semibold text-slate-900">{usernameHandle}</code>
-                            <Button type="button" variant="outline" size="sm" onClick={() => handleCopyUsername(profileUser?.username)}>
-                                {copiedUsername ? 'Copied' : 'Copy handle'}
-                            </Button>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                            Usernames are unique identifiers and cannot be changed at the moment.
-                        </p>
-                    </div>
-                )}
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="username"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <FormLabel className="text-sm font-semibold text-slate-700">Username</FormLabel>
+                                            <p className="text-xs text-slate-500">Your public handle readers can use to find you.</p>
+                                        </div>
+                                        {isChangingUsername ? (
+                                            <Button type="button" variant="ghost" size="sm" onClick={handleCancelUsernameChange}>
+                                                Cancel
+                                            </Button>
+                                        ) : (
+                                            <Button type="button" variant="outline" size="sm" onClick={() => setIsChangingUsername(true)}>
+                                                Change username
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {isChangingUsername ? (
+                                        <FormControl>
+                                            <div className="relative mt-3">
+                                                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">@</span>
+                                                <Input
+                                                    className="w-full rounded-2xl border border-slate-200 bg-white pl-8 pr-4 py-2.5 text-slate-800 shadow-sm transition focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30"
+                                                    value={field.value || ''}
+                                                    onChange={(event) => {
+                                                        const raw = event.target.value || ''
+                                                        const sanitized = normalizeUsername(raw)
+                                                        field.onChange(sanitized)
+                                                    }}
+                                                />
+                                            </div>
+                                        </FormControl>
+                                    ) : (
+                                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                                            <code className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-800">
+                                                @{field.value || currentUsername || 'username'}
+                                            </code>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleCopyUsername(field.value || currentUsername)}
+                                                disabled={!(field.value || currentUsername)}
+                                            >
+                                                {copiedUsername ? 'Copied' : 'Copy handle'}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <p className={`mt-2 text-xs ${isChangingUsername ? usernameFeedbackClass : 'text-slate-500'}`}>
+                                        {isChangingUsername ? usernameFeedback.message : 'Handles must be unique and use lowercase letters, numbers, or underscores.'}
+                                    </p>
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="name"
@@ -517,20 +854,6 @@ const Profile = () => {
                                         />
                                     </FormControl>
                                     <p className="text-xs text-slate-400">If left blank we&apos;ll show your username instead.</p>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Email</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Enter your email address" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
@@ -555,28 +878,71 @@ const Profile = () => {
                                         <span>Share what you love to write about.</span>
                                         <span>{(field.value?.length ?? 0)}/500</span>
                                     </div>
-                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        New password
-                                        <span className="text-xs font-normal text-slate-400">optional</span>
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input type="password" placeholder="Leave blank to keep your current password" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="space-y-1">
+                                    <FormLabel className="text-sm font-semibold text-slate-700">Password</FormLabel>
+                                    <p className="text-xs text-slate-500">Update your password when you need to change it.</p>
+                                </div>
+                                {isChangingPassword ? (
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleCancelPasswordChange}>
+                                        Cancel
+                                    </Button>
+                                ) : (
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setIsChangingPassword(true)}>
+                                        Change password
+                                    </Button>
+                                )}
+                            </div>
+                            {isChangingPassword ? (
+                                <div className="mt-4 space-y-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="oldPassword"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Current password</FormLabel>
+                                                <FormControl>
+                                                    <Input type="password" placeholder="Enter your current password" {...field} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="newPassword"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>New password</FormLabel>
+                                                <FormControl>
+                                                    <Input type="password" placeholder="Create a strong new password" {...field} />
+                                                </FormControl>
+                                                <p className="text-xs text-slate-400">Use 8-64 characters with upper, lower, number, and special symbols.</p>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="confirmPassword"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Confirm new password</FormLabel>
+                                                <FormControl>
+                                                    <Input type="password" placeholder="Re-enter the new password" {...field} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            ) : (
+                                <p className="mt-3 text-xs text-slate-500">We&apos;ll ask for your current password before saving any changes.</p>
                             )}
-                        />
+                        </div>
 
-                        <Button type="submit" className="w-full sm:inline-flex items-center gap-2 rounded-full bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:from-[#6C5CE7] hover:to-[#6C5CE7">Save changes</Button>
+                        <Button type="submit" className="w-full sm:inline-flex items-center gap-2 rounded-full bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:from-[#6C5CE7] hover:to-[#6C5CE7]">Save changes</Button>
                     </form>
                 </Form>
             </section>

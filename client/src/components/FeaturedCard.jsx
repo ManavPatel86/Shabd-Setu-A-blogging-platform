@@ -104,20 +104,17 @@ const FeaturedCard = () => {
 
   // Animation variants
   const slideVariants = {
-    enter: (direction) => ({
-      x: direction > 0 ? 1000 : -1000,
+    enter: () => ({
       opacity: 0,
-      scale: 0.95,
+      scale: 0.98,
     }),
     center: {
-      x: 0,
       opacity: 1,
       scale: 1,
     },
-    exit: (direction) => ({
-      x: direction > 0 ? -1000 : 1000,
+    exit: () => ({
       opacity: 0,
-      scale: 0.95,
+      scale: 0.98,
     }),
   };
 
@@ -186,14 +183,13 @@ const FeaturedCard = () => {
               animate="center"
               exit="exit"
               transition={{
-                x: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.4 },
-                scale: { duration: 0.4 },
+                opacity: { duration: 0.35 },
+                scale: { duration: 0.35 },
               }}
-              className="flex flex-col items-center gap-8 md:flex-row md:gap-12"
+              className="flex h-full flex-col items-center gap-8 md:flex-row md:gap-12"
             >
               {/* Left Content */}
-              <div className="flex-1 flex flex-col text-center md:text-left gap-0">
+              <div className="flex-1 flex flex-col justify-between text-center md:text-left gap-0 min-h-[320px]">
                 <div className="flex flex-col gap-5">
                   {currentCategory && (
                     <motion.span
@@ -252,7 +248,7 @@ const FeaturedCard = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.55 }}
-                  className="mt-auto pt-8 text-xl sm:text-2xl md:text-[28px] font-extrabold text-white uppercase tracking-[0.28em]"
+                  className="mt-8 text-xl sm:text-2xl md:text-[28px] font-extrabold text-white uppercase tracking-[0.28em]"
                 >
                   {highlightLabel}
                 </motion.p>

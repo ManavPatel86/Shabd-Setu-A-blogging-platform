@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import moment from 'moment';
 import { Link } from 'react-router-dom';
+import BackButton from '@/components/BackButton';
 import { Trash2, MessageSquare } from 'lucide-react';
 import { useFetch } from '@/hooks/useFetch';
 import { getEnv } from '@/helpers/getEnv';
@@ -70,6 +71,7 @@ const Comments = () => {
 
     return (
         <div className="px-4 pt-6 pb-16 space-y-8 text-gray-900 sm:space-y-10 sm:px-8 lg:px-12">
+            <BackButton className="mb-4" />
             <section className="relative mt-4 overflow-hidden rounded-4xl bg-[#6C5CE7] px-5 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.85)] sm:rounded-[40px] sm:px-8 sm:py-10 lg:px-12">
                 <div className="absolute top-0 right-0 rounded-full h-80 w-80 translate-x-1/4 -translate-y-1/3 bg-white/10 blur-3xl" />
                 <div className="absolute rounded-full -bottom-24 -left-12 h-72 w-72 bg-purple-300/25 blur-3xl" />

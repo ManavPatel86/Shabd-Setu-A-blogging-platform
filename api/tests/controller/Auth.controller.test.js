@@ -293,24 +293,19 @@ describe('Auth Controller Tests', () => {
       expect(otpDoc.pendingUser.username).toBe('camelcase_user');
     });
 
-    it('should generate username using normalizedEmail when username omitted and name is whitespace', async () => {
-      mockSendOtpEmail.mockResolvedValue();
-
+    it('should reject registration when username is omitted', async () => {
       req.body = {
-        name: '   ', // whitespace name -> should fall back to email
+        name: '   ',
         email: 'emailfallback@example.com',
         password: 'password123'
-        // username intentionally omitted
       };
 
       await Register(req, res, next);
 
-      expect(res._statusCode).toBe(200);
-      const otpDoc = await OtpCode.findOne({ email: 'emailfallback@example.com' });
-      expect(otpDoc).toBeTruthy();
-      expect(otpDoc.pendingUser.username).toBeDefined();
-      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
-    }, 10000);
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('username');
+    });
 
     it('should reject invalid username format during registration', async () => {
       req.body = {
@@ -349,9 +344,7 @@ describe('Auth Controller Tests', () => {
       expect(res._error.message).toContain('Username is already taken');
     });
 
-    it('should generate unique username when no username provided', async () => {
-      mockSendOtpEmail.mockResolvedValue();
-
+    it('should require username even when name is provided', async () => {
       req.body = {
         name: 'Test User',
         email: 'autousername@example.com',
@@ -360,31 +353,25 @@ describe('Auth Controller Tests', () => {
 
       await Register(req, res, next);
 
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.success).toBe(true);
-      const otpDoc = await OtpCode.findOne({ email: 'autousername@example.com' });
-      expect(otpDoc.pendingUser.username).toBeDefined();
-      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
-    }, 10000);
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('username');
+    });
 
-    it('should generate username from email when username is empty (covers lines 102-103)', async () => {
-      mockSendOtpEmail.mockResolvedValue();
-
+    it('should reject registration when username is only whitespace', async () => {
       req.body = {
-        name: '   ',  // Whitespace name to trigger || normalizedEmail branch
+        name: '   ',
         email: 'emptyusername@example.com',
         password: 'password123',
-        username: '   ',  // Whitespace username to enter else block at line 101
+        username: '   ',
       };
 
       await Register(req, res, next);
 
-      expect(res._statusCode).toBe(200);
-      expect(res._jsonData.success).toBe(true);
-      const otpDoc = await OtpCode.findOne({ email: 'emptyusername@example.com' });
-      expect(otpDoc.pendingUser.username).toBeDefined();
-      expect(otpDoc.pendingUser.username.length).toBeGreaterThan(0);
-    }, 10000);
+      expect(res._error).toBeDefined();
+      expect(res._error.statusCode).toBe(400);
+      expect(res._error.message).toContain('username');
+    });
   });
 
   describe('verifyOtp', () => {
@@ -1327,18 +1314,16 @@ describe('Auth Controller Tests', () => {
       expect(res._jsonData.message).toBe('Invalid login credentials.');
     });
 
-    it('should fallback to normalizedEmail in ensureUserHasUsername when name missing', async () => {
-      // Create user with no name
+    it('allows login even when username is missing', async () => {
       const hashedPassword = bcryptjs.hashSync('password123');
       const user = await User.create({ email: 'noname@example.com', password: hashedPassword });
 
       req.body = { email: 'noname@example.com', password: 'password123' };
       await Login(req, res);
 
-      // After login, ensure user has username assigned
       const updatedUser = await User.findById(user._id);
-      expect(updatedUser.username).toBeDefined();
-      expect(updatedUser.username.length).toBeGreaterThan(0);
+      expect(updatedUser).toBeDefined();
+      expect(updatedUser.username).toBeUndefined();
     });
   });
 
@@ -1419,8 +1404,8 @@ describe('Auth Controller Tests', () => {
       expect(user.username.length).toBeGreaterThan(0);
     });
 
-    it('should fallback to normalizedEmail in ensureUserHasUsername when name missing (GoogleLogin)', async () => {
-      // Create existing user without a name to ensure GoogleLogin uses normalizedEmail
+    it('assigns username for existing Google user missing one', async () => {
+      // Create existing user without a name to ensure GoogleLogin assigns a handle
       const hashedPassword = bcryptjs.hashSync('random-password');
       const existing = await User.create({ email: 'googlenoname@example.com', password: hashedPassword });
 

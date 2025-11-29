@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Mail,
 } from "lucide-react";
+import BackButton from "@/components/BackButton";
 
 const FAQItem = ({ q, a, isOpen, onClick }) => (
   <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
@@ -116,6 +117,7 @@ export default function Help() {
       </Helmet>
 
       <div className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-12 py-10 space-y-10">
+        <BackButton className="mb-4" />
         <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] text-white px-6 sm:px-10 py-12 shadow-[0_35px_90px_-45px_rgba(15,23,42,0.9)]">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/15 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-12 w-56 h-56 bg-purple-300/40 rounded-full blur-3xl translate-y-1/2" />
@@ -150,14 +152,25 @@ export default function Help() {
                 shabd.setu.blogsite@gmail.com
               </p>
               <p className="text-xs text-white/65 mt-2">
+                onClick={() =>
+                  window.open(
+                    "https://mail.google.com/mail/?view=cm&fs=1&to=test@example.com&su=Hello&body=This is a test",
+                    "_blank"
+                  )
+                }
                 Average response time: under 4 hours.
               </p>
-              <a
-                href="mailto:shabd.setu.blogsite@gmail.com"
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/80 backdrop-blur transition-colors hover:border-white/60 hover:text-white"
+              <a className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/80 backdrop-blur transition-colors hover:border-white/60 hover:text-white cursor-pointer" 
+                onClick={() =>
+                  window.open(
+                    "https://mail.google.com/mail/?view=cm&fs=1&to=shabd.setu.blogsite@gmail.com&su=I am facing an issue.",
+                    "_blank"
+                  )
+                }
               >
                 Contact support
               </a>
+              
             </div>
           </div>
         </section>
@@ -185,29 +198,6 @@ export default function Help() {
               />
             ))}
           </div>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {supportChannels.map((channel) => (
-            <div
-              key={channel.label}
-              className="rounded-3xl border border-slate-100 bg-white/95 p-6 shadow-[0_25px_70px_-55px_rgba(15,23,42,0.7)] flex flex-col gap-3"
-            >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
-                {channel.icon}
-                {channel.label}
-              </span>
-              <p className="text-base text-slate-900 font-semibold">
-                {channel.detail}
-              </p>
-              <a
-                href={channel.href}
-                className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-700"
-              >
-                {channel.action}
-              </a>
-            </div>
-          ))}
         </section>
 
         <section className="rounded-4xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center text-slate-600">

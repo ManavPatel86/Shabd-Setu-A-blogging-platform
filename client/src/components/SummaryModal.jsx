@@ -9,6 +9,7 @@ const SummaryModal = ({
     summaryError,
     onRefresh
 }) => {
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
     // Close on ESC
     useEffect(() => {
@@ -18,6 +19,18 @@ const SummaryModal = ({
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
     }, [onClose]);
+
+    // Reset refreshing state when loading stops
+    useEffect(() => {
+        if (!summaryLoading) {
+            setIsRefreshing(false);
+        }
+    }, [summaryLoading]);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        onRefresh();
+    };
 
     if (!isOpen) return null;
 
@@ -42,13 +55,16 @@ const SummaryModal = ({
                 <h3 className="text-lg font-bold mb-3">AI Summary</h3>
 
                 {/* Refresh button */}
-                <button
-                    onClick={onRefresh}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mb-3"
-                >
-                    {summaryLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {summaryLoading ? "Refreshing..." : "Refresh"}
-                </button>
+                {summary && (
+                    <button
+                        onClick={handleRefresh}
+                        disabled={summaryLoading}
+                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isRefreshing && summaryLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {isRefreshing && summaryLoading ? "Refreshing..." : "Refresh"}
+                    </button>
+                )}
 
                 {/* Summary body */}
                 <div className="text-sm text-gray-700 space-y-3">

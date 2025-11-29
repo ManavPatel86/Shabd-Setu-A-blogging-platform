@@ -6,6 +6,7 @@ import BlogLike from "../models/bloglike.model.js"
 import Follow from "../models/follow.model.js"
 import bcryptjs from 'bcryptjs'
 import mongoose from "mongoose"
+import { normalizeUsername, isValidUsername, USERNAME_REQUIREMENTS_MESSAGE, isUsernameAvailable } from "../utils/username.js"
 
 // Password validation requirements
 const PASSWORD_REQUIREMENTS = {
@@ -63,6 +64,35 @@ export const getUser = async (req, res, next) => {
     }
 }
 
+export const searchUsersByUsername = async (req, res, next) => {
+    try {
+        const { query } = req.query
+        
+        if (!query || typeof query !== 'string' || query.trim().length === 0) {
+            return next(handleError(400, 'Search query is required.'))
+        }
+
+        const normalizedQuery = normalizeUsername(query)
+        const searchRegex = new RegExp(normalizedQuery, 'i')
+
+        const users = await User.find(
+            { username: searchRegex },
+            { username: 1, name: 1, avatar: 1, bio: 1, role: 1 }
+        )
+        .limit(20)
+        .lean()
+        .exec()
+
+        res.status(200).json({
+            success: true,
+            message: 'Search results retrieved.',
+            users
+        })
+    } catch (error) {
+        next(handleError(500, error.message))
+    }
+}
+
 
 export const updateUser = async (req, res, next) => {
     try {
@@ -88,7 +118,39 @@ export const updateUser = async (req, res, next) => {
             user.email = normalizedEmail
         }
 
+        if (typeof data.username === 'string') {
+            const normalizedUsername = normalizeUsername(data.username)
+            if (!normalizedUsername) {
+                return next(handleError(400, 'Username is required.'))
+            }
+
+            if (!isValidUsername(normalizedUsername)) {
+                return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE))
+            }
+
+            if (normalizedUsername !== user.username) {
+                const available = await isUsernameAvailable(normalizedUsername, userid)
+                if (!available) {
+                    return next(handleError(409, 'Username is already taken. Please choose another.'))
+                }
+                user.username = normalizedUsername
+            }
+        }
+
         if (data.password) {
+            if (!data.currentPassword || typeof data.currentPassword !== 'string') {
+                return next(handleError(400, 'Current password is required to change your password.'));
+            }
+
+            const isCurrentPasswordValid = await bcryptjs.compare(data.currentPassword, user.password);
+            if (!isCurrentPasswordValid) {
+                return next(handleError(400, 'Current password is incorrect.'));
+            }
+
+            if (data.currentPassword === data.password) {
+                return next(handleError(400, 'New password must be different from the current password.'));
+            }
+
             const passwordValidation = validatePassword(data.password);
             if (!passwordValidation.isValid) {
                 return next(handleError(400, passwordValidation.message));

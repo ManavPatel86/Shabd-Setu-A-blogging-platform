@@ -86,7 +86,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const defaultOrigins = ['https://shabdsetu.vercel.app', 'http://localhost:5173'];
 const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim().replace(/^'+|'+$/g, ''))
@@ -102,7 +101,7 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       } else {
-        console.log("❌ Blocked by CORS:", origin);
+        console.log("Blocked by CORS:", origin);
         return callback(new Error("Not allowed by CORS"));
       }
     },
@@ -134,7 +133,12 @@ mongoose.connect(process.env.MONGODB_CONN,{dbName:'Shabd-Setu'})
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-})
+}).on('error', (err) => {
+  if (err.code) {
+    console.error('Server error:', err);
+    process.exit(1);
+  }
+});
 
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500

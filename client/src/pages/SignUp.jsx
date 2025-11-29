@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, AtSign } from "lucide-react";
 
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -13,7 +13,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "../components/ui/form";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -22,21 +21,71 @@ import { showToast } from "@/helpers/showToast";
 
 import GoogleLogin from "@/components/ui/GoogleLogin";
 import { CiMail, CiUser } from "react-icons/ci";
+import { validatePassword } from "@/helpers/passwordValidation";
+import { normalizeUsername, validateUsername, USERNAME_REQUIREMENTS_MESSAGE, USERNAME_RULES } from "@/helpers/usernameValidation";
 
 
 // ---------------------------
-// 🔐 FORM VALIDATION SCHEMA
+// FORM VALIDATION SCHEMA
 // ---------------------------
 const registerSchema = z
   .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
+    name: z
+      .string()
+      .min(2, "Name must be at least 2 characters")
+      .max(50, "Name cannot exceed 50 characters"),
+    username: z.string(),
     email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters long"),
+    password: z.string(),
     confirmPassword: z.string(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
+  .superRefine((data, ctx) => {
+    const usernameResult = validateUsername(data.username);
+    if (!usernameResult.isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["username"],
+        message: usernameResult.message,
+      });
+    } else {
+      data.username = usernameResult.username;
+    }
+
+    if (!data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Password is required.",
+      });
+      return;
+    }
+
+    if (!data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["confirmPassword"],
+        message: "Please confirm your password.",
+      });
+      return;
+    }
+
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["confirmPassword"],
+        message: "Passwords do not match.",
+      });
+      return;
+    }
+
+    const validation = validatePassword(data.password);
+    if (!validation.isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: validation.message,
+      });
+    }
   });
 
 
@@ -47,6 +96,10 @@ const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [usernameFeedback, setUsernameFeedback] = useState({
+    state: "idle",
+    message: USERNAME_REQUIREMENTS_MESSAGE,
+  });
 
   // form step
   const [step, setStep] = useState("register");
@@ -65,15 +118,28 @@ const SignUp = () => {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       name: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
     },
   });
 
+  const usernameValue = form.watch("username");
+  const usernameFeedbackClass =
+    usernameFeedback.state === "available"
+      ? "text-emerald-600"
+      : usernameFeedback.state === "unavailable" || usernameFeedback.state === "error"
+      ? "text-rose-500"
+      : usernameFeedback.state === "checking"
+      ? "text-slate-500"
+      : usernameFeedback.state === "invalid"
+      ? "text-amber-600"
+      : "text-slate-400";
+
 
   // ---------------------------
-  // ⏳ RESEND OTP TIMER EFFECT
+  // RESEND OTP TIMER EFFECT
   // ---------------------------
   useEffect(() => {
     if (!resendDisabled || resendTimer <= 0) return;
@@ -92,17 +158,110 @@ const SignUp = () => {
     return () => clearInterval(timer);
   }, [resendDisabled, resendTimer]);
 
+  useEffect(() => {
+    const currentValue = usernameValue || "";
+    const normalized = normalizeUsername(currentValue);
+
+    if (!currentValue) {
+      setUsernameFeedback({ state: "idle", message: USERNAME_REQUIREMENTS_MESSAGE });
+      return;
+    }
+
+    if (
+      normalized.length < USERNAME_RULES.MIN_LENGTH ||
+      normalized.length > USERNAME_RULES.MAX_LENGTH ||
+      !USERNAME_RULES.REGEX.test(normalized)
+    ) {
+      setUsernameFeedback({ state: "invalid", message: USERNAME_REQUIREMENTS_MESSAGE });
+      return;
+    }
+
+    const controller = new AbortController();
+    const debounceId = setTimeout(async () => {
+      setUsernameFeedback({ state: "checking", message: "Checking availability..." });
+
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/auth/username/check?username=${normalized}`,
+          { signal: controller.signal }
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          setUsernameFeedback({
+            state: "error",
+            message: data.message || "Unable to check username right now.",
+          });
+          return;
+        }
+
+        if (data?.data?.available) {
+          setUsernameFeedback({ state: "available", message: "Username is available." });
+        } else {
+          setUsernameFeedback({ state: "unavailable", message: "Username is already taken." });
+        }
+      } catch (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+        setUsernameFeedback({
+          state: "error",
+          message: error.message || "Unable to check username right now.",
+        });
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      clearTimeout(debounceId);
+    };
+  }, [usernameValue]);
+
   // ---------------------------
-  // 📝 HANDLE REGISTER SUBMIT
+  // HANDLE REGISTER SUBMIT
   // ---------------------------
   async function onSubmit(values) {
     try {
       setIsLoading(true);
 
+      const normalizedUsername = normalizeUsername(values.username);
+
+      if (
+        normalizedUsername.length < USERNAME_RULES.MIN_LENGTH ||
+        normalizedUsername.length > USERNAME_RULES.MAX_LENGTH ||
+        !USERNAME_RULES.REGEX.test(normalizedUsername)
+      ) {
+        setIsLoading(false);
+        return showToast("error", USERNAME_REQUIREMENTS_MESSAGE);
+      }
+
+      if (usernameFeedback.state === "checking") {
+        setIsLoading(false);
+        return showToast("error", "Hold on while we finish checking that username.");
+      }
+
+      if (usernameFeedback.state === "unavailable") {
+        setIsLoading(false);
+        return showToast("error", "That username is already taken. Try another one.");
+      }
+
+      if (usernameFeedback.state === "invalid" || usernameFeedback.state === "error") {
+        setIsLoading(false);
+        return showToast("error", usernameFeedback.message || USERNAME_REQUIREMENTS_MESSAGE);
+      }
+
+      const payload = {
+        name: values.name.trim(),
+        username: normalizedUsername,
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        confirmPassword: values.confirmPassword,
+      };
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -125,9 +284,15 @@ const SignUp = () => {
     }
   }
 
+  const handleFormError = (errors) => {
+    const firstError = Object.values(errors)[0];
+    const message = firstError?.message || "Please fix the highlighted errors.";
+    showToast("error", message);
+  };
+
 
   // ---------------------------
-  // 🔐 VERIFY OTP
+  // VERIFY OTP
   // ---------------------------
   async function handleVerifyOtp(e) {
     e.preventDefault();
@@ -158,7 +323,7 @@ const SignUp = () => {
 
 
   // ---------------------------
-  // 🔁 RESEND OTP
+  // RESEND OTP
   // ---------------------------
   const handleResendOtp = async () => {
     if (!pendingEmail) return showToast("error", "No email found. Please register again.");
@@ -233,7 +398,7 @@ const SignUp = () => {
           {/* --------------------------- */}
           {step === "register" ? (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+              <form onSubmit={form.handleSubmit(onSubmit, handleFormError)} className="space-y-3">
                 
                 {/* NAME */}
                 <FormField
@@ -254,7 +419,38 @@ const SignUp = () => {
                           <CiUser className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                         </div>
                       </FormControl>
-                      <FormMessage className="text-sm text-rose-500" />
+                      {/* Inline error suppressed; toast handles messaging */}
+                    </FormItem>
+                  )}
+                />
+
+                {/* USERNAME */}
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Username
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative mt-1">
+                          <Input
+                            placeholder="Choose a unique handle"
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 pr-12 text-slate-800 shadow-sm transition-all focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30"
+                            {...field}
+                            onChange={(event) => {
+                              const raw = event.target.value || "";
+                              const sanitized = normalizeUsername(raw);
+                              field.onChange(sanitized);
+                            }}
+                          />
+                          <AtSign className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                        </div>
+                      </FormControl>
+                      <p className={`mt-1 text-xs ${usernameFeedbackClass}`}>
+                        {usernameFeedback.message}
+                      </p>
                     </FormItem>
                   )}
                 />
@@ -279,7 +475,7 @@ const SignUp = () => {
                           <CiMail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                         </div>
                       </FormControl>
-                      <FormMessage className="text-sm text-rose-500" />
+                      {/* Inline error suppressed; toast handles messaging */}
                     </FormItem>
                   )}
                 />
@@ -310,7 +506,7 @@ const SignUp = () => {
                           </button>
                         </div>
                       </FormControl>
-                      <FormMessage className="text-sm text-rose-500" />
+                      {/* Inline error suppressed; toast handles messaging */}
                     </FormItem>
                   )}
                 />
@@ -341,7 +537,7 @@ const SignUp = () => {
                           </button>
                         </div>
                       </FormControl>
-                      <FormMessage className="text-sm text-rose-500" />
+                      {/* Inline error suppressed; toast handles messaging */}
                     </FormItem>
                   )}
                 />

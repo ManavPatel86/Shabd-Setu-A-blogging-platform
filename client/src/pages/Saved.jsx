@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import BlogCard from "@/components/BlogCard";
 import { getEnv } from "@/helpers/getEnv";
+import BackButton from "@/components/BackButton";
 import { useFetch } from "@/hooks/useFetch";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -161,6 +162,7 @@ const Saved = () => {
 
     return (
         <div className="px-4 pt-6 pb-16 space-y-10 text-gray-900 sm:px-8 lg:px-12">
+            <BackButton className="mb-4" />
             <section className="relative mt-4 overflow-hidden rounded-[40px] bg-[#6C5CE7] px-5 py-8 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.85)] sm:px-8 lg:px-12 lg:py-10">
                 <div className="absolute top-0 right-0 rounded-full h-80 w-80 translate-x-1/3 -translate-y-1/3 bg-white/10 blur-3xl" />
                 <div className="absolute rounded-full -bottom-24 -left-10 h-72 w-72 bg-purple-300/25 blur-3xl" />

@@ -6,7 +6,7 @@ import * as mailer from "../utils/mailer.js";
 import { sendPasswordResetEmail } from "../utils/mailer.js";
 import { createAndSendOtp, resendOtp as resendOtpUtil, verifyOtp as verifyOtpUtil } from "../utils/Otp.js";
 import { createVerificationCode, resendVerificationCode, verifyCodeForPurpose, VERIFICATION_PURPOSES } from "../utils/verificationToken.js";
-import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, generateUniqueUsername, ensureUserHasUsername } from "../utils/username.js";
+import { USERNAME_REQUIREMENTS_MESSAGE, normalizeUsername, isValidUsername, isUsernameAvailable, generateUsernameSuggestion } from "../utils/username.js";
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const RESEND_INTERVAL_MINUTES = Number(process.env.OTP_RESEND_INTERVAL_MINUTES) || 1;
@@ -27,13 +27,15 @@ const getCookieConfig = () => {
 
 export const checkUsernameAvailability = async (req, res, next) => {
     try {
-        const username = normalizeUsername(req.query?.username || req.body?.username || "");
+        const rawUsername = req.query?.username || req.body?.username || "";
+        const username = normalizeUsername(rawUsername);
         if (!username) return next(handleError(400, "Username is required."));
         if (!isValidUsername(username)) return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
-        const exists = await User.exists({ username });
+
+        const available = await isUsernameAvailable(username);
         return res.status(200).json({
             success: true,
-            data: { available: !exists, username }
+            data: { available, username }
         });
     } catch (error) {
         return next(handleError(500, error.message));
@@ -60,25 +62,29 @@ const issueAuthCookie = (res, user) => {
         { expiresIn: "7d" }
     );
     res.cookie("access_token", token, getCookieConfig());
-    return sanitizeUser(user);
+    return { token, user: sanitizeUser(user) };
 };
 
 export const Register = async (req, res, next) => {
     try {
         res.clearCookie("access_token", getCookieConfig());
         const { name, email, password, username } = req.body;
-        
-        if (!name || !email || !password) {
-            return next(handleError(400, "Name, email and password are required."));
-        }
-        
-        const normalizedEmail = email.trim().toLowerCase();
-        let normalizedUsername = username
-            ? normalizeUsername(username)
-            : await generateUniqueUsername((typeof name === 'string' && name.trim()) || normalizedEmail);
 
-        if (normalizedUsername && !isValidUsername(normalizedUsername)) {
+        const cleanedName = typeof name === "string" ? name.trim() : "";
+        if (!cleanedName || !email || !password || !username) {
+            return next(handleError(400, "Name, email, password, and username are required."));
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const normalizedUsername = normalizeUsername(username);
+
+        if (!isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
+        }
+
+        const usernameAvailable = await isUsernameAvailable(normalizedUsername);
+        if (!usernameAvailable) {
+            return next(handleError(409, "Username is already taken. Please choose another."));
         }
 
         const existingUser = await User.findOne({ email: normalizedEmail });
@@ -86,24 +92,13 @@ export const Register = async (req, res, next) => {
             return next(handleError(409, "User already registered."));
         }
 
-        let finalUsername = normalizedUsername;
-        if (finalUsername) {
-            const usernameTaken = await User.findOne({ username: finalUsername });
-            if (usernameTaken) {
-                return next(handleError(409, "Username is already taken. Please choose another."));
-            }
-        } else {
-            const seed = (typeof name === "string" && name.trim()) || normalizedEmail;
-            finalUsername = await generateUniqueUsername(seed);
-        }
-
         const hashedPassword = bcryptjs.hashSync(password);
-        const pendingDisplayName = typeof name === "string" && name.trim() ? name.trim() : finalUsername;
+        const pendingDisplayName = cleanedName;
 
         await createAndSendOtp({
             email: normalizedEmail,
             pendingUser: {
-                username: finalUsername,
+                username: normalizedUsername,
                 name: pendingDisplayName,
                 passwordHash: hashedPassword,
                 role: "user"
@@ -146,22 +141,25 @@ export const verifyOtp = async (req, res, next) => {
             return next(handleError(400, "Pending registration data is incomplete. Please register again."));
         }
 
-        const normalizedUsername = pendingUser.username
-            ? normalizeUsername(pendingUser.username)
-            : await generateUniqueUsername(pendingUser.name || normalizedEmail);
+        let normalizedUsername = pendingUser.username ? normalizeUsername(pendingUser.username) : "";
+        if (!normalizedUsername) {
+            normalizedUsername = await generateUsernameSuggestion(pendingUser.name || normalizedEmail);
+        }
 
         if (!isValidUsername(normalizedUsername)) {
             return next(handleError(400, USERNAME_REQUIREMENTS_MESSAGE));
         }
 
-        const usernameTaken = await User.findOne({ username: normalizedUsername });
-        if (usernameTaken) {
+        const usernameAvailable = await isUsernameAvailable(normalizedUsername);
+        if (!usernameAvailable) {
             return next(handleError(409, "This username was taken while you were verifying. Please register again with a different username."));
         }
 
+        const safeName = typeof pendingUser.name === "string" ? pendingUser.name.trim() : "";
+
         const newUser = new User({
             username: normalizedUsername,
-            name: pendingUser.name || normalizedUsername,
+            name: safeName || normalizedUsername,
             email: normalizedEmail,
             password: pendingUser.passwordHash,
             role: pendingUser.role || "user",
@@ -259,11 +257,10 @@ export const Login = async (req, res, next) => {
             return next(handleError(403, "Account is blacklisted."));
         }
 
-        await ensureUserHasUsername(user, user.name || normalizedEmail);
-
-        const safeUser = issueAuthCookie(res, user);
+        const { token, user: safeUser } = issueAuthCookie(res, user);
         return res.status(200).json({
             success: true,
+            token,
             user: safeUser,
             message: "Login successful."
         });
@@ -282,13 +279,15 @@ export const GoogleLogin = async (req, res, next) => {
 
         let user = await User.findOne({ email: normalizedEmail });
 
+        const fallbackSeed = name || normalizedEmail;
+
         if (!user) {
             const password = Math.random().toString();
             const hashedPassword = bcryptjs.hashSync(password);
-            const fallbackUsername = await generateUniqueUsername(name || normalizedEmail);
+            const suggestedUsername = await generateUsernameSuggestion(fallbackSeed);
 
             const newUser = new User({
-                username: fallbackUsername,
+                username: suggestedUsername,
                 name,
                 email: normalizedEmail,
                 password: hashedPassword,
@@ -296,29 +295,18 @@ export const GoogleLogin = async (req, res, next) => {
             });
 
             user = await newUser.save();
-        } else {
-            await ensureUserHasUsername(user, name || normalizedEmail);
+        } else if (!user.username) {
+            const suggestedUsername = await generateUsernameSuggestion(fallbackSeed);
+            user.username = suggestedUsername;
+            await user.save();
         }
 
-        const token = jwt.sign(
-            {
-                _id: user._id,
-                name: user.name,
-                username: user.username,
-                email: user.email,
-                avatar: user.avatar
-            },
-            process.env.JWT_SECRET
-        );
-
-        res.cookie("access_token", token, getCookieConfig());
-
-        const newUser = user.toObject({ getters: true });
-        delete newUser.password;
+        const { token, user: safeUser } = issueAuthCookie(res, user);
 
         return res.status(200).json({
             success: true,
-            user: newUser,
+            token,
+            user: safeUser,
             message: "Login successful."
         });
     } catch (error) {
@@ -447,6 +435,12 @@ export const resetPassword = async (req, res, next) => {
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             return next(handleError(404, "Account not found."));
+        }
+
+        // Check if new password is same as current password
+        const isSamePassword = await bcryptjs.compare(newPassword, user.password || "");
+        if (isSamePassword) {
+            return next(handleError(400, "New password cannot be the same as your current password."));
         }
 
         user.password = bcryptjs.hashSync(newPassword);

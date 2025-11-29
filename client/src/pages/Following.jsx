@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import { useFetch } from "@/hooks/useFetch";
+import BackButton from "@/components/BackButton";
 import { getEnv } from "@/helpers/getEnv";
 import { useNavigate } from "react-router-dom";
 import { RouteProfileView } from "@/helpers/RouteName";
@@ -112,6 +113,7 @@ const Following = () => {
   // ------------------------------
   return (
     <div className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-12 py-8 space-y-10">
+      <BackButton className="mb-4" />
       {/* HERO SECTION */}
       <section className="relative overflow-hidden rounded-[40px] bg-[#6C5CE7] text-white px-6 sm:px-10 py-10 shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)]">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />

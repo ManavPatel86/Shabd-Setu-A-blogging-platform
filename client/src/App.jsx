@@ -70,11 +70,7 @@ import NotificationsProvider from './context/NotificationsProvider';function App
 
                         <Route
                             path={RouteIndex}
-                            element={
-                                <ProtectedRoute>
-                                    <Index />
-                                </ProtectedRoute>
-                            }
+                            element={<Index />}
                         />
 
                         <Route

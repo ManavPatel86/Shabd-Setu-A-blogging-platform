@@ -1,23 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import BackButton from '@/components/BackButton';
 import {
     Search as SearchIcon,
     PenTool,
     Plus,
     Edit3,
     Trash2,
-    MoreVertical,
     ChevronRight,
-    Palette,
-    Film,
     Trophy,
-    Landmark,
-    Newspaper,
-    GraduationCap,
     Briefcase,
     FolderOpen,
-    Bookmark,
 } from 'lucide-react';
 import moment from 'moment';
 import { useSelector } from 'react-redux';
@@ -26,28 +20,14 @@ import { useFetch } from '@/hooks/useFetch';
 import { getEnv } from '@/helpers/getEnv';
 import { deleteData } from '@/helpers/handleDelete';
 import { showToast } from '@/helpers/showToast';
-import { RouteBlogAdd, RouteBlogEdit } from '@/helpers/RouteName';
-
-/* ---------------- CATEGORY / TAG CONFIG ---------------- */
-
-const CATEGORY_STYLES = [
-    { matcher: /art|design/i, icon: Palette, colorClass: 'bg-orange-50 text-orange-600 border-orange-100' },
-    { matcher: /movie|tv|film/i, icon: Film, colorClass: 'bg-purple-50 text-purple-600 border-purple-100' },
-    { matcher: /sport|game|fitness/i, icon: Trophy, colorClass: 'bg-pink-50 text-pink-600 border-pink-100' },
-    { matcher: /politic|government/i, icon: Landmark, colorClass: 'bg-blue-50 text-blue-600 border-blue-100' },
-    { matcher: /news|update|press/i, icon: Newspaper, colorClass: 'bg-gray-50 text-gray-600 border-gray-200' },
-    { matcher: /education|learning|study/i, icon: GraduationCap, colorClass: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
-    { matcher: /business|startup|career/i, icon: Briefcase, colorClass: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-    { matcher: /.*/, icon: FolderOpen, colorClass: 'bg-slate-50 text-slate-600 border-slate-200' },
-];
+import { RouteBlog, RouteBlogAdd, RouteBlogDetails, RouteBlogEdit } from '@/helpers/RouteName';
 
 /* ---------------- SMALL UI COMPONENTS ---------------- */
 
-const CategoryPill = ({ icon, name, colorClass }) => (
+const CategoryPill = ({ name }) => (
     <span
-        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-semibold tracking-[0.15em] uppercase border ${colorClass} shadow-sm backdrop-blur hover:-translate-y-0.5 hover:shadow-md transition-all`}
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-semibold tracking-[0.15em] uppercase border bg-slate-50 text-slate-600 border-slate-200 shadow-sm backdrop-blur hover:-translate-y-0.5 hover:shadow-md transition-all"
     >
-        {icon}
         {name}
     </span>
 );
@@ -105,15 +85,81 @@ const getCategoryLabels = (blog) => {
     return ['Uncategorized'];
 };
 
-const getCategoryMeta = (label) => {
-    const style = CATEGORY_STYLES.find((item) => item.matcher.test(label))
-        || CATEGORY_STYLES[CATEGORY_STYLES.length - 1];
-    const Icon = style.icon;
+const slugifyLabel = (value = '') => {
+    return value
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        || 'uncategorized';
+};
+
+const resolveCategorySlug = (blog) => {
+    if (Array.isArray(blog?.categories)) {
+        for (const category of blog.categories) {
+            if (category && typeof category === 'object' && category.slug) {
+                return category.slug;
+            }
+            if (typeof category === 'string' && category.trim().length > 0) {
+                return slugifyLabel(category);
+            }
+        }
+    }
+
+    const category = blog?.category;
+    if (category && typeof category === 'object' && category.slug) {
+        return category.slug;
+    }
+
+    if (Array.isArray(category)) {
+        for (const entry of category) {
+            if (entry && typeof entry === 'object' && entry.slug) {
+                return entry.slug;
+            }
+            if (typeof entry === 'string' && entry.trim().length > 0) {
+                return slugifyLabel(entry);
+            }
+        }
+    }
+
+    if (typeof category === 'string' && category.trim().length > 0) {
+        return slugifyLabel(category);
+    }
+
+    return 'uncategorized';
+};
+
+const getBlogDetailPath = (blog) => {
+    const isDraft = (blog?.status || '').toLowerCase() === 'draft';
+    const blogIdentifier = (blog?.slug || '').toString().trim();
+    const blogId = (blog?._id || '').toString().trim();
+
+    if (isDraft) {
+        return blogId ? RouteBlogEdit(blogId) : RouteBlogAdd;
+    }
+
+    const detailIdentifier = blogIdentifier || blogId;
+    if (!detailIdentifier) {
+        return RouteBlog;
+    }
+
+    const categorySlug = resolveCategorySlug(blog);
+    return RouteBlogDetails(categorySlug, detailIdentifier);
+};
+
+const getStatusMeta = (status) => {
+    const normalized = (status || '').toLowerCase() === 'draft' ? 'draft' : 'published';
+    if (normalized === 'draft') {
+        return {
+            label: 'Draft',
+            className: 'bg-amber-50 text-amber-700 border border-amber-100'
+        };
+    }
 
     return {
-        name: label,
-        colorClass: style.colorClass,
-        icon: <Icon size={14} />,
+        label: 'Published',
+        className: 'bg-emerald-50 text-emerald-700 border border-emerald-100'
     };
 };
 
@@ -122,10 +168,13 @@ const getCategoryMeta = (label) => {
 const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
     const authorName = blog?.author?.name || 'Unknown Author';
     const isOwner = currentUserId && blog?.author?._id === currentUserId;
-    const categories = getCategoryLabels(blog).map(getCategoryMeta);
+    const categories = getCategoryLabels(blog);
     const formattedDate = blog?.createdAt ? moment(blog.createdAt).format('DD-MM-YYYY') : '—';
     const avatarSrc = blog?.author?.avatar || blog?.author?.profilePicture || '';
     const authorInitial = (authorName || 'S').charAt(0).toUpperCase();
+    const statusMeta = getStatusMeta(blog?.status);
+
+    const detailPath = getBlogDetailPath(blog);
 
     return (
         <tr className="transition-colors border-b border-gray-100 group last:border-0 hover:bg-purple-50/40">
@@ -151,18 +200,18 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
             </td>
 
             <td className="px-4 py-4 align-middle">
-                <div className="flex items-center gap-2">
-                    <p className="text-gray-900 font-semibold text-sm leading-relaxed line-clamp-2 group-hover:text-[#6C5CE7] transition-colors duration-200">
-                        {blog?.title || 'Untitled blog'}
-                    </p>
-                    <ChevronRight className="text-gray-300" size={16} />
-                </div>
+                <Link
+                    to={detailPath}
+                    className="flex items-center gap-2 text-gray-900 font-semibold text-sm leading-relaxed line-clamp-2 transition-colors duration-200 hover:text-[#6C5CE7]"
+                >
+                    {blog?.title || 'Untitled blog'}
+                </Link>
             </td>
 
             <td className="px-4 py-4 align-middle">
                 <div className="flex flex-wrap gap-2.5">
                     {categories.map((cat, idx) => (
-                        <CategoryPill key={`${blog?._id || idx}-${cat.name}`} {...cat} />
+                        <CategoryPill key={`${blog?._id || idx}-${cat}`} name={cat} />
                     ))}
                 </div>
             </td>
@@ -173,8 +222,14 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </span>
             </td>
 
+            <td className="px-4 py-4 align-middle whitespace-nowrap">
+                <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${statusMeta.className}`}>
+                    {statusMeta.label}
+                </span>
+            </td>
+
             <td className="px-6 py-4 text-right align-middle">
-                <div className="flex items-center justify-end gap-3 transition-all opacity-0 group-hover:opacity-100">
+                <div className="flex items-center justify-end gap-3 transition-all">
                     <Link
                         to={RouteBlogEdit(blog._id)}
                         className="p-2.5 rounded-xl bg-white/90 backdrop-blur border border-gray-200 text-gray-500 shadow-sm hover:text-[#6C5CE7] hover:border-purple-200 hover:bg-purple-50 hover:-translate-y-0.5 transition-all"
@@ -198,10 +253,12 @@ const TableRow = ({ blog, isAdmin, currentUserId, onDelete }) => {
 const MobileBlogCard = ({ blog, isAdmin, currentUserId, onDelete }) => {
     const authorName = blog?.author?.name || 'Unknown Author';
     const isOwner = currentUserId && blog?.author?._id === currentUserId;
-    const categories = getCategoryLabels(blog).map(getCategoryMeta);
+    const categories = getCategoryLabels(blog);
     const formattedDate = blog?.createdAt ? moment(blog.createdAt).format('DD MMM YYYY') : '—';
     const avatarSrc = blog?.author?.avatar || blog?.author?.profilePicture || '';
     const authorInitial = (authorName || 'S').charAt(0).toUpperCase();
+    const statusMeta = getStatusMeta(blog?.status);
+    const isDraft = (blog?.status || '').toLowerCase() === 'draft';
 
     return (
         <div className="p-4 space-y-3 border border-gray-100 shadow-sm rounded-3xl bg-white/95">
@@ -218,9 +275,14 @@ const MobileBlogCard = ({ blog, isAdmin, currentUserId, onDelete }) => {
                         <p className="text-[10px] uppercase tracking-[0.3em] text-purple-500 font-bold">You</p>
                     )}
                 </div>
-                <span className="rounded-full bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-500 border border-gray-100">
-                    {formattedDate}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                    <span className="rounded-full bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-500 border border-gray-100">
+                        {formattedDate}
+                    </span>
+                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold ${statusMeta.className}`}>
+                        {statusMeta.label}
+                    </span>
+                </div>
             </div>
 
             <div>
@@ -229,20 +291,19 @@ const MobileBlogCard = ({ blog, isAdmin, currentUserId, onDelete }) => {
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                     {categories.map((cat, idx) => (
-                        <CategoryPill key={`${blog?._id || idx}-${cat.name}-mobile`} {...cat} />
+                        <CategoryPill key={`${blog?._id || idx}-${cat}-mobile`} name={cat} />
                     ))}
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
-                <button
-                    type="button"
+                <Link
+                    to={getBlogDetailPath(blog)}
                     className="inline-flex items-center gap-1 text-[#6C5CE7] font-semibold"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 >
-                    Details
+                    {isDraft ? 'Edit draft' : 'View blog'}
                     <ChevronRight size={14} />
-                </button>
+                </Link>
                 <div className="flex items-center gap-2">
                     <Link
                         to={RouteBlogEdit(blog._id)}
@@ -388,6 +449,7 @@ const BlogDetails = () => {
 
     return (
         <div className="px-3 pt-6 pb-10 text-gray-900 space-y-7 sm:px-6 lg:px-10 lg:pt-10">
+            <BackButton className="mb-6" />
             <section className="rounded-[28px] border border-gray-100 bg-white/80 px-5 sm:px-6 lg:px-10 py-6 lg:py-7 backdrop-blur-md shadow-[0_30px_80px_-55px_rgba(15,23,42,0.65)]">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
@@ -477,19 +539,7 @@ const BlogDetails = () => {
                         <p className="text-xs text-gray-500">Monitor drafts and live stories without switching context.</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            className="rounded-2xl border px-4 py-2 text-xs font-semibold transition bg-[#6C5CE7] text-white border-transparent shadow-md shadow-purple-200"
-                        >
-                            All
-                        </button>
-                        <button
-                            className="p-2 rounded-2xl border border-gray-200 text-gray-400 hover:text-[#6C5CE7] hover:border-[#6C5CE7]/40"
-                            aria-label="More filters"
-                        >
-                            <MoreVertical size={16} />
-                        </button>
-                    </div>
+                    <div className="flex items-center gap-2" />
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
@@ -500,6 +550,7 @@ const BlogDetails = () => {
                                 <th className="px-4 py-4">Title</th>
                                 <th className="px-4 py-4">Categories</th>
                                 <th className="px-4 py-4">Date</th>
+                                <th className="px-4 py-4">Visibility</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -516,7 +567,7 @@ const BlogDetails = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
+                                    <td colSpan={6} className="px-6 py-12 text-center">
                                         <div className="max-w-sm px-6 py-8 mx-auto space-y-2 border border-gray-200 border-dashed rounded-3xl bg-gray-50/80">
                                             <p className="text-base font-semibold text-gray-700">No blogs match your search</p>
                                             <p className="text-sm text-gray-500">

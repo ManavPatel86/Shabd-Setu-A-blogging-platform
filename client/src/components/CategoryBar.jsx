@@ -66,22 +66,28 @@ export default function CategoryBar({
           ref={scrollContainerRef}
           className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide px-2 sm:px-4 lg:px-8"
         >
-          {categories.map((cat, idx) => (
-            <button
-              key={idx}
-              onClick={() => setActiveCategory(cat.name)}
+          {categories.map((cat, idx) => {
+            const label = typeof cat === "string" ? cat : cat?.name || "";
+            if (!label) return null;
+            const isActive = activeCategory === label;
+
+            return (
+              <button
+                key={`${label}-${idx}`}
+                onClick={() => setActiveCategory(label)}
               className={`
                 group relative flex items-center gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-[13px] font-semibold whitespace-nowrap transition-all duration-200
                 ${
-                  activeCategory === cat.name
+                  isActive
                     ? "bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3] text-white shadow-md shadow-indigo-200"
                     : "bg-white text-gray-500 border border-gray-100 hover:border-indigo-100 hover:text-[#6C5CE7]"
                 }
               `}
             >
-              {cat.name}
+              {label}
             </button>
-          ))}
+            );
+          })}
         </div>
         <button
           type="button"

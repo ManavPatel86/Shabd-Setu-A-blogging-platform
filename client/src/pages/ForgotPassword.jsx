@@ -1,19 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import BackButton from "@/components/BackButton";
 import { Link, useNavigate } from "react-router-dom";
 import { getEnv } from "@/helpers/getEnv";
 import { RouteSignIn } from "@/helpers/RouteName";
 import { showToast } from "@/helpers/showToast";
 import { CiMail } from "react-icons/ci";
 import { Eye, EyeOff } from "lucide-react";
+import { validatePassword } from "@/helpers/passwordValidation";
 
 const ForgotPassword = () => {
   const [step, setStep] = useState("request");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResendLoading, setIsResendLoading] = useState(false);
   const resendMinutes = Number(getEnv("VITE_OTP_RESEND_INTERVAL_MINUTES")) || 1;
@@ -67,9 +71,19 @@ const ForgotPassword = () => {
   };
 
   const handleReset = async () => {
-    if (!email || !otp || !newPassword) {
-      return showToast("error", "Email, code, and new password are required.");
+    if (!email || !otp || !newPassword || !confirmPassword) {
+      return showToast("error", "All fields are required.");
     }
+    
+    if (newPassword !== confirmPassword) {
+      return showToast("error", "Passwords do not match.");
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return showToast("error", passwordValidation.message);
+    }
+  
     setIsLoading(true);
     try {
       const response = await fetch(`${baseUrl}/auth/password/reset`, {
@@ -82,6 +96,7 @@ const ForgotPassword = () => {
         return showToast("error", data.message || "Unable to reset password.");
       }
       showToast("success", data.message);
+      sessionStorage.setItem("fromPasswordReset", "true");
       navigate(RouteSignIn, { replace: true });
     } catch (error) {
       showToast("error", error.message);
@@ -127,6 +142,9 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f4f0ff] via-[#f5f7ff] to-white px-4 py-12">
+      <div className="mx-auto max-w-lg">
+        <BackButton className="mb-6" />
+      </div>
       <div className="mx-auto flex max-w-lg flex-col items-center text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#7c6ce6]">Welcome back</p>
         <h1 className="mt-3 text-3xl font-semibold text-slate-900">Reset your password</h1>
@@ -171,7 +189,7 @@ const ForgotPassword = () => {
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Create a new password"
+                    placeholder="At least 8 characters"
                     className="h-12 rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-slate-800 shadow-sm focus:border-[#6c5ce7] focus:ring-2 focus:ring-[#6c5ce7]/20"
                   />
                   <button
@@ -180,6 +198,26 @@ const ForgotPassword = () => {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-left">
+                <label className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Confirm password</label>
+                <div className="relative mt-2">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className="h-12 rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-slate-800 shadow-sm focus:border-[#6c5ce7] focus:ring-2 focus:ring-[#6c5ce7]/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>

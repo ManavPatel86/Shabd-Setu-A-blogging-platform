@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import BackButton from '@/components/BackButton';
 import { RouteAddCategory, RouteEditCategory } from '@/helpers/RouteName';
 import { useFetch } from '@/hooks/useFetch';
 import { getEnv } from '@/helpers/getEnv';
@@ -87,6 +88,7 @@ const CategoryDetails = () => {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 lg:px-12">
+      <BackButton className="mb-6" />
       <section className="relative mb-10 overflow-hidden rounded-[40px] bg-[#6C5CE7] px-6 py-12 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
         <div className="absolute right-0 top-0 h-96 w-96 translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute bottom-0 left-16 h-56 w-56 translate-y-1/2 rounded-full bg-purple-300/40 blur-3xl" />

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import moment from 'moment';
+import BackButton from '@/components/BackButton';
 import {
     MessageCircle,
     Share2,

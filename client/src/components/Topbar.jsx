@@ -163,7 +163,7 @@ const Topbar = () => {
                 align="end"
                 className="p-0 overflow-hidden border shadow-2xl w-80 rounded-2xl border-slate-200"
               >
-                <div className="flex items-center gap-3 px-5 py-6 text-white bg-linear-to-r from-blue-600 to-indigo-500">
+                <div className="flex items-center gap-3 px-5 py-6 text-white bg-linear-to-r from-[#6C5CE7] to-[#8e7cf3]">
                   <Avatar className="w-12 h-12 border-2 shadow-md border-white/80">
                     <AvatarImage src={avatarSrc} />
                     <AvatarFallback>{initials}</AvatarFallback>

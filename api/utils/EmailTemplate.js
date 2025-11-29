@@ -15,7 +15,7 @@ const baseStyles = `
       border: 1px solid #ddd;
   }
   .header {
-      background-color: #1920d8ff;
+      background: linear-gradient(135deg, #6C5CE7 0%, #8e7cf3 100%);
       color: white;
       padding: 20px;
       text-align: center;
@@ -31,9 +31,9 @@ const baseStyles = `
       display: block;
       margin: 20px 0;
       font-size: 22px;
-      color: #1920d8ff;
-      background: #e8f5e9;
-      border: 1px dashed #1920d8ff;
+      color: #6C5CE7;
+      background: #F7F5FF;
+      border: 1px dashed #6C5CE7;
       padding: 10px;
       text-align: center;
       border-radius: 5px;

@@ -507,10 +507,31 @@ export const search = async (req, res, next) => {
 
 export const getAllBlogs = async (req, res, next) => {
     try {
-        const user = req.user
-    const blog = await Blog.find({ ...publishedOnlyQuery() }).populate('author', 'name avatar role').populate('categories', 'name slug').sort({ createdAt: -1 }).lean().exec()
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1)
+        const limit = Math.max(parseInt(req.query.limit, 10) || 12, 1)
+        const skip = (page - 1) * limit
+        const filter = { ...publishedOnlyQuery() }
+
+        const [total, blogs] = await Promise.all([
+            Blog.countDocuments(filter),
+            Blog.find(filter)
+                .select('title slug featuredImage categories author createdAt description')
+                .populate('author', 'name avatar')
+                .populate('categories', 'name slug')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean()
+                .exec(),
+        ])
+
+        const totalPages = Math.ceil(total / limit) || 0
+
         res.status(200).json({
-            blog
+            blogs,
+            total,
+            page,
+            totalPages,
         })
     } catch (error) {
         next(handleError(500, error.message))

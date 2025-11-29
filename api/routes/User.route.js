@@ -1,5 +1,5 @@
 import express from 'express'
-import { deleteUser, getAllUser, getUser, getUserContributionActivity, getUserProfileOverview, updateUser, updateUserBlacklistStatus } from '../controllers/User.controller.js'
+import { deleteUser, getAllUser, getUser, getUserContributionActivity, getUserProfileOverview, searchUsersByUsername, updateUser, updateUserBlacklistStatus } from '../controllers/User.controller.js'
 import upload from '../config/multer.js'
 import { authenticate } from '../middleware/authenticate.js'
 
@@ -7,6 +7,7 @@ const UserRoute = express.Router()
 
 UserRoute.use(authenticate)
 
+UserRoute.get('/search', searchUsersByUsername)
 UserRoute.get('/get-user/:userid', getUser)
 UserRoute.get('/profile-overview/:userid', getUserProfileOverview)
 UserRoute.get('/contributions/:userid', getUserContributionActivity)

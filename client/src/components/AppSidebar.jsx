@@ -8,7 +8,7 @@ import {
     Briefcase,
     Users,
     Flag,
-    Settings,
+    HelpCircle,
     LogOut,
 } from "lucide-react";
 
@@ -28,11 +28,13 @@ import {
 import { removeUser } from "@/redux/user/user.slice";
 import { showToast } from "@/helpers/showToast";
 import { TOPBAR_HEIGHT_PX } from "./Topbar";
+import { useSidebar } from "@/components/ui/sidebar";
 
 /* ------------------------- Sidebar Item ------------------------- */
-const SidebarItem = ({ icon: Icon, label, to, active }) => (
+const SidebarItem = ({ icon: Icon, label, to, active, onClick }) => (
     <Link
         to={to}
+        onClick={onClick}
         className={`relative flex items-center justify-between px-8 py-3.5 cursor-pointer transition-all duration-300 group 
             ${active ? "bg-gray-50" : "hover:bg-gray-50"}`}
     >
@@ -64,6 +66,7 @@ const AppSidebar = () => {
     const userState = useSelector((state) => state.user);
     const dispatch = useDispatch();
     const location = useLocation();
+    const { isMobile, openMobile, setOpenMobile } = useSidebar();
 
     /* ----------------- LOGOUT ----------------- */
     const handleLogout = async () => {
@@ -77,9 +80,18 @@ const AppSidebar = () => {
             if (!response.ok) return showToast("error", data.message);
 
             dispatch(removeUser());
+            if (isMobile) {
+                setOpenMobile(false);
+            }
             showToast("success", data.message);
         } catch (error) {
             showToast("error", error.message);
+        }
+    };
+
+    const closeSidebarOnMobile = () => {
+        if (isMobile) {
+            setOpenMobile(false);
         }
     };
 
@@ -98,10 +110,20 @@ const AppSidebar = () => {
     const topOffset = TOPBAR_HEIGHT_PX || 88;
 
     return (
-        <aside
-            className="fixed left-0 bottom-0 w-72 bg-white border-r border-gray-100 z-30 overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out"
-            style={{ top: `${topOffset}px` }}
-        >
+        <>
+            {isMobile && openMobile && (
+                <div
+                    className="fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm"
+                    onClick={() => setOpenMobile(false)}
+                    style={{ top: `${topOffset}px` }}
+                />
+            )}
+            <aside
+                className={`fixed left-0 bottom-0 w-72 bg-white border-r border-gray-100 z-30 overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${
+                    isMobile ? (openMobile ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
+                } ${isMobile ? "" : "lg:block"}`}
+                style={{ top: `${topOffset}px` }}
+            >
             <div className="py-6">
                 {/* ------------ Overview Section ------------ */}
                 <h3 className="px-8 mt-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -121,6 +143,7 @@ const AppSidebar = () => {
                                 label={label}
                                 to={to}
                                 active={active}
+                                onClick={closeSidebarOnMobile}
                             />
                         );
                     })}
@@ -131,10 +154,11 @@ const AppSidebar = () => {
             {/* ------------ Footer Items (Help + Logout) ------------ */}
             <div className="p-6 border-t border-gray-50">
                 <SidebarItem
-                    icon={Settings}
+                    icon={HelpCircle}
                     label="Help Center"
                     to={RouteHelp}
                     active={location.pathname === RouteHelp}
+                    onClick={closeSidebarOnMobile}
                 />
 
                 {userState?.isLoggedIn && (
@@ -151,6 +175,7 @@ const AppSidebar = () => {
                 )}
             </div>
         </aside>
+        </>
     );
 };
 

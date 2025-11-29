@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import BackButton from '@/components/BackButton'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -421,7 +422,8 @@ function EditBlog() {
   const isDraft = blogStatus === 'draft'
 
   return (
-    <div className="mt-9">
+    <div className="container mx-auto px-4 py-6">
+      <BackButton className="mb-6" />
       {moderationErrors.badLines?.length > 0 && (
         <ModerationErrorDisplay
           errors={moderationErrors.badLines}

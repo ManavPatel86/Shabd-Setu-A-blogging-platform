@@ -278,7 +278,7 @@ const BlogCard = ({ blog, className = "" }) => {
 
         {/* EXCERPT */}
         <p className="mb-3 text-[13px] leading-relaxed text-slate-500 line-clamp-3">
-          {cleanDescription || getBlogExcerpt(blog?.blogContent)}
+          {cleanDescription || "No description available."}
         </p>
 
         {/* ACTION BUTTONS */}

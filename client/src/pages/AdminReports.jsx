@@ -1,6 +1,7 @@
 // Admin report management page rebuilt to reflect the new moderation flow
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import BackButton from '@/components/BackButton';
 import {
   Flag,
   ShieldCheck,
@@ -128,6 +129,7 @@ export default function AdminReports() {
   return (
     <div className="min-h-screen bg-slate-50 py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4">
+        <BackButton className="mb-4" />
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex size-12 items-center justify-center rounded-xl bg-red-100 text-red-600">

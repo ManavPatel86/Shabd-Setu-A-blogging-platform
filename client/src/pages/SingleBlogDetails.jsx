@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Loading from "@/components/Loading";
 import RelatedBlog from "@/components/RelatedBlog";
+import BackButton from "@/components/BackButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getEnv } from "@/helpers/getEnv";
 import { useFetch } from "@/hooks/useFetch";
@@ -305,6 +306,7 @@ const SingleBlogDetails = () => {
 
   return (
     <div className="max-w-8xl mx-auto px-4 sm:px-8 lg:px-12 pt-6 pb-16 text-gray-900">
+      <BackButton className="mb-6" />
       <div
         className={`grid grid-cols-1 ${showSidebar ? "xl:grid-cols-[2.1fr_0.9fr]" : ""} gap-8 items-start`}
       >
@@ -425,7 +427,7 @@ const SingleBlogDetails = () => {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-blue-900">AI Summary</h2>
-                  <p className="text-xs text-blue-600/80">Powered by Gemini to fast-track your reading.</p>
+                  <p className="text-xs text-blue-600/80">Powered by AI to fast-track your reading.</p>
                 </div>
                 <button
                   type="button"
@@ -606,7 +608,7 @@ const SingleBlogDetails = () => {
           )}
         </div>
 
-        {showSidebar && (
+        {showSidebar && isLoggedIn && (
           <aside className="w-full">
             <div className="sticky top-20 space-y-5">
               <div className="rounded-[26px] border border-gray-100 bg-white px-4 py-5 shadow-[0_20px_55px_-45px_rgba(15,23,42,0.55)]">

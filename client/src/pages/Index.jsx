@@ -11,29 +11,14 @@ import { useFetch } from "@/hooks/useFetch";
 
 /* ----------------------
    CATEGORY HELPERS (UI)
----------------------- */
-const CATEGORY_ICON_MAP = {
-  technology: "💻",
-  tech: "💻",
-  travel: "✈",
-  science: "🔬",
-  health: "🏥",
-  design: "🎨",
-  lifestyle: "🌿",
-  entertainment: "🍿",
-  business: "💼",
-  finance: "💰",
-  education: "📚",
-  art: "🖼",
-};
-
+----------------------- */
 const FALLBACK_CATEGORIES = [
-  { name: "All", icon: "🌐" },
-  { name: "Technology", icon: "💻" },
-  { name: "Travel", icon: "✈" },
-  { name: "Design", icon: "🎨" },
-  { name: "Health", icon: "🏥" },
-  { name: "Lifestyle", icon: "🌿" },
+  "All",
+  "Technology",
+  "Travel",
+  "Design",
+  "Health",
+  "Lifestyle",
 ];
 
 const getBlogCategories = (blog) => {
@@ -43,14 +28,6 @@ const getBlogCategories = (blog) => {
 };
 
 const normalizeCategoryName = (name) => (typeof name === "string" ? name.trim() : "");
-
-const detectCategoryIcon = (label) => {
-  if (!label) return "📝";
-  const emojiMatch = label.match(/\p{Extended_Pictographic}/u);
-  if (emojiMatch) return emojiMatch[0];
-  const mapped = CATEGORY_ICON_MAP[label.toLowerCase()];
-  return mapped || "📝";
-};
 
 const normalizeId = (value) => {
   if (!value) return null;
@@ -106,7 +83,7 @@ const Index = () => {
   );
 
   const blogs = useMemo(
-    () => (Array.isArray(blogData?.blog) ? blogData.blog : []),
+    () => (Array.isArray(blogData?.blogs) ? blogData.blogs : Array.isArray(blogData?.blog) ? blogData.blog : []),
     [blogData]
   );
 
@@ -194,23 +171,22 @@ const Index = () => {
     orderedBlogs.forEach((blog) => {
       getBlogCategories(blog).forEach((category) => {
         const rawName = normalizeCategoryName(category?.name || category);
-        if (!rawName || seen.has(rawName)) return;
-        seen.set(rawName, {
-          name: rawName,
-          icon: category?.icon || detectCategoryIcon(rawName),
-        });
+        if (!rawName) return;
+        const key = rawName.toLowerCase();
+        if (key === "all" || seen.has(key)) return;
+        seen.set(key, rawName);
       });
     });
 
     const dynamic = Array.from(seen.values());
-    const withAll = [{ name: "All", icon: "🌐" }, ...dynamic];
+    const withAll = ["All", ...dynamic];
 
     return withAll.length > 1 ? withAll : FALLBACK_CATEGORIES;
   }, [orderedBlogs]);
 
   // Reset activeCategory if invalid
   useEffect(() => {
-    if (!derivedCategories.some((c) => c.name === activeCategory)) {
+    if (!derivedCategories.includes(activeCategory)) {
       setActiveCategory("All");
     }
   }, [derivedCategories, activeCategory]);
@@ -291,10 +267,9 @@ const Index = () => {
     personalizedError,
   ]);
 
-  const isLoading =
-    loading || (activeFeedTab === "Personalized" && personalizedLoading);
-
-  if (isLoading) return <Loading />;
+  // Only show loading on initial load (no data yet)
+  if (loading && !blogs.length && !error) return <Loading />;
+  if (activeFeedTab === "Personalized" && personalizedLoading && !personalizedBlogs.length && !personalizedError) return <Loading />;
 
   return (
     <>

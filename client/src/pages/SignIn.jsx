@@ -95,9 +95,13 @@ const SignIn = () => {
             JSX
   ------------------------------ */
   useEffect(() => {
-  // Clear old session ONLY when user manually visits /signin
-  localStorage.removeItem("token");
-  sessionStorage.clear();
+  const fromReset = sessionStorage.getItem("fromPasswordReset");
+  if (!fromReset) {
+    localStorage.removeItem("token");
+    sessionStorage.clear();
+  } else {
+    sessionStorage.removeItem("fromPasswordReset");
+  }
 
   // Handle mobile BFCache (swipe back)
   const handlePageShow = (event) => {

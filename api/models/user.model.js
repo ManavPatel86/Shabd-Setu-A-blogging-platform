@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-export const USERNAME_REGEX = /^[a-z][a-z0-9_]{2,19}$/;
+export const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 const userSchema = new mongoose.Schema({
     role: {
@@ -29,7 +29,6 @@ const userSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 20,
         match: USERNAME_REGEX,
-        index: true
     },
     name: {
         type: String,
@@ -66,8 +65,6 @@ const userSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
-
-userSchema.index({ username: 1 }, { unique: true, sparse: true });
 
 const User = mongoose.model('User', userSchema, 'users')
 export default User 

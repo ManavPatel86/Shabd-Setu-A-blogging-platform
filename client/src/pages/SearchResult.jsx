@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
 import BlogCard from '@/components/BlogCard';
+import BackButton from '@/components/BackButton';
 import Loading from '@/components/Loading';
 import { getEnv } from '@/helpers/getEnv';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,15 +20,22 @@ const SearchResult = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const endpoint = useMemo(() => {
+  const blogEndpoint = useMemo(() => {
     if (!hasQuery) return '';
     const encoded = encodeURIComponent(q);
     return `${getEnv('VITE_API_BASE_URL')}/blog/search?q=${encoded}`;
   }, [hasQuery, q]);
 
+  const userEndpoint = useMemo(() => {
+    if (!hasQuery) return '';
+    const encoded = encodeURIComponent(q);
+    return `${getEnv('VITE_API_BASE_URL')}/user/search?query=${encoded}`;
+  }, [hasQuery, q]);
+
   useEffect(() => {
     if (!hasQuery) {
       setBlogs([]);
+      setAuthors([]);
       setLoading(false);
       setError('');
       return undefined;
@@ -40,20 +48,39 @@ const SearchResult = () => {
         setLoading(true);
         setError('');
 
-        const response = await fetch(endpoint, {
-          method: 'GET',
-          credentials: 'include',
-          signal: controller.signal,
-        });
+        const [blogResponse, userResponse] = await Promise.all([
+          fetch(blogEndpoint, {
+            method: 'GET',
+            credentials: 'include',
+            signal: controller.signal,
+          }),
+          fetch(userEndpoint, {
+            method: 'GET',
+            credentials: 'include',
+            signal: controller.signal,
+          })
+        ]);
 
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body?.message || 'Failed to load search results.');
+        if (!blogResponse.ok) {
+          const body = await blogResponse.json().catch(() => ({}));
+          throw new Error(body?.message || 'Failed to load blog results.');
         }
 
-        const data = await response.json();
-        setBlogs(Array.isArray(data?.blog) ? data.blog : []);
-        setAuthors(Array.isArray(data?.authors) ? data.authors : []);
+        const blogData = await blogResponse.json();
+        const userData = userResponse.ok ? await userResponse.json() : { users: [] };
+
+        setBlogs(Array.isArray(blogData?.blog) ? blogData.blog : []);
+        const blogAuthors = Array.isArray(blogData?.authors) ? blogData.authors : [];
+        const usernameMatches = Array.isArray(userData?.users) ? userData.users : [];
+        
+        // Combine and deduplicate authors
+        const authorMap = new Map();
+        [...blogAuthors, ...usernameMatches].forEach(author => {
+          if (author?._id) {
+            authorMap.set(author._id, author);
+          }
+        });
+        setAuthors(Array.from(authorMap.values()));
       } catch (err) {
         if (err.name === 'AbortError') return;
         setError(err.message || 'Failed to load search results.');
@@ -67,7 +94,7 @@ const SearchResult = () => {
     fetchResults();
 
     return () => controller.abort();
-  }, [endpoint, hasQuery]);
+  }, [blogEndpoint, userEndpoint, hasQuery]);
 
   if (!hasQuery) {
     return (
@@ -87,6 +114,7 @@ const SearchResult = () => {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col space-y-10 px-4 py-10 text-slate-900 sm:px-8 lg:px-12">
+      <BackButton className="mb-4" />
       <section className="relative overflow-hidden rounded-4xl bg-gradient-to-r from-[#6C5CE7] to-[#8A74F7] px-6 py-10 text-white shadow-[0_35px_80px_-45px_rgba(15,23,42,0.9)] sm:px-10">
         <div className="absolute inset-y-0 right-0 h-full w-64 translate-x-1/3 rounded-full bg-white/15 blur-3xl" />
         <div className="relative space-y-4">

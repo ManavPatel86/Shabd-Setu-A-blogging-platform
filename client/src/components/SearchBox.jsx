@@ -32,7 +32,7 @@ const SearchBox = () => {
                 name="q"
                 value={query}
                 onChange={handleChange}
-                placeholder="Search topic or writer..."
+                placeholder="Search blogs, topics, or @username..."
                 className="h-12 w-full rounded-full border-none bg-gray-50 pl-12 pr-16 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/30"
             />
             <button

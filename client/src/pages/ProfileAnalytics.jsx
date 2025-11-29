@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import axios from 'axios'
+import BackButton from '@/components/BackButton'
 import { getEnv } from '@/helpers/getEnv'
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import { useNavigate } from 'react-router-dom'
@@ -112,16 +113,9 @@ const ProfileAnalytics = () => {
 
   return (
     <div className="p-6">
+      <BackButton className="mb-6" />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="text-slate-500 transition hover:text-slate-900"
-            aria-label="Back to previous page"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
           <h2 className="text-2xl font-semibold">Your Analytics</h2>
         </div>
       </div>
